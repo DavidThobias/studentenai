@@ -6,9 +6,6 @@ import Features from '@/components/Features';
 import QuizSection from '@/components/QuizSection';
 import Footer from '@/components/Footer';
 
-// Need to add framer-motion for animations
-<lov-add-dependency>framer-motion@latest</lov-add-dependency>
-
 const Index = () => {
   useEffect(() => {
     // Smooth scroll for anchor links
