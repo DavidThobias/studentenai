@@ -4,7 +4,7 @@ import { BookOpen, Brain, CheckCircle, LightbulbIcon, GraduationCap, Clock } fro
 const features = [
   {
     icon: <BookOpen className="h-6 w-6 text-study-600" />,
-    title: "Boekuploads",
+    title: "Boek",
     description: "Upload je studieboeken en transformeer ze in interactieve leermateriaal!."
   },
   {
