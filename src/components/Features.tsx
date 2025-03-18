@@ -5,7 +5,7 @@ const features = [
   {
     icon: <BookOpen className="h-6 w-6 text-study-600" />,
     title: "Boekuploads",
-    description: "Upload je studieboeken en transformeer ze in interactieve leermateriaal."
+    description: "Upload je studieboeken en transformeer ze in interactieve leermateriaal!."
   },
   {
     icon: <Brain className="h-6 w-6 text-study-600" />,
