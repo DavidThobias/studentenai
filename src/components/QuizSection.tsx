@@ -1,7 +1,6 @@
-
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, X, ArrowRight, Lightbulb, BookOpen } from 'lucide-react';
+import { Check, X, ArrowRight, Lightbulb, BookOpen, Brain } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const questions = [
@@ -117,7 +116,7 @@ export default function QuizSection() {
           
           <div className="glass-card p-6 hover:shadow-md transition-shadow duration-300">
             <div className="h-12 w-12 rounded-xl bg-study-50 flex items-center justify-center mb-4">
-              <LightbulbIcon className="h-6 w-6 text-study-600" />
+              <Lightbulb className="h-6 w-6 text-study-600" />
             </div>
             <h3 className="heading-md mb-2">Actief Leren</h3>
             <p className="text-muted-foreground mb-4">Beantwoord vragen en verbeter je begrip van de stof.</p>
