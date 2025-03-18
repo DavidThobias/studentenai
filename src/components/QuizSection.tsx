@@ -1,39 +1,40 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, X, ArrowRight, Lightbulb } from 'lucide-react';
+import { Check, X, ArrowRight, Lightbulb, BookOpen } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const questions = [
   {
     id: 1,
-    question: "What is the primary function of mitochondria in a cell?",
+    question: "Wat is de primaire functie van mitochondriën in een cel?",
     options: [
-      "Protein synthesis",
-      "Energy production",
-      "Cell division",
-      "Waste removal"
+      "Eiwitsynthese",
+      "Energieproductie",
+      "Celdeling",
+      "Afvalverwerking"
     ],
     correctAnswer: 1
   },
   {
     id: 2,
-    question: "Which of the following is NOT a component of the central dogma of molecular biology?",
+    question: "Welke van de volgende is GEEN onderdeel van het centrale dogma in de moleculaire biologie?",
     options: [
       "DNA",
       "RNA",
-      "Proteins",
-      "Lipids"
+      "Eiwitten",
+      "Lipiden"
     ],
     correctAnswer: 3
   },
   {
     id: 3,
-    question: "The process of breaking down glucose to release energy is called:",
+    question: "Het proces van het afbreken van glucose om energie vrij te maken wordt genoemd:",
     options: [
-      "Photosynthesis",
-      "Glycolysis",
-      "Transcription",
-      "Translation"
+      "Fotosynthese",
+      "Glycolyse",
+      "Transcriptie",
+      "Translatie"
     ],
     correctAnswer: 1
   }
@@ -83,17 +84,53 @@ export default function QuizSection() {
 
   return (
     <section id="quiz" className="py-20 px-6 bg-gray-50">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="heading-lg text-foreground mb-4">
-            Try a sample quiz
+            Leer direct uit je boeken
           </h2>
-          <p className="subheading">
-            Experience how StudyJoy transforms learning with interactive quizzes.
+          <p className="subheading max-w-3xl mx-auto">
+            Ervaar hoe StudyJoy je studieboeken transformeert in interactieve quizzen die je helpen de stof beter te onthouden.
           </p>
         </div>
 
-        <div className="glass-card p-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+          <div className="glass-card p-6 hover:shadow-md transition-shadow duration-300">
+            <div className="h-12 w-12 rounded-xl bg-study-50 flex items-center justify-center mb-4">
+              <BookOpen className="h-6 w-6 text-study-600" />
+            </div>
+            <h3 className="heading-md mb-2">Upload je boek</h3>
+            <p className="text-muted-foreground mb-4">Upload je PDF of ander studiemateriaal naar ons platform.</p>
+            <button className="btn-secondary w-full">Upload Bestand</button>
+          </div>
+          
+          <div className="glass-card p-6 hover:shadow-md transition-shadow duration-300">
+            <div className="h-12 w-12 rounded-xl bg-study-50 flex items-center justify-center mb-4">
+              <Brain className="h-6 w-6 text-study-600" />
+            </div>
+            <h3 className="heading-md mb-2">AI Generatie</h3>
+            <p className="text-muted-foreground mb-4">Onze AI analyseert je boek en genereert leerzame quizvragen.</p>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="bg-study-600 h-2 rounded-full" style={{ width: `75%` }}></div>
+            </div>
+          </div>
+          
+          <div className="glass-card p-6 hover:shadow-md transition-shadow duration-300">
+            <div className="h-12 w-12 rounded-xl bg-study-50 flex items-center justify-center mb-4">
+              <LightbulbIcon className="h-6 w-6 text-study-600" />
+            </div>
+            <h3 className="heading-md mb-2">Actief Leren</h3>
+            <p className="text-muted-foreground mb-4">Beantwoord vragen en verbeter je begrip van de stof.</p>
+            <button className="btn-primary w-full">Begin met Leren</button>
+          </div>
+        </div>
+
+        <div className="glass-card p-8 max-w-3xl mx-auto">
+          <div className="mb-6 flex items-center">
+            <BookOpen className="h-5 w-5 text-study-600 mr-2" />
+            <h3 className="text-lg font-medium">Biologie: Celstructuren</h3>
+          </div>
+
           {!quizComplete ? (
             <motion.div
               key={currentQuestion}
@@ -104,7 +141,7 @@ export default function QuizSection() {
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium text-muted-foreground">
-                    Question {currentQuestion + 1} of {questions.length}
+                    Vraag {currentQuestion + 1} van {questions.length}
                   </span>
                   <span className="text-sm font-medium text-study-600">
                     Score: {score}
@@ -156,12 +193,12 @@ export default function QuizSection() {
                     <Lightbulb className="h-5 w-5 text-study-600 mr-2 mt-0.5" />
                     <div>
                       <p className="font-medium">
-                        {isCorrect ? "Correct!" : "Not quite right."}
+                        {isCorrect ? "Correct!" : "Niet helemaal juist."}
                       </p>
                       <p className="text-sm text-muted-foreground mt-1">
                         {isCorrect 
-                          ? "Great job! The mitochondria are indeed the powerhouse of the cell, responsible for producing energy through cellular respiration."
-                          : `The correct answer is "${questions[currentQuestion].options[questions[currentQuestion].correctAnswer]}". Mitochondria are responsible for producing energy through cellular respiration.`
+                          ? "Goed gedaan! De mitochondriën zijn inderdaad de energiefabriek van de cel, verantwoordelijk voor het produceren van energie via cellulaire respiratie."
+                          : `Het juiste antwoord is "${questions[currentQuestion].options[questions[currentQuestion].correctAnswer]}". Mitochondriën zijn verantwoordelijk voor het produceren van energie via cellulaire respiratie.`
                         }
                       </p>
                     </div>
@@ -175,7 +212,7 @@ export default function QuizSection() {
                   onClick={handleNextQuestion}
                   disabled={selectedOption === null}
                 >
-                  {currentQuestion < questions.length - 1 ? "Next Question" : "See Results"}
+                  {currentQuestion < questions.length - 1 ? "Volgende Vraag" : "Resultaten Bekijken"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </button>
               </div>
@@ -191,23 +228,23 @@ export default function QuizSection() {
                 <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-study-100 mb-4">
                   <span className="text-3xl font-bold text-study-600">{score}/{questions.length}</span>
                 </div>
-                <h3 className="text-2xl font-bold mb-2">Quiz Complete!</h3>
+                <h3 className="text-2xl font-bold mb-2">Quiz Voltooid!</h3>
                 <p className="text-muted-foreground">
                   {score === questions.length 
-                    ? "Perfect score! You've mastered this material."
+                    ? "Perfecte score! Je hebt dit materiaal onder de knie."
                     : score >= questions.length / 2
-                    ? "Good job! Keep practicing to improve further."
-                    : "Keep studying! You'll get better with practice."
+                    ? "Goed werk! Blijf oefenen om verder te verbeteren."
+                    : "Blijf studeren! Je wordt beter met oefening."
                   }
                 </p>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button className="btn-primary" onClick={resetQuiz}>
-                  Try Again
+                  Opnieuw Proberen
                 </button>
                 <button className="btn-secondary">
-                  Explore More Quizzes
+                  Terug naar Mijn Boeken
                 </button>
               </div>
             </motion.div>

@@ -4,33 +4,33 @@ import { BookOpen, Brain, CheckCircle, LightbulbIcon, GraduationCap, Clock } fro
 const features = [
   {
     icon: <BookOpen className="h-6 w-6 text-study-600" />,
-    title: "Interactive Textbooks",
-    description: "Upload your study materials and transform them into interactive learning experiences."
+    title: "Boekuploads",
+    description: "Upload je studieboeken en transformeer ze in interactieve leermateriaal."
   },
   {
     icon: <Brain className="h-6 w-6 text-study-600" />,
-    title: "AI-Generated Questions",
-    description: "Our AI generates customized questions based on your specific study material."
+    title: "AI-Gegenereerde Vragen",
+    description: "Onze AI genereert gepersonaliseerde vragen op basis van jouw specifieke studiemateriaal."
   },
   {
     icon: <CheckCircle className="h-6 w-6 text-study-600" />,
-    title: "Progress Tracking",
-    description: "Monitor your learning progress and identify areas that need more attention."
+    title: "Voortgangsanalyse",
+    description: "Monitor je leervoortgang en identificeer gebieden die meer aandacht nodig hebben."
   },
   {
     icon: <LightbulbIcon className="h-6 w-6 text-study-600" />,
     title: "Spaced Repetition",
-    description: "Review information at optimal intervals to maximize long-term retention."
+    description: "Herhaal informatie op optimale intervallen om langetermijnretentie te maximaliseren."
   },
   {
     icon: <GraduationCap className="h-6 w-6 text-study-600" />,
-    title: "Personalized Learning",
-    description: "Adapts to your learning style and pace for a tailored educational experience."
+    title: "Gepersonaliseerd Leren",
+    description: "Past zich aan jouw leerstijl en tempo aan voor een op maat gemaakte studie-ervaring."
   },
   {
     icon: <Clock className="h-6 w-6 text-study-600" />,
-    title: "Study Timer",
-    description: "Built-in pomodoro timer to help you maintain focus and productivity."
+    title: "Studietimer",
+    description: "Ingebouwde pomodoro-timer om je te helpen gefocust en productief te blijven."
   }
 ];
 
@@ -40,10 +40,10 @@ export default function Features() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="heading-lg text-foreground mb-4">
-            Features designed for effective learning
+            Functies voor effectief leren uit boeken
           </h2>
           <p className="subheading">
-            StudyJoy combines proven learning techniques with modern technology to help you learn more effectively.
+            StudyJoy combineert bewezen leertechnieken met moderne technologie om effectiever te leren uit jouw studiemateriaal.
           </p>
         </div>
 

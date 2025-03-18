@@ -36,13 +36,13 @@ export default function Navbar() {
             Home
           </Link>
           <Link to="#features" className="text-foreground hover:text-study-600 font-medium transition-colors">
-            Features
+            Functies
           </Link>
           <Link to="#quiz" className="text-foreground hover:text-study-600 font-medium transition-colors">
-            Try a Quiz
+            Quiz Demo
           </Link>
           <button className="btn-primary">
-            Get Started
+            Inloggen
           </button>
         </nav>
 
@@ -71,17 +71,17 @@ export default function Navbar() {
               className="text-foreground hover:text-study-600 font-medium transition-colors px-4 py-2"
               onClick={() => setIsMenuOpen(false)}
             >
-              Features
+              Functies
             </Link>
             <Link 
               to="#quiz" 
               className="text-foreground hover:text-study-600 font-medium transition-colors px-4 py-2"
               onClick={() => setIsMenuOpen(false)}
             >
-              Try a Quiz
+              Quiz Demo
             </Link>
             <button className="btn-primary w-full">
-              Get Started
+              Inloggen
             </button>
           </nav>
         </div>
