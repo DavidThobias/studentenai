@@ -67,3 +67,9 @@ Simply open [Lovable](https://lovable.dev/projects/2a650921-8a78-49a1-a6b4-f5593
 ## I want to use a custom domain - is that possible?
 
 We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+
+## Test Sectie
+Deze sectie is toegevoegd om te testen of de Git integratie correct werkt tussen Cursor en Lovable.
+- Test datum: 18 maart 2024
+- Status: Actief
+- Test door: David
