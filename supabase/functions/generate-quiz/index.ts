@@ -21,10 +21,41 @@ serve(async (req) => {
       throw new Error('Book ID is required');
     }
 
+    console.log(`Generating quiz for book ${bookId}, chapter ${chapterId || 'all'}, ${numberOfQuestions} questions`);
+
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    // Check if we already have enough questions for this book/chapter
+    const query = supabase.from('quizzes').select('*').eq('book_id', bookId);
+    if (chapterId) {
+      query.eq('chapter_id', chapterId);
+    } else {
+      query.is('chapter_id', null);
+    }
+    
+    const { data: existingQuestions, error: existingQuestionsError } = await query;
+    
+    if (!existingQuestionsError && existingQuestions && existingQuestions.length >= numberOfQuestions) {
+      console.log(`Found ${existingQuestions.length} existing questions, returning those instead of generating new ones`);
+      
+      // Return existing questions
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: `Retrieved ${existingQuestions.length} existing questions`,
+          questions: existingQuestions.map(q => ({
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.correct_answer,
+            explanation: q.explanation
+          }))
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Get book details
     const { data: book, error: bookError } = await supabase
@@ -34,6 +65,7 @@ serve(async (req) => {
       .single();
 
     if (bookError) {
+      console.error(`Error fetching book: ${bookError.message}`);
       throw new Error(`Error fetching book: ${bookError.message}`);
     }
 
@@ -49,10 +81,12 @@ serve(async (req) => {
         .single();
 
       if (chapterError) {
+        console.error(`Error fetching chapter: ${chapterError.message}`);
         throw new Error(`Error fetching chapter: ${chapterError.message}`);
       }
 
       chapterTitle = chapter.Titel || '';
+      console.log(`Fetched chapter: ${chapterTitle}`);
 
       // Get paragraph content for this chapter
       const { data: paragraphs, error: paragraphsError } = await supabase
@@ -60,8 +94,15 @@ serve(async (req) => {
         .select('content')
         .eq('chapter_id', chapterId);
 
-      if (!paragraphsError && paragraphs) {
+      if (paragraphsError) {
+        console.error(`Error fetching paragraphs: ${paragraphsError.message}`);
+      }
+
+      if (paragraphs && paragraphs.length > 0) {
         chapterContent = paragraphs.map(p => p.content).join('\n');
+        console.log(`Found ${paragraphs.length} paragraphs for chapter ${chapterId}`);
+      } else {
+        console.log(`No paragraphs found for chapter ${chapterId}`);
       }
     } else {
       // If no chapter specified, get all chapters for the book
@@ -71,8 +112,11 @@ serve(async (req) => {
         .eq('Boek_id', bookId);
 
       if (chaptersError) {
+        console.error(`Error fetching chapters: ${chaptersError.message}`);
         throw new Error(`Error fetching chapters: ${chaptersError.message}`);
       }
+
+      console.log(`Found ${chapters?.length || 0} chapters for book ${bookId}`);
 
       // For each chapter, get paragraphs
       for (const chapter of chapters || []) {
@@ -83,8 +127,15 @@ serve(async (req) => {
         
         if (paragraphs && paragraphs.length > 0) {
           chapterContent += `${chapter.Titel}:\n${paragraphs.map(p => p.content).join('\n')}\n\n`;
+          console.log(`Added ${paragraphs.length} paragraphs from chapter ${chapter.id}`);
         }
       }
+    }
+
+    if (!chapterContent.trim()) {
+      console.warn('No content found for generating questions');
+      // If there's no content, still try to generate generic questions about the book
+      chapterContent = `This is a book titled "${book.Titel}" by ${book.Auteur}. Please generate some general knowledge questions about this topic.`;
     }
 
     // Prepare prompt for OpenAI
@@ -115,14 +166,20 @@ serve(async (req) => {
     `;
 
     // Call OpenAI API
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    console.log('Calling OpenAI API...');
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o-mini', // Using a supported model
         messages: [
           {
             role: 'system',
@@ -139,10 +196,12 @@ serve(async (req) => {
 
     if (!openAIResponse.ok) {
       const errorText = await openAIResponse.text();
-      throw new Error(`OpenAI API error: ${errorText}`);
+      console.error(`OpenAI API error (${openAIResponse.status}): ${errorText}`);
+      throw new Error(`OpenAI API error: ${openAIResponse.status} - ${errorText}`);
     }
 
     const openAIData = await openAIResponse.json();
+    console.log('Received response from OpenAI');
     
     // Parse the response content which should be JSON
     const quizContent = openAIData.choices[0].message.content.trim();
@@ -151,32 +210,44 @@ serve(async (req) => {
     try {
       // Try to parse directly if it's already JSON
       quizQuestions = JSON.parse(quizContent);
+      console.log(`Successfully parsed ${quizQuestions.length} questions from OpenAI response`);
     } catch (e) {
+      console.error('Failed to parse response as JSON directly, trying to extract from markdown', e);
       // If parsing fails, try to extract JSON from markdown code blocks
       const jsonMatch = quizContent.match(/```json\n([\s\S]*?)\n```/) || 
                         quizContent.match(/```\n([\s\S]*?)\n```/);
       
       if (jsonMatch && jsonMatch[1]) {
-        quizQuestions = JSON.parse(jsonMatch[1].trim());
+        try {
+          quizQuestions = JSON.parse(jsonMatch[1].trim());
+          console.log(`Successfully extracted and parsed ${quizQuestions.length} questions from markdown code block`);
+        } catch (innerError) {
+          console.error('Failed to parse extracted content as JSON', innerError);
+          throw new Error('Failed to parse quiz questions from OpenAI response');
+        }
       } else {
+        console.error('No JSON or code block found in the OpenAI response');
         throw new Error('Failed to parse quiz questions from OpenAI response');
       }
     }
 
     // Validate the structure of the questions
     if (!Array.isArray(quizQuestions)) {
+      console.error('OpenAI did not return an array of questions', quizQuestions);
       throw new Error('OpenAI did not return an array of questions');
     }
 
+    console.log(`Saving ${quizQuestions.length} questions to the database`);
+    
     // Save the questions to the database
     for (const question of quizQuestions) {
       if (!question.question || !Array.isArray(question.options) || 
           question.correctAnswer === undefined || !question.explanation) {
-        console.warn('Skipping invalid question:', question);
+        console.warn('Skipping invalid question:', JSON.stringify(question));
         continue;
       }
 
-      await supabase.from('quizzes').insert({
+      const { error: insertError } = await supabase.from('quizzes').insert({
         book_id: bookId,
         chapter_id: chapterId || null,
         question: question.question,
@@ -184,8 +255,14 @@ serve(async (req) => {
         correct_answer: question.correctAnswer,
         explanation: question.explanation
       });
+
+      if (insertError) {
+        console.error(`Error inserting question: ${insertError.message}`);
+      }
     }
 
+    console.log('Successfully completed quiz generation process');
+    
     return new Response(
       JSON.stringify({ 
         success: true, 
@@ -197,7 +274,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error generating quiz:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || 'An unknown error occurred' }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

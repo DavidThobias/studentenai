@@ -7,7 +7,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from "sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 interface QuizQuestion {
   question: string;
@@ -24,6 +28,7 @@ interface QuizProps {
 
 const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -31,31 +36,87 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
   const [score, setScore] = useState(0);
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [isLoadingExistingQuestions, setIsLoadingExistingQuestions] = useState(true);
+
+  // Check if we already have stored questions for this book/chapter
+  const fetchStoredQuestions = async () => {
+    try {
+      setIsLoadingExistingQuestions(true);
+      
+      const query = supabase
+        .from('quizzes')
+        .select('*')
+        .eq('book_id', parseInt(bookId));
+        
+      if (chapterId) {
+        query.eq('chapter_id', parseInt(chapterId));
+      } else {
+        query.is('chapter_id', null);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('Error fetching stored questions:', error);
+        return false;
+      }
+      
+      if (data && data.length >= 5) {
+        // Convert the stored data format to our QuizQuestion format
+        const formattedQuestions = data.map(q => ({
+          question: q.question,
+          options: Array.isArray(q.options) ? q.options : [],
+          correctAnswer: q.correct_answer,
+          explanation: q.explanation || 'No explanation provided.'
+        }));
+        
+        setQuizQuestions(formattedQuestions);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error in fetchStoredQuestions:', error);
+      return false;
+    } finally {
+      setIsLoadingExistingQuestions(false);
+    }
+  };
 
   const generateQuiz = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       
-      const response = await fetch('/api/generate-quiz', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          bookId,
-          chapterId,
-          numberOfQuestions: 5,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error generating quiz');
+      // First check if we already have stored questions
+      const hasStoredQuestions = await fetchStoredQuestions();
+      if (hasStoredQuestions) {
+        setCurrentQuestionIndex(0);
+        setSelectedAnswer(null);
+        setIsAnswerSubmitted(false);
+        setScore(0);
+        setIsQuizComplete(false);
+        setIsLoading(false);
+        return;
       }
-
-      const data = await response.json();
       
-      if (data.questions && data.questions.length > 0) {
+      // If no stored questions, generate new ones using the edge function
+      const { data, error } = await supabase.functions.invoke('generate-quiz', {
+        body: {
+          bookId: parseInt(bookId),
+          chapterId: chapterId ? parseInt(chapterId) : null,
+          numberOfQuestions: 5,
+        },
+      });
+      
+      if (error) {
+        console.error('Error invoking generate-quiz function:', error);
+        setError('Er is een fout opgetreden bij het genereren van de quiz. Probeer het opnieuw.');
+        toast.error('Fout bij het genereren van de quiz.');
+        return;
+      }
+      
+      if (data?.questions && data.questions.length > 0) {
         setQuizQuestions(data.questions);
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
@@ -63,11 +124,13 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
         setScore(0);
         setIsQuizComplete(false);
       } else {
-        toast.error('Geen vragen konden worden gegenereerd. Probeer het opnieuw.');
+        setError('Geen vragen konden worden gegenereerd. Probeer het opnieuw.');
+        toast.error('Geen vragen konden worden gegenereerd.');
       }
     } catch (error) {
       console.error('Error generating quiz:', error);
-      toast.error('Er is een fout opgetreden bij het genereren van de quiz. Probeer het opnieuw.');
+      setError('Er is een onverwachte fout opgetreden. Probeer het opnieuw.');
+      toast.error('Er is een fout opgetreden bij het genereren van de quiz.');
     } finally {
       setIsLoading(false);
     }
@@ -117,6 +180,23 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
     setShowExplanation(!showExplanation);
   };
 
+  // Initial loading state when checking for existing questions
+  if (isLoadingExistingQuestions) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 space-y-6">
+        <h2 className="text-2xl font-semibold text-center">Quiz Laden</h2>
+        <p className="text-center text-muted-foreground mb-4">
+          Bestaande vragen ophalen...
+        </p>
+        <div className="w-full max-w-md space-y-4">
+          <Skeleton className="h-8 w-3/4 mx-auto" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-10 w-1/2 mx-auto" />
+        </div>
+      </div>
+    );
+  }
+
   // If no questions loaded yet, show generate button
   if (quizQuestions.length === 0) {
     return (
@@ -125,6 +205,14 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
         <p className="text-center text-muted-foreground">
           Test je kennis met een AI-gegenereerde quiz over dit boek.
         </p>
+        
+        {error && (
+          <Alert variant="destructive" className="my-4">
+            <AlertTitle>Fout</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
         <Button 
           onClick={generateQuiz} 
           disabled={isLoading}
@@ -145,8 +233,13 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
       <div className="flex flex-col items-center justify-center p-8 space-y-6">
         <h2 className="text-2xl font-semibold text-center">Quiz voltooid!</h2>
         
+        <div className="w-full max-w-md">
+          <Progress value={percentage} className="h-6" />
+          <p className="text-center mt-2 text-sm text-muted-foreground">{percentage}% correct</p>
+        </div>
+        
         <div className="w-32 h-32 rounded-full border-4 flex items-center justify-center">
-          <span className="text-4xl font-bold">{percentage}%</span>
+          <span className="text-4xl font-bold">{score}/{quizQuestions.length}</span>
         </div>
         
         <p className="text-center text-lg">
@@ -169,16 +262,20 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
 
   // Display current question
   const currentQuestion = quizQuestions[currentQuestionIndex];
+  const progress = ((currentQuestionIndex + 1) / quizQuestions.length) * 100;
   
   return (
     <div className="p-4 sm:p-6 flex flex-col space-y-6">
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-muted-foreground">
-          Vraag {currentQuestionIndex + 1} van {quizQuestions.length}
-        </span>
-        <span className="text-sm font-medium">
-          Score: {score}
-        </span>
+      <div className="space-y-2">
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-muted-foreground">
+            Vraag {currentQuestionIndex + 1} van {quizQuestions.length}
+          </span>
+          <span className="text-sm font-medium">
+            Score: {score}/{currentQuestionIndex + (isAnswerSubmitted ? 1 : 0)}
+          </span>
+        </div>
+        <Progress value={progress} className="h-2" />
       </div>
       
       <div className="space-y-4">
