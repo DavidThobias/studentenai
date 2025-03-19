@@ -228,7 +228,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',  // Update to more modern model
+            model: 'gpt-4o',  // Updated to correct model name
             messages: [
               {
                 role: 'system',
@@ -310,28 +310,7 @@ serve(async (req) => {
 
     console.log(`Generated ${quizQuestions.length} questions, returning directly to client`);
     
-    // Save the questions to the database with paragraph_id support
-    for (const question of quizQuestions) {
-      if (!question.question || !Array.isArray(question.options) || 
-          question.correctAnswer === undefined || !question.explanation) {
-        console.warn('Skipping invalid question:', JSON.stringify(question));
-        continue;
-      }
-
-      const { error: insertError } = await supabase.from('quizzes').insert({
-        book_id: bookId,
-        chapter_id: chapterId || null,
-        paragraph_id: paragraphId || null,
-        question: question.question,
-        options: question.options,
-        correct_answer: question.correctAnswer,
-        explanation: question.explanation
-      });
-
-      if (insertError) {
-        console.error(`Error inserting question: ${JSON.stringify(insertError)}`);
-      }
-    }
+    // Removed: Database storage of questions to simplify functionality
 
     console.log('Successfully completed quiz generation process');
     

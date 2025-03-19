@@ -12,7 +12,6 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Json } from '@/integrations/supabase/types';
 
 interface QuizQuestion {
   question: string;
@@ -45,20 +44,11 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
   const generateQuiz = async () => {
     try {
       console.log('=== Start Quiz Generation Process ===');
-      console.log('Initial state:', {
-        isLoading,
-        currentError: error,
-        quizQuestionsLength: quizQuestions.length,
-        currentQuestionIndex,
-        isGeneratingQuiz,
-        generationAttempts
-      });
-      
-      console.log('Start generating quiz...');
       setIsLoading(true);
       setIsGeneratingQuiz(true);
       setError(null);
       setTimeoutOccurred(false);
+      setGenerationAttempts(prev => prev + 1);
       
       const feedbackTimeoutId = setTimeout(() => {
         setError('De quiz generatie duurt langer dan verwacht. We werken eraan...');
@@ -84,16 +74,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         },
       });
       
-      console.log('Function response:', { data, error: responseError }); // Debug log
-      console.log('Response data structure:', {
-        hasData: !!data,
-        dataKeys: data ? Object.keys(data) : [],
-        hasQuestions: data?.questions?.length > 0,
-        numberOfQuestions: data?.questions?.length,
-        firstQuestion: data?.questions?.[0],
-        success: data?.success,
-        message: data?.message
-      }); // Extra debug info
+      console.log('Function response:', { data, responseError });
       
       clearTimeout(feedbackTimeoutId);
       clearTimeout(timeoutId);
@@ -121,7 +102,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
             : []
         }));
         
-        console.log('Formatted questions:', formattedQuestions);
         setQuizQuestions(formattedQuestions);
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
