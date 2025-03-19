@@ -71,9 +71,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         description: "Welkom terug!",
       });
     } catch (error: any) {
+      console.error("Login error:", error.message);
       toast({
         title: "Inloggen mislukt",
-        description: error.message,
+        description: error.message.includes('Invalid login credentials') 
+          ? "Ongeldige inloggegevens. Controleer je e-mailadres en wachtwoord."
+          : error.message,
         variant: "destructive",
       });
       throw error;
@@ -96,9 +99,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Navigate to login after signup
       navigate('/auth', { state: { justSignedUp: true } });
     } catch (error: any) {
+      console.error("Signup error:", error.message);
       toast({
         title: "Registratie mislukt",
-        description: error.message,
+        description: error.message.includes('User already registered')
+          ? "Dit e-mailadres is al geregistreerd."
+          : error.message,
         variant: "destructive",
       });
       throw error;

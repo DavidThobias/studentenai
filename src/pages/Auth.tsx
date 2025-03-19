@@ -41,6 +41,21 @@ const signupSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 type SignupFormValues = z.infer<typeof signupSchema>;
 
+// Function to translate Supabase error messages to Dutch
+const translateSupabaseError = (error: string): string => {
+  if (error.includes('Invalid login credentials')) {
+    return 'Ongeldige inloggegevens. Controleer je e-mailadres en wachtwoord.';
+  }
+  if (error.includes('Email not confirmed')) {
+    return 'E-mail is nog niet bevestigd. Controleer je inbox.';
+  }
+  if (error.includes('User already registered')) {
+    return 'Dit e-mailadres is al geregistreerd.';
+  }
+  // Return original error if no translation is available
+  return error;
+};
+
 const Auth = () => {
   const { user, signIn, signUp, isLoading } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
@@ -53,6 +68,7 @@ const Auth = () => {
       email: '',
       password: '',
     },
+    mode: 'onTouched', // Only validate on blur or submit
   });
 
   const signupForm = useForm<SignupFormValues>({
@@ -62,6 +78,7 @@ const Auth = () => {
       password: '',
       confirmPassword: '',
     },
+    mode: 'onTouched', // Only validate on blur or submit
   });
 
   // If user is already logged in, redirect to home
@@ -74,7 +91,7 @@ const Auth = () => {
       setError(null);
       await signIn(values.email, values.password);
     } catch (err: any) {
-      setError(err.message);
+      setError(translateSupabaseError(err.message));
     }
   };
 
@@ -83,13 +100,20 @@ const Auth = () => {
       setError(null);
       await signUp(values.email, values.password);
     } catch (err: any) {
-      setError(err.message);
+      setError(translateSupabaseError(err.message));
     }
   };
 
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
     setError(null);
+    
+    // Reset form state when toggling between login and signup
+    if (isLogin) {
+      signupForm.reset();
+    } else {
+      loginForm.reset();
+    }
   };
 
   return (
