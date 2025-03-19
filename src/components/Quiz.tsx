@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { Json } from '@/integrations/supabase/types';
 
 interface QuizQuestion {
   question: string;
@@ -63,9 +64,12 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
       
       if (data && data.length >= 5) {
         // Convert the stored data format to our QuizQuestion format
+        // Ensure options are always strings by mapping each option
         const formattedQuestions = data.map(q => ({
           question: q.question,
-          options: Array.isArray(q.options) ? q.options : [],
+          options: Array.isArray(q.options) 
+            ? (q.options as Json[]).map(option => String(option)) 
+            : [],
           correctAnswer: q.correct_answer,
           explanation: q.explanation || 'No explanation provided.'
         }));
@@ -117,7 +121,15 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
       }
       
       if (data?.questions && data.questions.length > 0) {
-        setQuizQuestions(data.questions);
+        // Ensure all options are strings
+        const formattedQuestions = data.questions.map((q: any) => ({
+          ...q,
+          options: Array.isArray(q.options) 
+            ? q.options.map((opt: any) => String(opt))
+            : []
+        }));
+        
+        setQuizQuestions(formattedQuestions);
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
         setIsAnswerSubmitted(false);
