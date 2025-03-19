@@ -1,6 +1,13 @@
+// @deno-types="https://deno.land/x/types/deno.d.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -214,31 +221,34 @@ serve(async (req) => {
     }
 
     const openAIPrompt = `
-    Generate ${numberOfQuestions} multiple-choice questions based on this content:
+    Je taak is om ${numberOfQuestions} multiple-choice vragen te genereren over de volgende tekst. 
+    De vragen moeten in het Nederlands zijn.
     
-    Book: ${book.Titel}
+    Boek: ${book.Titel}
     ${contentSource}
     
-    Content: ${contentToUse}
+    Inhoud: ${contentToUse}
     
-    For each question:
-    1. Create a clear question based ONLY on the content provided
-    2. Provide 4 possible answers where only one is correct
-    3. Indicate which answer is correct (with the index: 0, 1, 2, or 3)
-    4. Provide a brief explanation of why the answer is correct
+    Belangrijke regels:
+    1. Maak elke vraag ALLEEN op basis van de gegeven inhoud
+    2. Elke vraag moet precies 4 antwoordopties hebben
+    3. Slechts één antwoord mag correct zijn
+    4. Gebruik index 0, 1, 2, of 3 om het juiste antwoord aan te geven
+    5. Geef een korte uitleg waarom het antwoord correct is
+    6. Zorg dat de vragen verschillend zijn en verschillende aspecten van de tekst testen
+    7. Maak de vragen uitdagend maar fair
     
-    Format the response as a JSON array with this structure:
+    Retourneer je antwoord als een JSON array met deze structuur:
     [
       {
-        "question": "Question text",
-        "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+        "question": "De vraag in het Nederlands",
+        "options": ["Optie 1", "Optie 2", "Optie 3", "Optie 4"],
         "correctAnswer": 0,
-        "explanation": "Explanation of the correct answer"
+        "explanation": "Uitleg waarom dit antwoord correct is"
       }
     ]
     
-    Return ONLY the JSON array without any other text or formatting.
-    `;
+    Retourneer ALLEEN de JSON array, zonder andere tekst of opmaak.`;
 
     // Call OpenAI API with timeout handling
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -248,68 +258,48 @@ serve(async (req) => {
 
     console.log('Calling OpenAI API...');
     
-    // Create a promise for the fetch request
-    const fetchWithTimeout = async (timeoutMs = 60000) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      
-      try {
-        console.log('Starting OpenAI API request...');
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'Content-Type': 'application/json',
+    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openAIApiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'Je bent een ervaren Nederlandse onderwijsassistent die gespecialiseerd is in het maken van hoogwaardige multiple-choice vragen. Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen. Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.'
           },
-          body: JSON.stringify({
-            model: 'gpt-3.5-turbo',  // Explicitly set the model
-            messages: [
-              {
-                role: 'system',
-                content: 'You are a helpful educational assistant that creates high-quality multiple-choice questions based on educational content. Your responses must be in valid JSON format without any markdown.'
-              },
-              {
-                role: 'user',
-                content: openAIPrompt
-              }
-            ],
-            temperature: 0.7,
-          }),
-          signal: controller.signal,
-        });
-        
-        console.log('OpenAI API response received');
-        clearTimeout(timeoutId);
-        return response;
-      } catch (error) {
-        console.error('Error in OpenAI API call:', error);
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-          throw new Error('Request timeout: OpenAI API took too long to respond');
-        }
-        throw error;
-      }
-    };
+          {
+            role: 'user',
+            content: openAIPrompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+      }),
+    });
 
-    let openAIResponse;
-    try {
-      openAIResponse = await fetchWithTimeout();
-    } catch (error) {
-      console.error(`Error calling OpenAI API: ${error.message}`);
-      throw new Error(`Error calling OpenAI API: ${error.message}`);
-    }
-
+    console.log('OpenAI API response received');
+    
     if (!openAIResponse.ok) {
-      const errorText = await openAIResponse.text();
-      console.error(`OpenAI API error (${openAIResponse.status}): ${errorText}`);
-      throw new Error(`OpenAI API error (${openAIResponse.status}): ${errorText}`);
+      const errorData = await openAIResponse.text();
+      console.error('OpenAI API error:', errorData);
+      throw new Error(`OpenAI API error: ${errorData}`);
     }
 
     const openAIData = await openAIResponse.json();
-    console.log('Received response from OpenAI');
+    console.log('Successfully received OpenAI response');
+    
+    if (!openAIData.choices || !openAIData.choices[0] || !openAIData.choices[0].message) {
+      console.error('Invalid response structure from OpenAI:', openAIData);
+      throw new Error('Invalid response structure from OpenAI');
+    }
     
     // Parse the response content which should be JSON
     const quizContent = openAIData.choices[0].message.content.trim();
+    console.log('Raw quiz content:', quizContent);
     let quizQuestions;
     
     try {
@@ -317,17 +307,20 @@ serve(async (req) => {
       quizQuestions = JSON.parse(quizContent);
       console.log(`Successfully parsed ${quizQuestions.length} questions from OpenAI response`);
     } catch (e) {
-      console.error('Failed to parse response as JSON directly, trying to extract from markdown', e);
+      console.error('Failed to parse response as JSON directly:', e);
+      console.error('Raw content that failed to parse:', quizContent);
+      
       // If parsing fails, try to extract JSON from markdown code blocks
       const jsonMatch = quizContent.match(/```json\n([\s\S]*?)\n```/) || 
-                        quizContent.match(/```\n([\s\S]*?)\n```/);
+                       quizContent.match(/```\n([\s\S]*?)\n```/);
       
       if (jsonMatch && jsonMatch[1]) {
         try {
           quizQuestions = JSON.parse(jsonMatch[1].trim());
           console.log(`Successfully extracted and parsed ${quizQuestions.length} questions from markdown code block`);
         } catch (innerError) {
-          console.error('Failed to parse extracted content as JSON', innerError);
+          console.error('Failed to parse extracted content as JSON:', innerError);
+          console.error('Extracted content that failed to parse:', jsonMatch[1].trim());
           throw new Error('Failed to parse quiz questions from OpenAI response');
         }
       } else {
@@ -338,8 +331,29 @@ serve(async (req) => {
 
     // Validate the structure of the questions
     if (!Array.isArray(quizQuestions)) {
-      console.error('OpenAI did not return an array of questions', quizQuestions);
+      console.error('OpenAI did not return an array of questions:', quizQuestions);
       throw new Error('OpenAI did not return an array of questions');
+    }
+
+    // Validate each question's structure
+    quizQuestions = quizQuestions.filter(question => {
+      const isValid = question &&
+        typeof question.question === 'string' &&
+        Array.isArray(question.options) &&
+        question.options.length === 4 &&
+        typeof question.correctAnswer === 'number' &&
+        question.correctAnswer >= 0 &&
+        question.correctAnswer <= 3 &&
+        typeof question.explanation === 'string';
+
+      if (!isValid) {
+        console.warn('Filtered out invalid question:', JSON.stringify(question));
+      }
+      return isValid;
+    });
+
+    if (quizQuestions.length === 0) {
+      throw new Error('No valid questions were generated');
     }
 
     console.log(`Saving ${quizQuestions.length} questions to the database`);
