@@ -75,7 +75,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       
       console.log(`Calling generate-quiz function for book ${bookId}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}`);
       
-      const { data, error } = await supabase.functions.invoke('generate-quiz', {
+      const { data, error: responseError } = await supabase.functions.invoke('generate-quiz', {
         body: {
           bookId: parseInt(bookId),
           chapterId: chapterId ? parseInt(chapterId) : null,
@@ -84,7 +84,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         },
       });
       
-      console.log('Function response:', { data, error }); // Debug log
+      console.log('Function response:', { data, error: responseError }); // Debug log
       console.log('Response data structure:', {
         hasData: !!data,
         dataKeys: data ? Object.keys(data) : [],
@@ -98,9 +98,9 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       clearTimeout(feedbackTimeoutId);
       clearTimeout(timeoutId);
       
-      if (error) {
-        console.error('Error invoking generate-quiz function:', error);
-        setError(`Er is een fout opgetreden bij het genereren van de quiz: ${error.message}`);
+      if (responseError) {
+        console.error('Error invoking generate-quiz function:', responseError);
+        setError(`Er is een fout opgetreden bij het genereren van de quiz: ${responseError.message}`);
         toast.error('Fout bij het genereren van de quiz.');
         return;
       }
