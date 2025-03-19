@@ -228,7 +228,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4o',  // Updated to correct model name
+            model: 'gpt-4o-mini',  // Using a valid OpenAI model
             messages: [
               {
                 role: 'system',

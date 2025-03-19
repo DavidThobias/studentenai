@@ -33,10 +33,12 @@ const BookDetail = () => {
     console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}${paragraphId ? `, paragraph ${paragraphId}` : ''}`);
     setSelectedChapterId(chapterId?.toString());
     setSelectedParagraphId(paragraphId?.toString());
-    setQuizOpen(true);
     
     // Add a toast to give the user feedback
     toast.info('Quiz wordt voorbereid...');
+    
+    // Set dialog open which will trigger the quiz to generate
+    setQuizOpen(true);
   };
 
   const handleChapterSelect = (chapterId: number) => {
@@ -80,28 +82,28 @@ const BookDetail = () => {
 
       {/* Quiz Dialog */}
       <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
-        {quizOpen && (
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {selectedParagraphId 
-                  ? `Quiz over paragraaf ${paragraphs.find(p => p.id.toString() === selectedParagraphId)?.["paragraaf nummer"] || ''}`
-                  : selectedChapterId 
-                    ? `Quiz over hoofdstuk ${chapters.find(c => c.id.toString() === selectedChapterId)?.Hoofdstuknummer || ''}`
-                    : `Quiz over ${book?.Titel}`}
-              </DialogTitle>
-              <DialogDescription>
-                Test je kennis met deze interactieve quiz over het hoofdstuk.
-              </DialogDescription>
-            </DialogHeader>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedParagraphId 
+                ? `Quiz over paragraaf ${paragraphs.find(p => p.id.toString() === selectedParagraphId)?.["paragraaf nummer"] || ''}`
+                : selectedChapterId 
+                  ? `Quiz over hoofdstuk ${chapters.find(c => c.id.toString() === selectedChapterId)?.Hoofdstuknummer || ''}`
+                  : `Quiz over ${book?.Titel}`}
+            </DialogTitle>
+            <DialogDescription>
+              Test je kennis met deze interactieve quiz over het hoofdstuk.
+            </DialogDescription>
+          </DialogHeader>
+          {quizOpen && (
             <Quiz 
               bookId={id || ''} 
               chapterId={selectedChapterId} 
               paragraphId={selectedParagraphId}
               onClose={() => setQuizOpen(false)} 
             />
-          </DialogContent>
-        )}
+          )}
+        </DialogContent>
       </Dialog>
     </div>
   );

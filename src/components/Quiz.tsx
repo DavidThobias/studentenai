@@ -40,6 +40,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [generationAttempts, setGenerationAttempts] = useState(0);
   const [timeoutOccurred, setTimeoutOccurred] = useState(false);
+  const [quizGenerated, setQuizGenerated] = useState(false);
 
   const generateQuiz = async () => {
     try {
@@ -49,6 +50,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       setError(null);
       setTimeoutOccurred(false);
       setGenerationAttempts(prev => prev + 1);
+      setQuizGenerated(false);
       
       // Debug log initial state
       console.log('Quiz generation started with params:', {
@@ -160,6 +162,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         setIsAnswerSubmitted(false);
         setScore(0);
         setIsQuizComplete(false);
+        setQuizGenerated(true);
         
         toast.success('Quiz is gegenereerd!');
       } else {
@@ -232,10 +235,11 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
   // This effect runs once when the component mounts
   useEffect(() => {
     console.log('Quiz component mounted with props:', { bookId, chapterId, paragraphId });
-    // Don't automatically generate quiz on mount anymore - let user click the button
-  }, []);
+    // Automatically generate quiz on mount
+    generateQuiz();
+  }, [bookId, chapterId, paragraphId]);
 
-  if (quizQuestions.length === 0) {
+  if (!quizGenerated || quizQuestions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 space-y-6">
         <h2 className="text-2xl font-semibold text-center">Quiz</h2>
