@@ -37,79 +37,9 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
   const [score, setScore] = useState(0);
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [isLoadingExistingQuestions, setIsLoadingExistingQuestions] = useState(true);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [generationAttempts, setGenerationAttempts] = useState(0);
   const [timeoutOccurred, setTimeoutOccurred] = useState(false);
-
-  const fetchStoredQuestions = async () => {
-    try {
-      console.log('=== Fetching Stored Questions ===');
-      console.log('Parameters:', { bookId, chapterId, paragraphId });
-      setIsLoadingExistingQuestions(true);
-      
-      // First build the base query
-      let query = supabase
-        .from('quizzes')
-        .select('*')
-        .eq('book_id', parseInt(bookId));
-      
-      // Then assign the query to a new variable with chapter filter if needed
-      if (chapterId) {
-        query = query.eq('chapter_id', parseInt(chapterId));
-      } else {
-        query = query.is('chapter_id', null);
-      }
-      
-      // Then assign again with paragraph filter if needed
-      if (paragraphId) {
-        query = query.eq('paragraph_id', parseInt(paragraphId));
-      } else {
-        query = query.is('paragraph_id', null);
-      }
-      
-      console.log('Executing Supabase query for stored questions...');
-      // Execute the final query
-      const { data, error } = await query;
-      
-      if (error) {
-        console.error('Error fetching stored questions:', error);
-        return false;
-      }
-      
-      console.log('Query results:', { 
-        hasData: !!data, 
-        questionsCount: data?.length,
-        firstQuestion: data?.[0]
-      });
-      
-      if (data && data.length >= 3) {
-        const formattedQuestions = data.map(q => ({
-          question: q.question,
-          options: Array.isArray(q.options) 
-            ? (q.options as Json[]).map(option => String(option)) 
-            : [],
-          correctAnswer: q.correct_answer,
-          explanation: q.explanation || 'No explanation provided.'
-        }));
-        
-        console.log('Formatted stored questions:', formattedQuestions);
-        setQuizQuestions(formattedQuestions);
-        return true;
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Error in fetchStoredQuestions:', error);
-      return false;
-    } finally {
-      setIsLoadingExistingQuestions(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchStoredQuestions();
-  }, [bookId, chapterId, paragraphId]);
 
   const generateQuiz = async () => {
     try {
@@ -129,22 +59,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       setError(null);
       setTimeoutOccurred(false);
       
-      const hasStoredQuestions = await fetchStoredQuestions();
-      console.log('Has stored questions:', hasStoredQuestions);
-      
-      if (hasStoredQuestions) {
-        console.log('Using stored questions from database');
-        setCurrentQuestionIndex(0);
-        setSelectedAnswer(null);
-        setIsAnswerSubmitted(false);
-        setScore(0);
-        setIsQuizComplete(false);
-        setIsLoading(false);
-        setIsGeneratingQuiz(false);
-        return;
-      }
-      
-      console.log('No stored questions found, generating new questions...');
+      console.log('Generating new questions...');
       setGenerationAttempts(prev => prev + 1);
       
       const feedbackTimeoutId = setTimeout(() => {
@@ -162,50 +77,44 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       
       console.log(`Calling generate-quiz function for book ${bookId}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}`);
       
-      const { data, error } = await supabase.functions.invoke('generate-quiz', {
+      const { data: response, error: functionError } = await supabase.functions.invoke('generate-quiz', {
         body: {
           bookId: parseInt(bookId),
           chapterId: chapterId ? parseInt(chapterId) : null,
           paragraphId: paragraphId ? parseInt(paragraphId) : null,
           numberOfQuestions: 3,
+          forceNewQuestions: true, // Altijd nieuwe vragen genereren
         },
       });
       
-      console.log('Function response:', { data, error }); // Debug log
-      console.log('Response data structure:', {
-        hasData: !!data,
-        dataKeys: data ? Object.keys(data) : [],
-        hasQuestions: data?.questions?.length > 0,
-        numberOfQuestions: data?.questions?.length,
-        firstQuestion: data?.questions?.[0],
-        success: data?.success,
-        message: data?.message
-      }); // Extra debug info
+      console.log('Function response:', { response, functionError }); // Debug log
       
       clearTimeout(feedbackTimeoutId);
       clearTimeout(timeoutId);
       
-      if (error) {
-        console.error('Error invoking generate-quiz function:', error);
-        setError(`Er is een fout opgetreden bij het genereren van de quiz: ${error.message}`);
+      if (functionError) {
+        console.error('Error invoking generate-quiz function:', functionError);
+        setError(`Er is een fout opgetreden bij het genereren van de quiz: ${functionError.message}`);
         toast.error('Fout bij het genereren van de quiz.');
         return;
       }
       
-      if (data?.error) {
-        console.error('Error from generate-quiz function:', data.error);
-        setError(`Er is een fout opgetreden bij het genereren van de quiz: ${data.error}`);
+      if (!response.success) {
+        console.error('Error from generate-quiz function:', response.error);
+        setError(`Er is een fout opgetreden bij het genereren van de quiz: ${response.error}`);
         toast.error('Fout bij het genereren van de quiz.');
         return;
       }
       
-      if (data?.questions && data.questions.length > 0) {
-        console.log('Setting quiz questions:', data.questions.length, 'questions found');
-        const formattedQuestions = data.questions.map((q: any) => ({
-          ...q,
+      if (response.questions && response.questions.length > 0) {
+        console.log('Setting quiz questions:', response.questions.length, 'questions found');
+        const formattedQuestions = response.questions.map((q: any) => ({
+          question: q.question,
           options: Array.isArray(q.options) 
             ? q.options.map((opt: any) => String(opt))
-            : []
+            : [],
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation
         }));
         
         console.log('Formatted questions:', formattedQuestions);
@@ -215,8 +124,9 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         setIsAnswerSubmitted(false);
         setScore(0);
         setIsQuizComplete(false);
+        toast.success('Quiz is gegenereerd!');
       } else {
-        console.warn('No questions found in response:', data);
+        console.warn('No questions found in response:', response);
         setError('Geen vragen konden worden gegenereerd. Probeer het opnieuw.');
         toast.error('Geen vragen konden worden gegenereerd.');
       }
@@ -273,23 +183,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
   const handleToggleExplanation = () => {
     setShowExplanation(!showExplanation);
   };
-
-  if (isLoadingExistingQuestions) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8 space-y-6">
-        <h2 className="text-2xl font-semibold text-center">Quiz Laden</h2>
-        <p className="text-center text-muted-foreground mb-4">
-          Bestaande vragen ophalen...
-        </p>
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <div className="w-full max-w-md space-y-4">
-          <Skeleton className="h-8 w-3/4 mx-auto" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-10 w-1/2 mx-auto" />
-        </div>
-      </div>
-    );
-  }
 
   if (quizQuestions.length === 0) {
     return (

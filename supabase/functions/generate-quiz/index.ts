@@ -34,41 +34,6 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Check if we already have enough questions for this specific combination
-    const query = supabase.from('quizzes').select('*').eq('book_id', bookId);
-    if (chapterId) {
-      query.eq('chapter_id', chapterId);
-    } else {
-      query.is('chapter_id', null);
-    }
-    
-    if (paragraphId) {
-      query.eq('paragraph_id', paragraphId);
-    } else {
-      query.is('paragraph_id', null);
-    }
-    
-    const { data: existingQuestions, error: existingQuestionsError } = await query;
-    
-    if (!existingQuestionsError && existingQuestions && existingQuestions.length >= numberOfQuestions) {
-      console.log(`Found ${existingQuestions.length} existing questions, returning those instead of generating new ones`);
-      
-      // Return existing questions
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: `Retrieved ${existingQuestions.length} existing questions`,
-          questions: existingQuestions.map(q => ({
-            question: q.question,
-            options: q.options,
-            correctAnswer: q.correct_answer,
-            explanation: q.explanation
-          }))
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     // Get book details - IMPORTANT: Case sensitive table name!
     console.log(`Fetching book with ID: ${bookId} from Boeken table`);
     const { data: book, error: bookError } = await supabase
@@ -357,50 +322,45 @@ serve(async (req) => {
     }
 
     console.log(`Saving ${quizQuestions.length} questions to the database`);
-    
-    // Save the questions to the database with paragraph_id support
-    for (const question of quizQuestions) {
-      if (!question.question || !Array.isArray(question.options) || 
-          question.correctAnswer === undefined || !question.explanation) {
-        console.warn('Skipping invalid question:', JSON.stringify(question));
-        continue;
-      }
 
-      const { error: insertError } = await supabase.from('quizzes').insert({
+    // Save questions to database
+    const { error: insertError } = await supabase.from('quizzes').insert(
+      quizQuestions.map(q => ({
         book_id: bookId,
         chapter_id: chapterId || null,
         paragraph_id: paragraphId || null,
-        question: question.question,
-        options: question.options,
-        correct_answer: question.correctAnswer,
-        explanation: question.explanation
-      });
+        question: q.question,
+        options: q.options,
+        correct_answer: q.correctAnswer,
+        explanation: q.explanation
+      }))
+    );
 
-      if (insertError) {
-        console.error(`Error inserting question: ${JSON.stringify(insertError)}`);
-      }
+    if (insertError) {
+      console.error('Error saving questions to database:', insertError);
+      throw new Error(`Error saving questions to database: ${insertError.message}`);
     }
 
-    console.log('Successfully completed quiz generation process');
-    
+    // Return the generated questions
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: `Generated ${quizQuestions.length} questions`,
+      JSON.stringify({
+        success: true,
+        message: `Generated ${quizQuestions.length} questions successfully`,
         questions: quizQuestions
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
   } catch (error) {
-    console.error('Error generating quiz:', error);
+    console.error('Error in generate-quiz function:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message || 'An unknown error occurred',
-        source: error.stack ? 'Edge function error' : 'Unknown source'
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
       }),
       { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
       }
     );
   }
