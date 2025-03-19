@@ -1,3 +1,4 @@
+
 // @deno-types="https://deno.land/x/types/deno.d.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -230,7 +231,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${openAIApiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -321,27 +322,7 @@ serve(async (req) => {
       throw new Error('No valid questions were generated');
     }
 
-    console.log(`Saving ${quizQuestions.length} questions to the database`);
-
-    // Save questions to database
-    const { error: insertError } = await supabase.from('quizzes').insert(
-      quizQuestions.map(q => ({
-        book_id: bookId,
-        chapter_id: chapterId || null,
-        paragraph_id: paragraphId || null,
-        question: q.question,
-        options: q.options,
-        correct_answer: q.correctAnswer,
-        explanation: q.explanation
-      }))
-    );
-
-    if (insertError) {
-      console.error('Error saving questions to database:', insertError);
-      throw new Error(`Error saving questions to database: ${insertError.message}`);
-    }
-
-    // Return the generated questions
+    // Return the generated questions without saving to the database
     return new Response(
       JSON.stringify({
         success: true,

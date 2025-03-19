@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -12,12 +12,24 @@ import UpcomingFeatures from '@/components/book/UpcomingFeatures';
 import LoadingBookDetail from '@/components/book/LoadingBookDetail';
 import { useBookDetail } from '@/hooks/useBookDetail';
 import { toast } from "sonner"; 
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from 'lucide-react';
+
+interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation: string;
+}
 
 const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [quizOpen, setQuizOpen] = useState(false);
   const [selectedChapterId, setSelectedChapterId] = useState<string | undefined>(undefined);
   const [selectedParagraphId, setSelectedParagraphId] = useState<string | undefined>(undefined);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [quizError, setQuizError] = useState<string | null>(null);
 
   const { 
     book, 
@@ -29,16 +41,76 @@ const BookDetail = () => {
     fetchParagraphs 
   } = useBookDetail(id);
 
-  const handleStartQuiz = (chapterId?: number, paragraphId?: number) => {
+  const handleStartQuiz = async (chapterId?: number, paragraphId?: number) => {
     console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}${paragraphId ? `, paragraph ${paragraphId}` : ''}`);
     setSelectedChapterId(chapterId?.toString());
     setSelectedParagraphId(paragraphId?.toString());
+    setQuizQuestions([]);
+    setQuizError(null);
     
     // Add a toast to give the user feedback
     toast.info('Quiz wordt voorbereid...');
     
-    // Set dialog open which will trigger the quiz to generate
-    setQuizOpen(true);
+    // Generate the quiz questions before opening the dialog
+    try {
+      setIsGeneratingQuiz(true);
+      
+      console.log(`Calling generate-quiz function for book ${id}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}`);
+      
+      const { data: response, error: functionError } = await supabase.functions.invoke('generate-quiz', {
+        body: {
+          bookId: parseInt(id || '0'),
+          chapterId: chapterId || null,
+          paragraphId: paragraphId || null,
+          numberOfQuestions: 3,
+          forceNewQuestions: true,
+        },
+      });
+      
+      console.log('Function response:', { response, functionError });
+      
+      if (functionError) {
+        console.error('Error invoking generate-quiz function:', functionError);
+        setQuizError(`Er is een fout opgetreden bij het genereren van de quiz: ${functionError.message}`);
+        toast.error('Fout bij het genereren van de quiz.');
+        return;
+      }
+      
+      if (!response.success) {
+        console.error('Error from generate-quiz function:', response.error);
+        setQuizError(`Er is een fout opgetreden bij het genereren van de quiz: ${response.error}`);
+        toast.error('Fout bij het genereren van de quiz.');
+        return;
+      }
+      
+      if (response.questions && response.questions.length > 0) {
+        console.log('Setting quiz questions:', response.questions.length, 'questions found');
+        const formattedQuestions = response.questions.map((q: any) => ({
+          question: q.question,
+          options: Array.isArray(q.options) 
+            ? q.options.map((opt: any) => String(opt))
+            : [],
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation
+        }));
+        
+        console.log('Formatted questions:', formattedQuestions);
+        setQuizQuestions(formattedQuestions);
+        toast.success('Quiz is gegenereerd!');
+      } else {
+        console.warn('No questions found in response:', response);
+        setQuizError('Geen vragen konden worden gegenereerd. Probeer het opnieuw.');
+        toast.error('Geen vragen konden worden gegenereerd.');
+      }
+    } catch (error) {
+      console.error('Error generating quiz:', error);
+      setQuizError(`Er is een onverwachte fout opgetreden: ${error instanceof Error ? error.message : 'Onbekende fout'}`);
+      toast.error('Er is een fout opgetreden bij het genereren van de quiz.');
+    } finally {
+      setIsGeneratingQuiz(false);
+      // Open the dialog after quiz generation attempt is complete
+      setQuizOpen(true);
+    }
   };
 
   const handleChapterSelect = (chapterId: number) => {
@@ -95,12 +167,20 @@ const BookDetail = () => {
               Test je kennis met deze interactieve quiz over het hoofdstuk.
             </DialogDescription>
           </DialogHeader>
-          {quizOpen && (
+          
+          {isGeneratingQuiz ? (
+            <div className="flex flex-col items-center justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+              <p className="text-center">Quiz wordt gegenereerd...</p>
+            </div>
+          ) : quizError ? (
+            <Alert variant="destructive" className="my-4">
+              <AlertDescription>{quizError}</AlertDescription>
+            </Alert>
+          ) : (
             <Quiz 
-              bookId={id || ''} 
-              chapterId={selectedChapterId} 
-              paragraphId={selectedParagraphId}
-              onClose={() => setQuizOpen(false)} 
+              questions={quizQuestions}
+              onClose={() => setQuizOpen(false)}
             />
           )}
         </DialogContent>
