@@ -19,7 +19,7 @@ import {
   FormMessage 
 } from '@/components/ui/form';
 
-// Validation schemas
+// Validation schemas with improved password requirements
 const loginSchema = z.object({
   email: z.string().email('Vul een geldig e-mailadres in'),
   password: z.string().min(6, 'Wachtwoord moet minimaal 6 tekens bevatten'),
@@ -27,8 +27,12 @@ const loginSchema = z.object({
 
 const signupSchema = z.object({
   email: z.string().email('Vul een geldig e-mailadres in'),
-  password: z.string().min(6, 'Wachtwoord moet minimaal 6 tekens bevatten'),
-  confirmPassword: z.string().min(6, 'Wachtwoord moet minimaal 6 tekens bevatten'),
+  password: z.string()
+    .min(8, 'Wachtwoord moet minimaal 8 tekens bevatten')
+    .regex(/[A-Z]/, 'Wachtwoord moet minimaal 1 hoofdletter bevatten')
+    .regex(/[a-z]/, 'Wachtwoord moet minimaal 1 kleine letter bevatten')
+    .regex(/[0-9]/, 'Wachtwoord moet minimaal 1 cijfer bevatten'),
+  confirmPassword: z.string().min(1, 'Bevestig je wachtwoord'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Wachtwoorden komen niet overeen",
   path: ["confirmPassword"],
@@ -115,6 +119,14 @@ const Auth = () => {
           <Alert>
             <AlertDescription>
               Registratie succesvol! Je kunt nu inloggen.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!isLogin && (
+          <Alert>
+            <AlertDescription>
+              Wachtwoord moet minimaal 8 tekens bevatten, met minimaal 1 hoofdletter, 1 kleine letter, en 1 cijfer.
             </AlertDescription>
           </Alert>
         )}
