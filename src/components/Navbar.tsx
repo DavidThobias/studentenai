@@ -41,6 +41,12 @@ export default function Navbar() {
           <Link to="#quiz" className="text-foreground hover:text-study-600 font-medium transition-colors">
             Quiz Demo
           </Link>
+          <Link to="/learn" className="text-foreground hover:text-study-600 font-medium transition-colors">
+            Leren
+          </Link>
+          <Link to="/books" className="text-foreground hover:text-study-600 font-medium transition-colors">
+            Boeken
+          </Link>
         </nav>
 
         {/* Mobile Menu Button */}
@@ -76,6 +82,20 @@ export default function Navbar() {
               onClick={() => setIsMenuOpen(false)}
             >
               Quiz Demo
+            </Link>
+            <Link 
+              to="/learn" 
+              className="text-foreground hover:text-study-600 font-medium transition-colors px-4 py-2"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Leren
+            </Link>
+            <Link 
+              to="/books" 
+              className="text-foreground hover:text-study-600 font-medium transition-colors px-4 py-2"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Boeken
             </Link>
           </nav>
         </div>
