@@ -127,6 +127,7 @@ export type Database = {
           explanation: string | null
           id: string
           options: Json
+          paragraph_id: number | null
           question: string
         }
         Insert: {
@@ -137,6 +138,7 @@ export type Database = {
           explanation?: string | null
           id?: string
           options: Json
+          paragraph_id?: number | null
           question: string
         }
         Update: {
@@ -147,6 +149,7 @@ export type Database = {
           explanation?: string | null
           id?: string
           options?: Json
+          paragraph_id?: number | null
           question?: string
         }
         Relationships: [

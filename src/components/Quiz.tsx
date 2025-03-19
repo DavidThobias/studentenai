@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, AlertTriangle, Loader2 } from 'lucide-react';
@@ -43,26 +42,25 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
   const [generationAttempts, setGenerationAttempts] = useState(0);
   const [timeoutOccurred, setTimeoutOccurred] = useState(false);
 
-  // Check if we already have stored questions for this book/chapter/paragraph
   const fetchStoredQuestions = async () => {
     try {
       setIsLoadingExistingQuestions(true);
       
-      const query = supabase
+      let query = supabase
         .from('quizzes')
         .select('*')
         .eq('book_id', parseInt(bookId));
         
       if (chapterId) {
-        query.eq('chapter_id', parseInt(chapterId));
+        query = query.eq('chapter_id', parseInt(chapterId));
       } else {
-        query.is('chapter_id', null);
+        query = query.is('chapter_id', null);
       }
       
       if (paragraphId) {
-        query.eq('paragraph_id', parseInt(paragraphId));
+        query = query.eq('paragraph_id', parseInt(paragraphId));
       } else {
-        query.is('paragraph_id', null);
+        query = query.is('paragraph_id', null);
       }
       
       const { data, error } = await query;
@@ -73,8 +71,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       }
       
       if (data && data.length >= 3) {
-        // Convert the stored data format to our QuizQuestion format
-        // Ensure options are always strings by mapping each option
         const formattedQuestions = data.map(q => ({
           question: q.question,
           options: Array.isArray(q.options) 
@@ -97,7 +93,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
     }
   };
 
-  // Use useEffect to automatically fetch stored questions on component mount
   useEffect(() => {
     fetchStoredQuestions();
   }, [bookId, chapterId, paragraphId]);
@@ -109,7 +104,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       setError(null);
       setTimeoutOccurred(false);
       
-      // First check if we already have stored questions (refresh check)
       const hasStoredQuestions = await fetchStoredQuestions();
       if (hasStoredQuestions) {
         setCurrentQuestionIndex(0);
@@ -122,37 +116,32 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         return;
       }
       
-      // Increment attempt counter
       setGenerationAttempts(prev => prev + 1);
       
-      // Set a timeout for the quiz generation feedback
       const feedbackTimeoutId = setTimeout(() => {
         setError('De quiz generatie duurt langer dan verwacht. We werken eraan...');
         toast.info('Quiz generatie duurt langer dan verwacht. Even geduld...');
-      }, 5000); // Shorter timeout for feedback
+      }, 5000);
       
-      // Set a timeout for actual timeout handling
       const timeoutId = setTimeout(() => {
         setTimeoutOccurred(true);
         setError('Het lijkt erop dat de quiz generatie te lang duurt. Probeer het opnieuw of kies een ander hoofdstuk.');
         toast.error('Timeout bij het genereren van de quiz.');
         setIsLoading(false);
         setIsGeneratingQuiz(false);
-      }, 30000); // 30 seconds is a reasonable timeout for the entire operation
+      }, 30000);
       
       console.log(`Calling generate-quiz function for book ${bookId}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}`);
       
-      // If no stored questions, generate new ones using the edge function
       const { data, error } = await supabase.functions.invoke('generate-quiz', {
         body: {
           bookId: parseInt(bookId),
           chapterId: chapterId ? parseInt(chapterId) : null,
           paragraphId: paragraphId ? parseInt(paragraphId) : null,
-          numberOfQuestions: 3, // Reduced to 3 questions for faster generation
+          numberOfQuestions: 3,
         },
       });
       
-      // Clear both timeouts if we get a response
       clearTimeout(feedbackTimeoutId);
       clearTimeout(timeoutId);
       
@@ -171,7 +160,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       }
       
       if (data?.questions && data.questions.length > 0) {
-        // Ensure all options are strings
         const formattedQuestions = data.questions.map((q: any) => ({
           ...q,
           options: Array.isArray(q.options) 
@@ -243,7 +231,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
     setShowExplanation(!showExplanation);
   };
 
-  // Initial loading state when checking for existing questions
   if (isLoadingExistingQuestions) {
     return (
       <div className="flex flex-col items-center justify-center p-8 space-y-6">
@@ -261,7 +248,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
     );
   }
 
-  // If no questions loaded yet, show generate button
   if (quizQuestions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 space-y-6">
@@ -319,7 +305,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
     );
   }
 
-  // If quiz is complete, show results
   if (isQuizComplete) {
     const percentage = Math.round((score / quizQuestions.length) * 100);
     
@@ -354,7 +339,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
     );
   }
 
-  // Display current question
   const currentQuestion = quizQuestions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / quizQuestions.length) * 100;
   
