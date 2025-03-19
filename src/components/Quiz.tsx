@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, AlertTriangle, Loader2 } from 'lucide-react';
@@ -104,12 +103,14 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
 
   const generateQuiz = async () => {
     try {
+      console.log('Start generating quiz...');
       setIsLoading(true);
       setIsGeneratingQuiz(true);
       setError(null);
       setTimeoutOccurred(false);
       
       const hasStoredQuestions = await fetchStoredQuestions();
+      console.log('Has stored questions:', hasStoredQuestions);
       if (hasStoredQuestions) {
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
@@ -146,6 +147,8 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
           numberOfQuestions: 3,
         },
       });
+      
+      console.log('Function response:', { data, error }); // Debug log
       
       clearTimeout(feedbackTimeoutId);
       clearTimeout(timeoutId);

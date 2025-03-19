@@ -1,8 +1,7 @@
-
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import Quiz from '@/components/Quiz';
 import BookHeader from '@/components/book/BookHeader';
 import BookOverview from '@/components/book/BookOverview';
@@ -85,6 +84,9 @@ const BookDetail = () => {
                   ? `Quiz over hoofdstuk ${chapters.find(c => c.id.toString() === selectedChapterId)?.Hoofdstuknummer || ''}`
                   : `Quiz over ${book?.Titel}`}
             </DialogTitle>
+            <DialogDescription>
+              Test je kennis met deze interactieve quiz over het hoofdstuk.
+            </DialogDescription>
           </DialogHeader>
           {quizOpen && (
             <Quiz 
