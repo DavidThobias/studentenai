@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [isLoadingExistingQuestions, setIsLoadingExistingQuestions] = useState(true);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
 
   // Check if we already have stored questions for this book/chapter
   const fetchStoredQuestions = async () => {
@@ -87,12 +88,18 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
     }
   };
 
+  // Use useEffect to automatically fetch stored questions on component mount
+  useEffect(() => {
+    fetchStoredQuestions();
+  }, [bookId, chapterId]);
+
   const generateQuiz = async () => {
     try {
       setIsLoading(true);
+      setIsGeneratingQuiz(true);
       setError(null);
       
-      // First check if we already have stored questions
+      // First check if we already have stored questions (refresh check)
       const hasStoredQuestions = await fetchStoredQuestions();
       if (hasStoredQuestions) {
         setCurrentQuestionIndex(0);
@@ -101,8 +108,15 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
         setScore(0);
         setIsQuizComplete(false);
         setIsLoading(false);
+        setIsGeneratingQuiz(false);
         return;
       }
+      
+      // Set a timeout for the quiz generation
+      const timeoutId = setTimeout(() => {
+        setError('De quiz generatie duurt langer dan verwacht. We werken eraan...');
+        toast.info('Quiz generatie duurt langer dan verwacht. Even geduld...');
+      }, 10000); // 10 seconds timeout for feedback
       
       // If no stored questions, generate new ones using the edge function
       const { data, error } = await supabase.functions.invoke('generate-quiz', {
@@ -112,6 +126,8 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
           numberOfQuestions: 5,
         },
       });
+      
+      clearTimeout(timeoutId);
       
       if (error) {
         console.error('Error invoking generate-quiz function:', error);
@@ -145,6 +161,7 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
       toast.error('Er is een fout opgetreden bij het genereren van de quiz.');
     } finally {
       setIsLoading(false);
+      setIsGeneratingQuiz(false);
     }
   };
 
@@ -225,9 +242,19 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
           </Alert>
         )}
         
+        {isGeneratingQuiz && (
+          <div className="w-full max-w-md my-4">
+            <p className="text-center mb-2">Quiz genereren...</p>
+            <Progress value={undefined} className="h-2 animate-pulse" />
+            <p className="text-xs text-center mt-2 text-muted-foreground">
+              Dit kan tot 30 seconden duren. Even geduld...
+            </p>
+          </div>
+        )}
+        
         <Button 
           onClick={generateQuiz} 
-          disabled={isLoading}
+          disabled={isLoading || isGeneratingQuiz}
           size="lg"
           className="mt-4"
         >

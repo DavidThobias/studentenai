@@ -163,36 +163,65 @@ serve(async (req) => {
         "explanation": "Explanation of the correct answer"
       }
     ]
+    
+    Do not include any markdown formatting, just return a valid JSON array.
     `;
 
-    // Call OpenAI API
+    // Call OpenAI API with timeout handling
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
     console.log('Calling OpenAI API...');
-    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini', // Using a supported model
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful educational assistant that creates high-quality multiple-choice questions based on educational content. Your responses must be in valid JSON format.'
+    
+    // Create a promise for the fetch request
+    const fetchWithTimeout = async (timeoutMs = 60000) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      
+      try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+            'Content-Type': 'application/json',
           },
-          {
-            role: 'user',
-            content: openAIPrompt
-          }
-        ],
-        temperature: 0.7,
-      }),
-    });
+          body: JSON.stringify({
+            model: 'gpt-4o-mini', // Using a supported model
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a helpful educational assistant that creates high-quality multiple-choice questions based on educational content. Your responses must be in valid JSON format without any markdown.'
+              },
+              {
+                role: 'user',
+                content: openAIPrompt
+              }
+            ],
+            temperature: 0.7,
+          }),
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error('Request timeout: OpenAI API took too long to respond');
+        }
+        throw error;
+      }
+    };
+
+    let openAIResponse;
+    try {
+      openAIResponse = await fetchWithTimeout();
+    } catch (error) {
+      console.error(`Error calling OpenAI API: ${error.message}`);
+      throw new Error(`Error calling OpenAI API: ${error.message}`);
+    }
 
     if (!openAIResponse.ok) {
       const errorText = await openAIResponse.text();
