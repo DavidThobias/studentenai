@@ -63,15 +63,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      console.log("Attempting to sign in with email:", email);
+      
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        console.error("Login error:", error);
+        throw error;
+      }
+      
+      console.log("Sign in successful:", data);
       navigate('/');
       toast({
         title: "Succesvol ingelogd",
         description: "Welkom terug!",
       });
     } catch (error: any) {
-      console.error("Login error:", error.message);
+      console.error("Login error details:", error);
       toast({
         title: "Inloggen mislukt",
         description: error.message.includes('Invalid login credentials') 
@@ -88,8 +96,32 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signUp = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
+      console.log("Attempting to sign up with email:", email);
+      
+      // Make sure Supabase is initialized correctly
+      console.log("Supabase client initialized:", !!supabase);
+      
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          // This ensures we get redirected back to our app after email confirmation
+          emailRedirectTo: window.location.origin + '/auth'
+        }
+      });
+      
+      if (error) {
+        console.error("Signup error:", error);
+        throw error;
+      }
+      
+      console.log("Sign up response:", data);
+      
+      // Check if email confirmation is required
+      if (data?.user?.identities?.length === 0) {
+        console.error("User already exists error");
+        throw new Error("User already registered");
+      }
       
       toast({
         title: "Account aangemaakt",
@@ -99,12 +131,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Navigate to login after signup
       navigate('/auth', { state: { justSignedUp: true } });
     } catch (error: any) {
-      console.error("Signup error:", error.message);
+      console.error("Signup error details:", error);
+      
+      let errorMessage = error.message;
+      
+      // Check for specific error cases
+      if (error.message.includes('User already registered') || 
+          (error.message === "User already registered")) {
+        errorMessage = "Dit e-mailadres is al geregistreerd.";
+      } else if (error.message.includes('Password should be at least')) {
+        errorMessage = "Wachtwoord moet minimaal 6 tekens bevatten.";
+      } else if (error.message.includes('invalid email')) {
+        errorMessage = "Ongeldig e-mailadres formaat.";
+      }
+      
       toast({
         title: "Registratie mislukt",
-        description: error.message.includes('User already registered')
-          ? "Dit e-mailadres is al geregistreerd."
-          : error.message,
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;

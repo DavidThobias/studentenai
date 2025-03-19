@@ -1,9 +1,9 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { BookOpen } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useForm } from 'react-hook-form';
@@ -57,6 +57,12 @@ const translateSupabaseError = (error: string): string => {
   if (error.includes('User already registered')) {
     return 'Dit e-mailadres is al geregistreerd.';
   }
+  if (error.includes('invalid email')) {
+    return 'Ongeldig e-mailadres formaat.';
+  }
+  if (error.includes('Password should be at least')) {
+    return 'Wachtwoord moet minimaal 6 tekens bevatten.';
+  }
   // Return original error if no translation is available
   return error;
 };
@@ -66,6 +72,7 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const location = useLocation();
+  const [formSubmitted, setFormSubmitted] = useState(false);
   
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -86,6 +93,12 @@ const Auth = () => {
     mode: 'onTouched', // Only validate on blur or submit
   });
 
+  // Clear errors when toggling between forms
+  useEffect(() => {
+    setError(null);
+    setFormSubmitted(false);
+  }, [isLogin]);
+
   // If user is already logged in, redirect to home
   if (user) {
     return <Navigate to="/" replace />;
@@ -93,22 +106,25 @@ const Auth = () => {
 
   const handleLogin = async (values: LoginFormValues) => {
     try {
+      console.log("Login form submitted with values:", values);
+      setFormSubmitted(true);
       setError(null);
       await signIn(values.email, values.password);
     } catch (err: any) {
+      console.error("Login error in Auth component:", err);
       setError(translateSupabaseError(err.message));
     }
   };
 
   const handleSignup = async (values: SignupFormValues) => {
     try {
-      setError(null);
-      // Debug logging
-      console.log('Signup values:', {
+      console.log("Signup form submitted with values:", {
         email: values.email,
         password: values.password,
         confirmPassword: values.confirmPassword
       });
+      setFormSubmitted(true);
+      setError(null);
       
       // Extra validatie
       if (!values.email || !values.password || !values.confirmPassword) {
@@ -123,7 +139,7 @@ const Auth = () => {
       
       await signUp(values.email, values.password);
     } catch (err: any) {
-      console.error('Signup error:', err);
+      console.error('Signup error in Auth component:', err);
       setError(translateSupabaseError(err.message));
     }
   };
