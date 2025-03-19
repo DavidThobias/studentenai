@@ -30,7 +30,8 @@ const signupSchema = z.object({
     .min(8, 'Je wachtwoord moet minimaal 8 tekens lang zijn')
     .regex(/[A-Z]/, 'Je wachtwoord moet minimaal 1 hoofdletter bevatten')
     .regex(/[a-z]/, 'Je wachtwoord moet minimaal 1 kleine letter bevatten')
-    .regex(/[0-9]/, 'Je wachtwoord moet minimaal 1 cijfer bevatten'),
+    .regex(/[0-9]/, 'Je wachtwoord moet minimaal 1 cijfer bevatten')
+    .regex(/^[a-zA-Z0-9!@#$%^&*(),.?":{}|<>_+-=]+$/, 'Je wachtwoord mag alleen letters, cijfers en speciale tekens bevatten'),
   confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
   message: "De wachtwoorden zijn niet hetzelfde. Probeer het opnieuw.",
@@ -155,6 +156,7 @@ const Auth = () => {
                 <li>Minimaal 1 hoofdletter (A-Z)</li>
                 <li>Minimaal 1 kleine letter (a-z)</li>
                 <li>Minimaal 1 cijfer (0-9)</li>
+                <li>Speciale tekens zijn toegestaan (!@#$%^&*(),.?":{}|<>_+-=)</li>
               </ul>
             </AlertDescription>
           </Alert>
