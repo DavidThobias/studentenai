@@ -25,18 +25,23 @@ const loginSchema = z.object({
 });
 
 const signupSchema = z.object({
-  email: z.string().email('Dit e-mailadres is niet geldig. Controleer of je het juist hebt ingevoerd.'),
+  email: z.string().min(1, 'E-mailadres is verplicht').email('Dit e-mailadres is niet geldig'),
   password: z.string()
     .min(8, 'Je wachtwoord moet minimaal 8 tekens lang zijn')
     .regex(/[A-Z]/, 'Je wachtwoord moet minimaal 1 hoofdletter bevatten')
     .regex(/[a-z]/, 'Je wachtwoord moet minimaal 1 kleine letter bevatten')
-    .regex(/[0-9]/, 'Je wachtwoord moet minimaal 1 cijfer bevatten')
-    .regex(/^[a-zA-Z0-9!@#$%^&*(),.?":{}|<>_+-=]+$/, 'Je wachtwoord mag alleen letters, cijfers en speciale tekens bevatten'),
-  confirmPassword: z.string()
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "De wachtwoorden zijn niet hetzelfde. Probeer het opnieuw.",
-  path: ["confirmPassword"],
-});
+    .regex(/[0-9]/, 'Je wachtwoord moet minimaal 1 cijfer bevatten'),
+  confirmPassword: z.string().min(1, 'Bevestig je wachtwoord')
+}).refine(
+  (data) => {
+    console.log('Validating passwords:', data.password === data.confirmPassword);
+    return data.password === data.confirmPassword;
+  },
+  {
+    message: "De wachtwoorden zijn niet hetzelfde",
+    path: ["confirmPassword"]
+  }
+);
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 type SignupFormValues = z.infer<typeof signupSchema>;
@@ -98,8 +103,27 @@ const Auth = () => {
   const handleSignup = async (values: SignupFormValues) => {
     try {
       setError(null);
+      // Debug logging
+      console.log('Signup values:', {
+        email: values.email,
+        password: values.password,
+        confirmPassword: values.confirmPassword
+      });
+      
+      // Extra validatie
+      if (!values.email || !values.password || !values.confirmPassword) {
+        setError('Vul alle velden in');
+        return;
+      }
+      
+      if (values.password !== values.confirmPassword) {
+        setError('De wachtwoorden komen niet overeen');
+        return;
+      }
+      
       await signUp(values.email, values.password);
     } catch (err: any) {
+      console.error('Signup error:', err);
       setError(translateSupabaseError(err.message));
     }
   };
