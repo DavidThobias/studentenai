@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,29 +36,14 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
-  const [generationAttempts, setGenerationAttempts] = useState(0);
   const [timeoutOccurred, setTimeoutOccurred] = useState(false);
 
   const generateQuiz = async () => {
     try {
-      console.log('=== Start Quiz Generation Process ===');
-      console.log('Initial state:', {
-        isLoading,
-        currentError: error,
-        quizQuestionsLength: quizQuestions.length,
-        currentQuestionIndex,
-        isGeneratingQuiz,
-        generationAttempts
-      });
-      
-      console.log('Start generating quiz...');
       setIsLoading(true);
       setIsGeneratingQuiz(true);
       setError(null);
       setTimeoutOccurred(false);
-      
-      console.log('Generating new questions...');
-      setGenerationAttempts(prev => prev + 1);
       
       const feedbackTimeoutId = setTimeout(() => {
         setError('De quiz generatie duurt langer dan verwacht. We werken eraan...');
@@ -73,19 +58,15 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         setIsGeneratingQuiz(false);
       }, 30000);
       
-      console.log(`Calling generate-quiz function for book ${bookId}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}`);
-      
       const { data: response, error: functionError } = await supabase.functions.invoke('generate-quiz', {
         body: {
           bookId: parseInt(bookId),
           chapterId: chapterId ? parseInt(chapterId) : null,
           paragraphId: paragraphId ? parseInt(paragraphId) : null,
           numberOfQuestions: 3,
-          forceNewQuestions: true, // Altijd nieuwe vragen genereren
+          forceNewQuestions: true,
         },
       });
-      
-      console.log('Function response:', { response, functionError }); // Debug log
       
       clearTimeout(feedbackTimeoutId);
       clearTimeout(timeoutId);
@@ -105,7 +86,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       }
       
       if (response.questions && response.questions.length > 0) {
-        console.log('Setting quiz questions:', response.questions.length, 'questions found');
         const formattedQuestions = response.questions.map((q: any) => ({
           question: q.question,
           options: Array.isArray(q.options) 
@@ -115,7 +95,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
           explanation: q.explanation
         }));
         
-        console.log('Formatted questions:', formattedQuestions);
         setQuizQuestions(formattedQuestions);
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
@@ -124,7 +103,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         setIsQuizComplete(false);
         toast.success('Quiz is gegenereerd!');
       } else {
-        console.warn('No questions found in response:', response);
         setError('Geen vragen konden worden gegenereerd. Probeer het opnieuw.');
         toast.error('Geen vragen konden worden gegenereerd.');
       }
@@ -240,8 +218,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Quiz genereren...
                   </>
-                ) : generationAttempts > 0 ? (
-                  'Opnieuw proberen'
                 ) : (
                   'Start Quiz'
                 )}
