@@ -149,6 +149,13 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       });
       
       console.log('Function response:', { data, error }); // Debug log
+      console.log('Response data structure:', {
+        hasData: !!data,
+        dataKeys: data ? Object.keys(data) : [],
+        hasQuestions: data?.questions?.length > 0,
+        numberOfQuestions: data?.questions?.length,
+        firstQuestion: data?.questions?.[0],
+      }); // Extra debug info
       
       clearTimeout(feedbackTimeoutId);
       clearTimeout(timeoutId);
