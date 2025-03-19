@@ -9,6 +9,91 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      Boeken: {
+        Row: {
+          Auteur: string | null
+          created_at: string
+          id: number
+          Titel: string | null
+        }
+        Insert: {
+          Auteur?: string | null
+          created_at?: string
+          id?: number
+          Titel?: string | null
+        }
+        Update: {
+          Auteur?: string | null
+          created_at?: string
+          id?: number
+          Titel?: string | null
+        }
+        Relationships: []
+      }
+      Chapters: {
+        Row: {
+          Boek_id: number | null
+          created_at: string
+          Hoofdstuknummer: string | null
+          id: number
+          Titel: string | null
+        }
+        Insert: {
+          Boek_id?: number | null
+          created_at?: string
+          Hoofdstuknummer?: string | null
+          id?: number
+          Titel?: string | null
+        }
+        Update: {
+          Boek_id?: number | null
+          created_at?: string
+          Hoofdstuknummer?: string | null
+          id?: number
+          Titel?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Chapters_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "Boeken"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Paragraven: {
+        Row: {
+          chapter_id: number | null
+          content: string | null
+          created_at: string
+          id: number
+          "paragraaf nummer": number | null
+        }
+        Insert: {
+          chapter_id?: number | null
+          content?: string | null
+          created_at?: string
+          id?: number
+          "paragraaf nummer"?: number | null
+        }
+        Update: {
+          chapter_id?: number | null
+          content?: string | null
+          created_at?: string
+          id?: number
+          "paragraaf nummer"?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Paragraven_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "Chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
