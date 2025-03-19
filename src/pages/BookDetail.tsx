@@ -2,12 +2,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BookOpen, ChevronRight, FileText, Brain } from 'lucide-react';
+import { ArrowLeft, BookOpen, ChevronRight, FileText, Brain, ListChecks, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import Quiz from '@/components/Quiz';
 
 interface BookData {
@@ -23,19 +24,31 @@ interface ChapterData {
   Boek_id: number;
 }
 
+interface ParagraphData {
+  id: number;
+  "paragraaf nummer"?: number;
+  content?: string;
+  chapter_id: number;
+}
+
 const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [book, setBook] = useState<BookData | null>(null);
   const [chapters, setChapters] = useState<ChapterData[]>([]);
+  const [paragraphs, setParagraphs] = useState<ParagraphData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingParagraphs, setLoadingParagraphs] = useState(false);
   const [quizOpen, setQuizOpen] = useState(false);
   const [selectedChapterId, setSelectedChapterId] = useState<string | undefined>(undefined);
+  const [selectedParagraphId, setSelectedParagraphId] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchBookDetails = async () => {
       try {
         setLoading(true);
+        setError(null);
         if (!id) return;
 
         console.log(`Fetching book details for ID: ${id}`);
@@ -48,6 +61,7 @@ const BookDetail = () => {
 
         if (bookError) {
           console.error('Error fetching book details:', bookError);
+          setError('Fout bij ophalen boekgegevens');
           throw bookError;
         }
         
@@ -71,11 +85,17 @@ const BookDetail = () => {
 
         if (chapterError) {
           console.error('Error fetching chapters:', chapterError);
+          setError('Fout bij ophalen hoofdstukken');
           throw chapterError;
         }
         
         console.log(`Retrieved ${chapterData?.length || 0} chapters`);
         setChapters(chapterData || []);
+        
+        // Fetch paragraphs for the first chapter
+        if (chapterData && chapterData.length > 0) {
+          fetchParagraphs(chapterData[0].id);
+        }
       } catch (error) {
         console.error('Error fetching book details:', error);
         toast.error('Er is een fout opgetreden bij het ophalen van de boekgegevens');
@@ -87,10 +107,43 @@ const BookDetail = () => {
     fetchBookDetails();
   }, [id, navigate]);
 
-  const handleStartQuiz = (chapterId?: number) => {
-    console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}`);
+  const fetchParagraphs = async (chapterId: number) => {
+    try {
+      setLoadingParagraphs(true);
+      setError(null);
+      console.log(`Fetching paragraphs for chapter ID: ${chapterId}`);
+      
+      const { data: paragraphData, error: paragraphError } = await supabase
+        .from('Paragraven')
+        .select('*')
+        .eq('chapter_id', chapterId)
+        .order('"paragraaf nummer"', { ascending: true });
+
+      if (paragraphError) {
+        console.error('Error fetching paragraphs:', paragraphError);
+        setError('Fout bij ophalen paragrafen');
+        throw paragraphError;
+      }
+      
+      console.log(`Retrieved ${paragraphData?.length || 0} paragraphs`);
+      setParagraphs(paragraphData || []);
+    } catch (error) {
+      console.error('Error fetching paragraphs:', error);
+      toast.error('Er is een fout opgetreden bij het ophalen van de paragrafen');
+    } finally {
+      setLoadingParagraphs(false);
+    }
+  };
+
+  const handleStartQuiz = (chapterId?: number, paragraphId?: number) => {
+    console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}${paragraphId ? `, paragraph ${paragraphId}` : ''}`);
     setSelectedChapterId(chapterId?.toString());
+    setSelectedParagraphId(paragraphId?.toString());
     setQuizOpen(true);
+  };
+
+  const handleChapterSelect = (chapterId: number) => {
+    fetchParagraphs(chapterId);
   };
 
   if (loading) {
@@ -120,6 +173,12 @@ const BookDetail = () => {
             Terug naar boeken
           </Link>
         </div>
+
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -151,11 +210,20 @@ const BookDetail = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" onClick={() => handleStartQuiz()} className="flex-1">
+              <Button 
+                size="lg" 
+                onClick={() => handleStartQuiz()} 
+                className="flex-1"
+              >
                 <Brain className="mr-2 h-5 w-5" />
                 Start quiz over hele boek
               </Button>
-              <Button size="lg" variant="outline" onClick={() => toast.info('Functionaliteit wordt binnenkort toegevoegd')} className="flex-1">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                onClick={() => toast.info('Functionaliteit wordt binnenkort toegevoegd')} 
+                className="flex-1"
+              >
                 <FileText className="mr-2 h-5 w-5" />
                 Bekijk samenvatting
               </Button>
@@ -191,9 +259,9 @@ const BookDetail = () => {
                     <Button 
                       variant="ghost" 
                       className="w-full sm:w-auto justify-between"
-                      onClick={() => toast.info('Hoofdstuk inhoud wordt binnenkort toegevoegd')}
+                      onClick={() => handleChapterSelect(chapter.id)}
                     >
-                      Bekijk hoofdstuk
+                      Bekijk paragrafen
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </CardFooter>
@@ -204,6 +272,53 @@ const BookDetail = () => {
             <div className="text-center py-8 border border-dashed border-gray-200 rounded-lg">
               <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <p className="text-muted-foreground">Nog geen hoofdstukken beschikbaar voor dit boek.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Paragraphs Section */}
+        <div className="mb-12">
+          <h2 className="text-2xl font-semibold mb-6">Paragrafen</h2>
+          
+          {loadingParagraphs ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+              <p className="text-muted-foreground">Paragrafen laden...</p>
+            </div>
+          ) : paragraphs.length > 0 ? (
+            <div className="space-y-4">
+              {paragraphs.map((paragraph) => (
+                <Card key={paragraph.id} className="transition-all hover:shadow-md">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Paragraaf {paragraph["paragraaf nummer"]}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground line-clamp-3">
+                      {paragraph.content ? 
+                        (paragraph.content.length > 150 ? 
+                          `${paragraph.content.substring(0, 150)}...` : 
+                          paragraph.content) : 
+                        'Geen inhoud beschikbaar'}
+                    </p>
+                  </CardContent>
+                  <CardFooter className="flex flex-row gap-2">
+                    <Button 
+                      onClick={() => handleStartQuiz(paragraph.chapter_id, paragraph.id)}
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                    >
+                      <ListChecks className="mr-2 h-4 w-4" />
+                      Quiz over paragraaf
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 border border-dashed border-gray-200 rounded-lg">
+              <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-muted-foreground">Selecteer een hoofdstuk om paragrafen te bekijken.</p>
             </div>
           )}
         </div>
@@ -225,15 +340,18 @@ const BookDetail = () => {
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {selectedChapterId 
-                ? `Quiz over hoofdstuk ${chapters.find(c => c.id.toString() === selectedChapterId)?.Hoofdstuknummer || ''}`
-                : `Quiz over ${book?.Titel}`}
+              {selectedParagraphId 
+                ? `Quiz over paragraaf ${paragraphs.find(p => p.id.toString() === selectedParagraphId)?.["paragraaf nummer"] || ''}`
+                : selectedChapterId 
+                  ? `Quiz over hoofdstuk ${chapters.find(c => c.id.toString() === selectedChapterId)?.Hoofdstuknummer || ''}`
+                  : `Quiz over ${book?.Titel}`}
             </DialogTitle>
           </DialogHeader>
           {quizOpen && (
             <Quiz 
               bookId={id || ''} 
               chapterId={selectedChapterId} 
+              paragraphId={selectedParagraphId}
               onClose={() => setQuizOpen(false)} 
             />
           )}

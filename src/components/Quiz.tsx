@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -24,10 +24,11 @@ interface QuizQuestion {
 interface QuizProps {
   bookId: string;
   chapterId?: string;
+  paragraphId?: string;
   onClose: () => void;
 }
 
-const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
+const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
@@ -42,7 +43,7 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
   const [generationAttempts, setGenerationAttempts] = useState(0);
   const [timeoutOccurred, setTimeoutOccurred] = useState(false);
 
-  // Check if we already have stored questions for this book/chapter
+  // Check if we already have stored questions for this book/chapter/paragraph
   const fetchStoredQuestions = async () => {
     try {
       setIsLoadingExistingQuestions(true);
@@ -58,6 +59,12 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
         query.is('chapter_id', null);
       }
       
+      if (paragraphId) {
+        query.eq('paragraph_id', parseInt(paragraphId));
+      } else {
+        query.is('paragraph_id', null);
+      }
+      
       const { data, error } = await query;
       
       if (error) {
@@ -65,7 +72,7 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
         return false;
       }
       
-      if (data && data.length >= 5) {
+      if (data && data.length >= 3) {
         // Convert the stored data format to our QuizQuestion format
         // Ensure options are always strings by mapping each option
         const formattedQuestions = data.map(q => ({
@@ -93,7 +100,7 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
   // Use useEffect to automatically fetch stored questions on component mount
   useEffect(() => {
     fetchStoredQuestions();
-  }, [bookId, chapterId]);
+  }, [bookId, chapterId, paragraphId]);
 
   const generateQuiz = async () => {
     try {
@@ -122,7 +129,7 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
       const feedbackTimeoutId = setTimeout(() => {
         setError('De quiz generatie duurt langer dan verwacht. We werken eraan...');
         toast.info('Quiz generatie duurt langer dan verwacht. Even geduld...');
-      }, 8000); // Shorter timeout for feedback
+      }, 5000); // Shorter timeout for feedback
       
       // Set a timeout for actual timeout handling
       const timeoutId = setTimeout(() => {
@@ -131,16 +138,17 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
         toast.error('Timeout bij het genereren van de quiz.');
         setIsLoading(false);
         setIsGeneratingQuiz(false);
-      }, 45000); // 45 seconds is a reasonable timeout for the entire operation
+      }, 30000); // 30 seconds is a reasonable timeout for the entire operation
       
-      console.log(`Calling generate-quiz function for book ${bookId}, chapter ${chapterId || 'all'}`);
+      console.log(`Calling generate-quiz function for book ${bookId}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}`);
       
       // If no stored questions, generate new ones using the edge function
       const { data, error } = await supabase.functions.invoke('generate-quiz', {
         body: {
           bookId: parseInt(bookId),
           chapterId: chapterId ? parseInt(chapterId) : null,
-          numberOfQuestions: 5,
+          paragraphId: paragraphId ? parseInt(paragraphId) : null,
+          numberOfQuestions: 3, // Reduced to 3 questions for faster generation
         },
       });
       
@@ -243,6 +251,7 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
         <p className="text-center text-muted-foreground mb-4">
           Bestaande vragen ophalen...
         </p>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <div className="w-full max-w-md space-y-4">
           <Skeleton className="h-8 w-3/4 mx-auto" />
           <Skeleton className="h-24 w-full" />
@@ -278,24 +287,34 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
           </Alert>
         )}
         
-        {isGeneratingQuiz && (
-          <div className="w-full max-w-md my-4">
-            <p className="text-center mb-2">Quiz genereren...</p>
-            <Progress value={undefined} className="h-2 animate-pulse" />
+        {isGeneratingQuiz ? (
+          <div className="w-full max-w-md my-4 flex flex-col items-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+            <p className="text-center mb-2">Quiz wordt gegenereerd...</p>
+            <Progress value={undefined} className="h-2 w-full animate-pulse" />
             <p className="text-xs text-center mt-2 text-muted-foreground">
               Dit kan tot 30 seconden duren. Even geduld...
             </p>
           </div>
+        ) : (
+          <Button 
+            onClick={generateQuiz} 
+            disabled={isLoading || isGeneratingQuiz}
+            size="lg"
+            className="mt-4 w-full sm:w-auto"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Quiz genereren...
+              </>
+            ) : generationAttempts > 0 ? (
+              'Opnieuw proberen'
+            ) : (
+              'Start Quiz'
+            )}
+          </Button>
         )}
-        
-        <Button 
-          onClick={generateQuiz} 
-          disabled={isLoading || isGeneratingQuiz}
-          size="lg"
-          className="mt-4"
-        >
-          {isLoading ? 'Quiz genereren...' : generationAttempts > 0 ? 'Opnieuw proberen' : 'Start Quiz'}
-        </Button>
       </div>
     );
   }

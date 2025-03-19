@@ -15,25 +15,31 @@ serve(async (req) => {
   }
 
   try {
-    const { bookId, chapterId, numberOfQuestions = 5 } = await req.json();
+    const { bookId, chapterId, paragraphId, numberOfQuestions = 5 } = await req.json();
     
     if (!bookId) {
       throw new Error('Book ID is required');
     }
 
-    console.log(`Generating quiz for book ${bookId}, chapter ${chapterId || 'all'}, ${numberOfQuestions} questions`);
+    console.log(`Generating quiz for book ${bookId}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}, ${numberOfQuestions} questions`);
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Check if we already have enough questions for this book/chapter
+    // Check if we already have enough questions for this specific combination
     const query = supabase.from('quizzes').select('*').eq('book_id', bookId);
     if (chapterId) {
       query.eq('chapter_id', chapterId);
     } else {
       query.is('chapter_id', null);
+    }
+    
+    if (paragraphId) {
+      query.eq('paragraph_id', paragraphId);
+    } else {
+      query.is('paragraph_id', null);
     }
     
     const { data: existingQuestions, error: existingQuestionsError } = await query;
@@ -57,12 +63,12 @@ serve(async (req) => {
       );
     }
 
-    // Get book details - NOTE: Case sensitive table name!
+    // Get book details - IMPORTANT: Case sensitive table name!
     console.log(`Fetching book with ID: ${bookId} from Boeken table`);
     const { data: book, error: bookError } = await supabase
       .from('Boeken')
       .select('*')
-      .eq('id', parseInt(bookId))
+      .eq('id', bookId)
       .single();
 
     if (bookError) {
@@ -77,16 +83,52 @@ serve(async (req) => {
 
     console.log(`Successfully fetched book: ${book.Titel}`);
 
-    // Get chapter details if provided
-    let chapterContent = '';
-    let chapterTitle = '';
+    // Get content for quiz generation
+    let contentToUse = '';
+    let contentSource = '';
     
-    if (chapterId) {
+    // If paragraph ID is provided, get specific paragraph
+    if (paragraphId) {
+      console.log(`Fetching paragraph with ID: ${paragraphId}`);
+      const { data: paragraph, error: paragraphError } = await supabase
+        .from('Paragraven')
+        .select('*')
+        .eq('id', paragraphId)
+        .single();
+
+      if (paragraphError) {
+        console.error(`Error fetching paragraph: ${JSON.stringify(paragraphError)}`);
+        throw new Error(`Error fetching paragraph: ${paragraphError.message}`);
+      }
+
+      if (!paragraph) {
+        console.error(`No paragraph found with ID: ${paragraphId}`);
+        throw new Error(`No paragraph found with ID: ${paragraphId}`);
+      }
+
+      contentToUse = paragraph.content || '';
+      contentSource = `Paragraph ${paragraph['paragraaf nummer'] || paragraphId}`;
+      
+      // Also get chapter info for context
+      if (paragraph.chapter_id) {
+        const { data: chapter } = await supabase
+          .from('Chapters')
+          .select('Titel, Hoofdstuknummer')
+          .eq('id', paragraph.chapter_id)
+          .single();
+          
+        if (chapter) {
+          contentSource = `Chapter ${chapter.Hoofdstuknummer}: ${chapter.Titel}, Paragraph ${paragraph['paragraaf nummer'] || paragraphId}`;
+        }
+      }
+    }
+    // If chapter ID is provided, get all paragraphs for that chapter
+    else if (chapterId) {
       console.log(`Fetching chapter with ID: ${chapterId}`);
       const { data: chapter, error: chapterError } = await supabase
         .from('Chapters')
         .select('*')
-        .eq('id', parseInt(chapterId))
+        .eq('id', chapterId)
         .single();
 
       if (chapterError) {
@@ -99,85 +141,94 @@ serve(async (req) => {
         throw new Error(`No chapter found with ID: ${chapterId}`);
       }
 
-      chapterTitle = chapter.Titel || '';
-      console.log(`Fetched chapter: ${chapterTitle}`);
+      contentSource = `Chapter ${chapter.Hoofdstuknummer}: ${chapter.Titel}`;
 
       // Get paragraph content for this chapter
       console.log(`Fetching paragraphs for chapter: ${chapterId}`);
       const { data: paragraphs, error: paragraphsError } = await supabase
         .from('Paragraven')
-        .select('content')
-        .eq('chapter_id', parseInt(chapterId));
+        .select('content, "paragraaf nummer"')
+        .eq('chapter_id', chapterId)
+        .order('"paragraaf nummer"', { ascending: true });
 
       if (paragraphsError) {
         console.error(`Error fetching paragraphs: ${JSON.stringify(paragraphsError)}`);
+        throw new Error(`Error fetching paragraphs: ${paragraphsError.message}`);
       }
-
+      
       if (paragraphs && paragraphs.length > 0) {
-        chapterContent = paragraphs.map(p => p.content).join('\n');
-        console.log(`Found ${paragraphs.length} paragraphs for chapter ${chapterId}`);
+        contentToUse = paragraphs.map(p => p.content).join('\n\n');
       } else {
-        console.log(`No paragraphs found for chapter ${chapterId}`);
+        console.warn(`No paragraphs found for chapter ${chapterId}`);
       }
-    } else {
-      // If no chapter specified, get all chapters for the book
-      console.log(`Fetching all chapters for book: ${bookId}`);
-      const { data: chapters, error: chaptersError } = await supabase
+    }
+    // If neither paragraph nor chapter specified, use first paragraph of first chapter
+    else {
+      console.log(`No specific chapter/paragraph. Getting first paragraph of first chapter`);
+      
+      // Get first chapter
+      const { data: firstChapter, error: chapterError } = await supabase
         .from('Chapters')
-        .select('id, Titel')
-        .eq('Boek_id', parseInt(bookId));
-
-      if (chaptersError) {
-        console.error(`Error fetching chapters: ${JSON.stringify(chaptersError)}`);
-        throw new Error(`Error fetching chapters: ${chaptersError.message}`);
-      }
-
-      console.log(`Found ${chapters?.length || 0} chapters for book ${bookId}`);
-
-      // For each chapter, get paragraphs
-      for (const chapter of chapters || []) {
-        console.log(`Fetching paragraphs for chapter: ${chapter.id}`);
-        const { data: paragraphs, error: paragraphsError } = await supabase
+        .select('*')
+        .eq('Boek_id', bookId)
+        .order('Hoofdstuknummer', { ascending: true })
+        .limit(1)
+        .single();
+      
+      if (chapterError || !firstChapter) {
+        console.warn(`Could not find first chapter, using book info only`);
+        contentToUse = `This is a book titled "${book.Titel}" by ${book.Auteur}. Please generate some general knowledge questions about this topic.`;
+        contentSource = `Book: ${book.Titel}`;
+      } else {
+        // Get first paragraph of this chapter
+        const { data: firstParagraph, error: paragraphError } = await supabase
           .from('Paragraven')
-          .select('content')
-          .eq('chapter_id', parseInt(chapter.id));
+          .select('content, "paragraaf nummer"')
+          .eq('chapter_id', firstChapter.id)
+          .order('"paragraaf nummer"', { ascending: true })
+          .limit(1)
+          .single();
         
-        if (paragraphsError) {
-          console.error(`Error fetching paragraphs for chapter ${chapter.id}: ${JSON.stringify(paragraphsError)}`);
-        }
-        
-        if (paragraphs && paragraphs.length > 0) {
-          chapterContent += `${chapter.Titel}:\n${paragraphs.map(p => p.content).join('\n')}\n\n`;
-          console.log(`Added ${paragraphs.length} paragraphs from chapter ${chapter.id}`);
+        if (paragraphError || !firstParagraph) {
+          console.warn(`Could not find paragraphs for chapter ${firstChapter.id}, using chapter info only`);
+          contentToUse = `Chapter ${firstChapter.Hoofdstuknummer}: ${firstChapter.Titel}`;
+          contentSource = `Chapter ${firstChapter.Hoofdstuknummer}`;
         } else {
-          console.log(`No paragraphs found for chapter ${chapter.id}`);
+          contentToUse = firstParagraph.content || '';
+          contentSource = `Chapter ${firstChapter.Hoofdstuknummer}: ${firstChapter.Titel}, Paragraph ${firstParagraph['paragraaf nummer'] || 1}`;
         }
       }
     }
 
-    if (!chapterContent.trim()) {
-      console.warn('No content found for generating questions');
-      // If there's no content, still try to generate generic questions about the book
-      chapterContent = `This is a book titled "${book.Titel}" by ${book.Auteur}. Please generate some general knowledge questions about this topic.`;
+    if (!contentToUse.trim()) {
+      console.warn('No content found for generating questions, using book info');
+      contentToUse = `This is a book titled "${book.Titel}" by ${book.Auteur}. Please generate some general knowledge questions about this topic.`;
+      contentSource = `Book: ${book.Titel}`;
     }
 
     // Prepare prompt for OpenAI
-    const promptContent = chapterId 
-      ? `Book: ${book.Titel}\nChapter: ${chapterTitle}\nContent: ${chapterContent}`
-      : `Book: ${book.Titel}\nContent: ${chapterContent}`;
+    // Limit content length to prevent token limit issues
+    const MAX_CONTENT_LENGTH = 4000;
+    if (contentToUse.length > MAX_CONTENT_LENGTH) {
+      console.log(`Content too long (${contentToUse.length} chars), truncating to ${MAX_CONTENT_LENGTH} chars`);
+      contentToUse = contentToUse.substring(0, MAX_CONTENT_LENGTH) + "...";
+    }
 
     const openAIPrompt = `
-    Based on the following text, create ${numberOfQuestions} multiple-choice questions to test knowledge about the content.
+    Generate ${numberOfQuestions} multiple-choice questions based on this content:
     
-    ${promptContent}
+    Book: ${book.Titel}
+    ${contentSource}
+    
+    Content: ${contentToUse}
     
     For each question:
-    1. Provide a clear question
+    1. Create a clear question based ONLY on the content provided
     2. Provide 4 possible answers where only one is correct
     3. Indicate which answer is correct (with the index: 0, 1, 2, or 3)
     4. Provide a brief explanation of why the answer is correct
     
-    Format the response as a JSON array of objects with the following structure:
+    Format the response as a JSON array with this structure:
     [
       {
         "question": "Question text",
@@ -187,7 +238,7 @@ serve(async (req) => {
       }
     ]
     
-    Do not include any markdown formatting, just return a valid JSON array.
+    Return ONLY the JSON array without any other text or formatting.
     `;
 
     // Call OpenAI API with timeout handling
@@ -199,7 +250,7 @@ serve(async (req) => {
     console.log('Calling OpenAI API...');
     
     // Create a promise for the fetch request
-    const fetchWithTimeout = async (timeoutMs = 60000) => {
+    const fetchWithTimeout = async (timeoutMs = 25000) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       
@@ -211,11 +262,11 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: "gpt-4o-mini", // Properly formatted model name without quotes
+            model: "gpt-3.5-turbo", // Using cheapest model
             messages: [
               {
                 role: 'system',
-                content: 'You are a helpful educational assistant that creates high-quality multiple-choice questions based on educational content. Your responses must be in valid JSON format without any markdown.'
+                content: 'You are a helpful educational assistant that creates high-quality multiple-choice questions based on educational content. Your responses must be in valid JSON format.'
               },
               {
                 role: 'user',
@@ -291,7 +342,7 @@ serve(async (req) => {
 
     console.log(`Saving ${quizQuestions.length} questions to the database`);
     
-    // Save the questions to the database
+    // Save the questions to the database with paragraph_id support
     for (const question of quizQuestions) {
       if (!question.question || !Array.isArray(question.options) || 
           question.correctAnswer === undefined || !question.explanation) {
@@ -300,8 +351,9 @@ serve(async (req) => {
       }
 
       const { error: insertError } = await supabase.from('quizzes').insert({
-        book_id: parseInt(bookId),
-        chapter_id: chapterId ? parseInt(chapterId) : null,
+        book_id: bookId,
+        chapter_id: chapterId || null,
+        paragraph_id: paragraphId || null,
         question: question.question,
         options: question.options,
         correct_answer: question.correctAnswer,
