@@ -155,6 +155,8 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         hasQuestions: data?.questions?.length > 0,
         numberOfQuestions: data?.questions?.length,
         firstQuestion: data?.questions?.[0],
+        success: data?.success,
+        message: data?.message
       }); // Extra debug info
       
       clearTimeout(feedbackTimeoutId);
@@ -175,6 +177,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       }
       
       if (data?.questions && data.questions.length > 0) {
+        console.log('Setting quiz questions:', data.questions.length, 'questions found');
         const formattedQuestions = data.questions.map((q: any) => ({
           ...q,
           options: Array.isArray(q.options) 
@@ -182,6 +185,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
             : []
         }));
         
+        console.log('Formatted questions:', formattedQuestions);
         setQuizQuestions(formattedQuestions);
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
@@ -189,6 +193,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         setScore(0);
         setIsQuizComplete(false);
       } else {
+        console.warn('No questions found in response:', data);
         setError('Geen vragen konden worden gegenereerd. Probeer het opnieuw.');
         toast.error('Geen vragen konden worden gegenereerd.');
       }
