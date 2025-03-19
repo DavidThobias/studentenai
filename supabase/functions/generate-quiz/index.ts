@@ -57,45 +57,60 @@ serve(async (req) => {
       );
     }
 
-    // Get book details
+    // Get book details - NOTE: Case sensitive table name!
+    console.log(`Fetching book with ID: ${bookId} from Boeken table`);
     const { data: book, error: bookError } = await supabase
       .from('Boeken')
       .select('*')
-      .eq('id', bookId)
+      .eq('id', parseInt(bookId))
       .single();
 
     if (bookError) {
-      console.error(`Error fetching book: ${bookError.message}`);
+      console.error(`Error fetching book: ${JSON.stringify(bookError)}`);
       throw new Error(`Error fetching book: ${bookError.message}`);
     }
+
+    if (!book) {
+      console.error(`No book found with ID: ${bookId}`);
+      throw new Error(`No book found with ID: ${bookId}`);
+    }
+
+    console.log(`Successfully fetched book: ${book.Titel}`);
 
     // Get chapter details if provided
     let chapterContent = '';
     let chapterTitle = '';
     
     if (chapterId) {
+      console.log(`Fetching chapter with ID: ${chapterId}`);
       const { data: chapter, error: chapterError } = await supabase
         .from('Chapters')
         .select('*')
-        .eq('id', chapterId)
+        .eq('id', parseInt(chapterId))
         .single();
 
       if (chapterError) {
-        console.error(`Error fetching chapter: ${chapterError.message}`);
+        console.error(`Error fetching chapter: ${JSON.stringify(chapterError)}`);
         throw new Error(`Error fetching chapter: ${chapterError.message}`);
+      }
+
+      if (!chapter) {
+        console.error(`No chapter found with ID: ${chapterId}`);
+        throw new Error(`No chapter found with ID: ${chapterId}`);
       }
 
       chapterTitle = chapter.Titel || '';
       console.log(`Fetched chapter: ${chapterTitle}`);
 
       // Get paragraph content for this chapter
+      console.log(`Fetching paragraphs for chapter: ${chapterId}`);
       const { data: paragraphs, error: paragraphsError } = await supabase
         .from('Paragraven')
         .select('content')
-        .eq('chapter_id', chapterId);
+        .eq('chapter_id', parseInt(chapterId));
 
       if (paragraphsError) {
-        console.error(`Error fetching paragraphs: ${paragraphsError.message}`);
+        console.error(`Error fetching paragraphs: ${JSON.stringify(paragraphsError)}`);
       }
 
       if (paragraphs && paragraphs.length > 0) {
@@ -106,13 +121,14 @@ serve(async (req) => {
       }
     } else {
       // If no chapter specified, get all chapters for the book
+      console.log(`Fetching all chapters for book: ${bookId}`);
       const { data: chapters, error: chaptersError } = await supabase
         .from('Chapters')
         .select('id, Titel')
-        .eq('Boek_id', bookId);
+        .eq('Boek_id', parseInt(bookId));
 
       if (chaptersError) {
-        console.error(`Error fetching chapters: ${chaptersError.message}`);
+        console.error(`Error fetching chapters: ${JSON.stringify(chaptersError)}`);
         throw new Error(`Error fetching chapters: ${chaptersError.message}`);
       }
 
@@ -120,14 +136,21 @@ serve(async (req) => {
 
       // For each chapter, get paragraphs
       for (const chapter of chapters || []) {
-        const { data: paragraphs } = await supabase
+        console.log(`Fetching paragraphs for chapter: ${chapter.id}`);
+        const { data: paragraphs, error: paragraphsError } = await supabase
           .from('Paragraven')
           .select('content')
-          .eq('chapter_id', chapter.id);
+          .eq('chapter_id', parseInt(chapter.id));
+        
+        if (paragraphsError) {
+          console.error(`Error fetching paragraphs for chapter ${chapter.id}: ${JSON.stringify(paragraphsError)}`);
+        }
         
         if (paragraphs && paragraphs.length > 0) {
           chapterContent += `${chapter.Titel}:\n${paragraphs.map(p => p.content).join('\n')}\n\n`;
           console.log(`Added ${paragraphs.length} paragraphs from chapter ${chapter.id}`);
+        } else {
+          console.log(`No paragraphs found for chapter ${chapter.id}`);
         }
       }
     }
@@ -188,7 +211,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: "gpt-4o-mini", // Fixed model name format (removed quotes)
+            model: "gpt-4o-mini", // Properly formatted model name without quotes
             messages: [
               {
                 role: 'system',
@@ -277,8 +300,8 @@ serve(async (req) => {
       }
 
       const { error: insertError } = await supabase.from('quizzes').insert({
-        book_id: bookId,
-        chapter_id: chapterId || null,
+        book_id: parseInt(bookId),
+        chapter_id: chapterId ? parseInt(chapterId) : null,
         question: question.question,
         options: question.options,
         correct_answer: question.correctAnswer,
@@ -286,7 +309,7 @@ serve(async (req) => {
       });
 
       if (insertError) {
-        console.error(`Error inserting question: ${insertError.message}`);
+        console.error(`Error inserting question: ${JSON.stringify(insertError)}`);
       }
     }
 

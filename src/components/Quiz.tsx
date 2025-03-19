@@ -133,6 +133,8 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
         setIsGeneratingQuiz(false);
       }, 45000); // 45 seconds is a reasonable timeout for the entire operation
       
+      console.log(`Calling generate-quiz function for book ${bookId}, chapter ${chapterId || 'all'}`);
+      
       // If no stored questions, generate new ones using the edge function
       const { data, error } = await supabase.functions.invoke('generate-quiz', {
         body: {

@@ -38,30 +38,43 @@ const BookDetail = () => {
         setLoading(true);
         if (!id) return;
 
-        // Fetch book details
+        console.log(`Fetching book details for ID: ${id}`);
+        // Fetch book details - NOTE: Case sensitive table name 'Boeken'
         const { data: bookData, error: bookError } = await supabase
           .from('Boeken')
           .select('*')
-          .eq('id', parseInt(id)) // Convert string to number
+          .eq('id', parseInt(id))
           .maybeSingle();
 
-        if (bookError) throw bookError;
+        if (bookError) {
+          console.error('Error fetching book details:', bookError);
+          throw bookError;
+        }
+        
         if (!bookData) {
+          console.error('Book not found:', id);
           toast.error('Boek niet gevonden');
           navigate('/books');
           return;
         }
 
+        console.log('Book data retrieved:', bookData);
         setBook(bookData);
 
         // Fetch chapters for this book
+        console.log(`Fetching chapters for book ID: ${id}`);
         const { data: chapterData, error: chapterError } = await supabase
           .from('Chapters')
           .select('*')
-          .eq('Boek_id', parseInt(id)) // Convert string to number
+          .eq('Boek_id', parseInt(id))
           .order('Hoofdstuknummer', { ascending: true });
 
-        if (chapterError) throw chapterError;
+        if (chapterError) {
+          console.error('Error fetching chapters:', chapterError);
+          throw chapterError;
+        }
+        
+        console.log(`Retrieved ${chapterData?.length || 0} chapters`);
         setChapters(chapterData || []);
       } catch (error) {
         console.error('Error fetching book details:', error);
@@ -75,6 +88,7 @@ const BookDetail = () => {
   }, [id, navigate]);
 
   const handleStartQuiz = (chapterId?: number) => {
+    console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}`);
     setSelectedChapterId(chapterId?.toString());
     setQuizOpen(true);
   };
