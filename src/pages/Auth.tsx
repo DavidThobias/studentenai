@@ -196,7 +196,7 @@ const Auth = () => {
                 <li>Minimaal 1 hoofdletter (A-Z)</li>
                 <li>Minimaal 1 kleine letter (a-z)</li>
                 <li>Minimaal 1 cijfer (0-9)</li>
-                <li>Speciale tekens zijn toegestaan (!@#$%^&*(),.?":{}|<>_+-=)</li>
+                <li>Speciale tekens zijn toegestaan (!@#$%^&amp;*(),.?":{}|&lt;&gt;_+-=)</li>
               </ul>
             </AlertDescription>
           </Alert>
