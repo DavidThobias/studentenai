@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import Quiz from '@/components/Quiz';
 
 interface BookData {
   id: number;
@@ -27,6 +29,8 @@ const BookDetail = () => {
   const [book, setBook] = useState<BookData | null>(null);
   const [chapters, setChapters] = useState<ChapterData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const fetchBookDetails = async () => {
@@ -70,8 +74,9 @@ const BookDetail = () => {
     fetchBookDetails();
   }, [id, navigate]);
 
-  const handleStartQuiz = () => {
-    toast.info('Quiz functionaliteit wordt binnenkort toegevoegd');
+  const handleStartQuiz = (chapterId?: number) => {
+    setSelectedChapterId(chapterId?.toString());
+    setQuizOpen(true);
   };
 
   if (loading) {
@@ -132,9 +137,9 @@ const BookDetail = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" onClick={handleStartQuiz} className="flex-1">
+              <Button size="lg" onClick={() => handleStartQuiz()} className="flex-1">
                 <Brain className="mr-2 h-5 w-5" />
-                Start leren
+                Start quiz over hele boek
               </Button>
               <Button size="lg" variant="outline" onClick={() => toast.info('Functionaliteit wordt binnenkort toegevoegd')} className="flex-1">
                 <FileText className="mr-2 h-5 w-5" />
@@ -160,9 +165,21 @@ const BookDetail = () => {
                       Leer over de belangrijkste concepten in dit hoofdstuk en test je kennis.
                     </p>
                   </CardContent>
-                  <CardFooter>
-                    <Button variant="ghost" className="w-full justify-between" onClick={() => toast.info('Hoofdstuk inhoud wordt binnenkort toegevoegd')}>
-                      Ga naar hoofdstuk
+                  <CardFooter className="flex flex-col sm:flex-row gap-2">
+                    <Button 
+                      onClick={() => handleStartQuiz(chapter.id)} 
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                    >
+                      <Brain className="mr-2 h-4 w-4" />
+                      Start quiz
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      className="w-full sm:w-auto justify-between"
+                      onClick={() => toast.info('Hoofdstuk inhoud wordt binnenkort toegevoegd')}
+                    >
+                      Bekijk hoofdstuk
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </CardFooter>
@@ -188,6 +205,26 @@ const BookDetail = () => {
           </Button>
         </div>
       </div>
+
+      {/* Quiz Dialog */}
+      <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedChapterId 
+                ? `Quiz over hoofdstuk ${chapters.find(c => c.id.toString() === selectedChapterId)?.Hoofdstuknummer || ''}`
+                : `Quiz over ${book?.Titel}`}
+            </DialogTitle>
+          </DialogHeader>
+          {quizOpen && (
+            <Quiz 
+              bookId={id || ''} 
+              chapterId={selectedChapterId} 
+              onClose={() => setQuizOpen(false)} 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

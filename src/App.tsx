@@ -11,7 +11,20 @@ import Learn from "./pages/Learn";
 import Books from "./pages/Books";
 import BookDetail from "./pages/BookDetail";
 
+// Create a client
 const queryClient = new QueryClient();
+
+// Route proxy for Supabase Edge Functions
+if (window.location.pathname.startsWith('/api/')) {
+  const originalFetch = window.fetch;
+  window.fetch = async (url, options) => {
+    if (typeof url === 'string' && url.startsWith('/api/')) {
+      const functionName = url.split('/api/')[1].split('?')[0];
+      return originalFetch(`https://ncipejuazrewiizxtkcj.supabase.co/functions/v1/${functionName}`, options);
+    }
+    return originalFetch(url, options);
+  };
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
