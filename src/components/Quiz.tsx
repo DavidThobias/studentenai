@@ -247,40 +247,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
     );
   }
 
-  if (isQuizComplete) {
-    const percentage = Math.round((score / quizQuestions.length) * 100);
-    
-    return (
-      <div className="flex flex-col items-center justify-center p-8 space-y-6">
-        <h2 className="text-2xl font-semibold text-center">Quiz voltooid!</h2>
-        
-        <div className="w-full max-w-md">
-          <Progress value={percentage} className="h-6" />
-          <p className="text-center mt-2 text-sm text-muted-foreground">{percentage}% correct</p>
-        </div>
-        
-        <div className="w-32 h-32 rounded-full border-4 flex items-center justify-center">
-          <span className="text-4xl font-bold">{score}/{quizQuestions.length}</span>
-        </div>
-        
-        <p className="text-center text-lg">
-          Je hebt {score} van de {quizQuestions.length} vragen goed beantwoord.
-        </p>
-        
-        <div className="flex flex-col sm:flex-row gap-4 mt-6">
-          <Button onClick={handleRestartQuiz} variant="outline">
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Opnieuw proberen
-          </Button>
-          
-          <Button onClick={onClose}>
-            Sluiten
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   const currentQuestion = quizQuestions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / quizQuestions.length) * 100;
   
@@ -290,115 +256,136 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         <DialogHeader>
           <DialogTitle>Quiz</DialogTitle>
           <DialogDescription>
-            Vraag {currentQuestionIndex + 1} van {quizQuestions.length}
+            {isQuizComplete ? (
+              "Quiz voltooid!"
+            ) : (
+              `Vraag ${currentQuestionIndex + 1} van ${quizQuestions.length}`
+            )}
           </DialogDescription>
         </DialogHeader>
 
-        <Card className="border-0 shadow-none">
-          <CardHeader>
-            <CardTitle className="text-lg">
-              {quizQuestions[currentQuestionIndex].question}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RadioGroup
-              value={selectedAnswer?.toString()}
-              onValueChange={(value) => handleAnswerSelect(parseInt(value))}
-              className="space-y-3"
-              disabled={isAnswerSubmitted}
-            >
-              {quizQuestions[currentQuestionIndex].options.map((option, index) => (
-                <div
-                  key={index}
-                  className={`flex items-center space-x-2 rounded-lg border p-4 ${
-                    isAnswerSubmitted
-                      ? index === quizQuestions[currentQuestionIndex].correctAnswer
-                        ? 'border-green-500 bg-green-50'
-                        : index === selectedAnswer
-                        ? 'border-red-500 bg-red-50'
-                        : ''
-                      : 'hover:border-primary'
-                  }`}
-                >
-                  <RadioGroupItem value={index.toString()} id={`option-${index}`} />
-                  <Label
-                    htmlFor={`option-${index}`}
-                    className="flex-grow cursor-pointer"
-                  >
-                    {option}
-                  </Label>
-                  {isAnswerSubmitted && (
-                    <div className="ml-2">
-                      {index === quizQuestions[currentQuestionIndex].correctAnswer ? (
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                      ) : index === selectedAnswer ? (
-                        <XCircle className="h-5 w-5 text-red-500" />
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </RadioGroup>
-
-            {isAnswerSubmitted && showExplanation && (
-              <Alert className="mt-4">
-                <HelpCircle className="h-4 w-4" />
-                <AlertTitle>Uitleg</AlertTitle>
-                <AlertDescription>
-                  {quizQuestions[currentQuestionIndex].explanation}
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-          <CardFooter className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0">
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleToggleExplanation}
-                disabled={!isAnswerSubmitted}
-              >
-                {showExplanation ? 'Verberg uitleg' : 'Toon uitleg'}
+        {isQuizComplete ? (
+          <div className="flex flex-col items-center justify-center space-y-6">
+            <div className="w-full max-w-md">
+              <Progress 
+                value={Math.round((score / quizQuestions.length) * 100)} 
+                className="h-6" 
+              />
+              <p className="text-center mt-2 text-sm text-muted-foreground">
+                {Math.round((score / quizQuestions.length) * 100)}% correct
+              </p>
+            </div>
+            
+            <div className="w-32 h-32 rounded-full border-4 flex items-center justify-center">
+              <span className="text-4xl font-bold">{score}/{quizQuestions.length}</span>
+            </div>
+            
+            <p className="text-center text-lg">
+              Je hebt {score} van de {quizQuestions.length} vragen goed beantwoord.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 mt-6">
+              <Button onClick={handleRestartQuiz} variant="outline">
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Opnieuw proberen
               </Button>
-              {isQuizComplete && (
+              
+              <Button onClick={onClose}>
+                Sluiten
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Card className="border-0 shadow-none">
+            <CardHeader>
+              <CardTitle className="text-lg">
+                {currentQuestion.question}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup
+                value={selectedAnswer?.toString()}
+                onValueChange={(value) => handleAnswerSelect(parseInt(value))}
+                className="space-y-3"
+                disabled={isAnswerSubmitted}
+              >
+                {currentQuestion.options.map((option, index) => (
+                  <div
+                    key={index}
+                    className={`flex items-center space-x-2 rounded-lg border p-4 ${
+                      isAnswerSubmitted
+                        ? index === currentQuestion.correctAnswer
+                          ? 'border-green-500 bg-green-50'
+                          : index === selectedAnswer
+                          ? 'border-red-500 bg-red-50'
+                          : ''
+                        : 'hover:border-primary'
+                    }`}
+                  >
+                    <RadioGroupItem value={index.toString()} id={`option-${index}`} />
+                    <Label
+                      htmlFor={`option-${index}`}
+                      className="flex-grow cursor-pointer"
+                    >
+                      {option}
+                    </Label>
+                    {isAnswerSubmitted && (
+                      <div className="ml-2">
+                        {index === currentQuestion.correctAnswer ? (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        ) : index === selectedAnswer ? (
+                          <XCircle className="h-5 w-5 text-red-500" />
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </RadioGroup>
+
+              {isAnswerSubmitted && showExplanation && (
+                <Alert className="mt-4">
+                  <HelpCircle className="h-4 w-4" />
+                  <AlertTitle>Uitleg</AlertTitle>
+                  <AlertDescription>
+                    {currentQuestion.explanation}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+            <CardFooter className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0">
+              <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleRestartQuiz}
+                  onClick={handleToggleExplanation}
+                  disabled={!isAnswerSubmitted}
                 >
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  Opnieuw
+                  {showExplanation ? 'Verberg uitleg' : 'Toon uitleg'}
                 </Button>
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              {!isAnswerSubmitted ? (
-                <Button
-                  onClick={handleSubmitAnswer}
-                  disabled={selectedAnswer === null}
-                >
-                  Controleer antwoord
-                </Button>
-              ) : !isQuizComplete ? (
-                <Button onClick={handleNextQuestion}>
-                  Volgende vraag
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              ) : (
-                <Button onClick={onClose}>
-                  Afronden
-                </Button>
-              )}
-            </div>
-          </CardFooter>
-        </Card>
-
-        {isQuizComplete && (
-          <div className="mt-4 text-center">
-            <p className="text-lg font-semibold">
-              Quiz voltooid! Je score: {score} van de {quizQuestions.length} ({Math.round((score / quizQuestions.length) * 100)}%)
-            </p>
-          </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                {!isAnswerSubmitted ? (
+                  <Button
+                    onClick={handleSubmitAnswer}
+                    disabled={selectedAnswer === null}
+                  >
+                    Controleer antwoord
+                  </Button>
+                ) : (
+                  <Button onClick={handleNextQuestion}>
+                    {currentQuestionIndex < quizQuestions.length - 1 ? (
+                      <>
+                        Volgende vraag
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    ) : (
+                      'Bekijk resultaten'
+                    )}
+                  </Button>
+                )}
+              </div>
+            </CardFooter>
+          </Card>
         )}
       </DialogContent>
     </Dialog>
