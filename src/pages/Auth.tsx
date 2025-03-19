@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation, Navigate } from 'react-router-dom';
@@ -26,15 +25,15 @@ const loginSchema = z.object({
 });
 
 const signupSchema = z.object({
-  email: z.string().email('Vul een geldig e-mailadres in'),
+  email: z.string().email('Dit e-mailadres is niet geldig. Controleer of je het juist hebt ingevoerd.'),
   password: z.string()
-    .min(8, 'Wachtwoord moet minimaal 8 tekens bevatten')
-    .regex(/[A-Z]/, 'Wachtwoord moet minimaal 1 hoofdletter bevatten')
-    .regex(/[a-z]/, 'Wachtwoord moet minimaal 1 kleine letter bevatten')
-    .regex(/[0-9]/, 'Wachtwoord moet minimaal 1 cijfer bevatten'),
-  confirmPassword: z.string().min(1, 'Bevestig je wachtwoord'),
+    .min(8, 'Je wachtwoord moet minimaal 8 tekens lang zijn')
+    .regex(/[A-Z]/, 'Je wachtwoord moet minimaal 1 hoofdletter bevatten')
+    .regex(/[a-z]/, 'Je wachtwoord moet minimaal 1 kleine letter bevatten')
+    .regex(/[0-9]/, 'Je wachtwoord moet minimaal 1 cijfer bevatten'),
+  confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Wachtwoorden komen niet overeen",
+  message: "De wachtwoorden zijn niet hetzelfde. Probeer het opnieuw.",
   path: ["confirmPassword"],
 });
 
@@ -149,8 +148,14 @@ const Auth = () => {
 
         {!isLogin && (
           <Alert>
-            <AlertDescription>
-              Wachtwoord moet minimaal 8 tekens bevatten, met minimaal 1 hoofdletter, 1 kleine letter, en 1 cijfer.
+            <AlertDescription className="text-sm">
+              Zorg dat je wachtwoord voldoet aan deze eisen:
+              <ul className="list-disc pl-4 mt-2">
+                <li>Minimaal 8 tekens lang</li>
+                <li>Minimaal 1 hoofdletter (A-Z)</li>
+                <li>Minimaal 1 kleine letter (a-z)</li>
+                <li>Minimaal 1 cijfer (0-9)</li>
+              </ul>
             </AlertDescription>
           </Alert>
         )}
