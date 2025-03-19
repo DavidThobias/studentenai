@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -250,11 +249,12 @@ serve(async (req) => {
     console.log('Calling OpenAI API...');
     
     // Create a promise for the fetch request
-    const fetchWithTimeout = async (timeoutMs = 25000) => {
+    const fetchWithTimeout = async (timeoutMs = 60000) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       
       try {
+        console.log('Starting OpenAI API request...');
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -262,11 +262,11 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: "gpt-3.5-turbo", // Using cheapest model
+            model: 'gpt-3.5-turbo',  // Explicitly set the model
             messages: [
               {
                 role: 'system',
-                content: 'You are a helpful educational assistant that creates high-quality multiple-choice questions based on educational content. Your responses must be in valid JSON format.'
+                content: 'You are a helpful educational assistant that creates high-quality multiple-choice questions based on educational content. Your responses must be in valid JSON format without any markdown.'
               },
               {
                 role: 'user',
@@ -278,9 +278,11 @@ serve(async (req) => {
           signal: controller.signal,
         });
         
+        console.log('OpenAI API response received');
         clearTimeout(timeoutId);
         return response;
       } catch (error) {
+        console.error('Error in OpenAI API call:', error);
         clearTimeout(timeoutId);
         if (error.name === 'AbortError') {
           throw new Error('Request timeout: OpenAI API took too long to respond');
