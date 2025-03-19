@@ -44,6 +44,8 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
 
   const fetchStoredQuestions = async () => {
     try {
+      console.log('=== Fetching Stored Questions ===');
+      console.log('Parameters:', { bookId, chapterId, paragraphId });
       setIsLoadingExistingQuestions(true);
       
       // First build the base query
@@ -66,6 +68,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         query = query.is('paragraph_id', null);
       }
       
+      console.log('Executing Supabase query for stored questions...');
       // Execute the final query
       const { data, error } = await query;
       
@@ -73,6 +76,12 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         console.error('Error fetching stored questions:', error);
         return false;
       }
+      
+      console.log('Query results:', { 
+        hasData: !!data, 
+        questionsCount: data?.length,
+        firstQuestion: data?.[0]
+      });
       
       if (data && data.length >= 3) {
         const formattedQuestions = data.map(q => ({
@@ -84,6 +93,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
           explanation: q.explanation || 'No explanation provided.'
         }));
         
+        console.log('Formatted stored questions:', formattedQuestions);
         setQuizQuestions(formattedQuestions);
         return true;
       }
@@ -103,6 +113,16 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
 
   const generateQuiz = async () => {
     try {
+      console.log('=== Start Quiz Generation Process ===');
+      console.log('Initial state:', {
+        isLoading,
+        currentError: error,
+        quizQuestionsLength: quizQuestions.length,
+        currentQuestionIndex,
+        isGeneratingQuiz,
+        generationAttempts
+      });
+      
       console.log('Start generating quiz...');
       setIsLoading(true);
       setIsGeneratingQuiz(true);
@@ -111,7 +131,9 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       
       const hasStoredQuestions = await fetchStoredQuestions();
       console.log('Has stored questions:', hasStoredQuestions);
+      
       if (hasStoredQuestions) {
+        console.log('Using stored questions from database');
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
         setIsAnswerSubmitted(false);
@@ -122,6 +144,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         return;
       }
       
+      console.log('No stored questions found, generating new questions...');
       setGenerationAttempts(prev => prev + 1);
       
       const feedbackTimeoutId = setTimeout(() => {
