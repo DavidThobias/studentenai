@@ -162,7 +162,7 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
 
   const handleNextQuestion = () => {
     if (currentQuestionIndex < quizQuestions.length - 1) {
-      setCurrentQuestionIndex(prevIndex => prevIndex + 1);
+      setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
       setIsAnswerSubmitted(false);
       setShowExplanation(false);
@@ -186,58 +186,64 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
 
   if (quizQuestions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 space-y-6">
-        <h2 className="text-2xl font-semibold text-center">Quiz</h2>
-        <p className="text-center text-muted-foreground">
-          Test je kennis met een AI-gegenereerde quiz over dit boek.
-        </p>
-        
-        {error && (
-          <Alert variant="destructive" className="my-4">
-            <AlertTitle>Fout</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        
-        {timeoutOccurred && (
-          <Alert className="my-4 border-orange-500">
-            <AlertTriangle className="h-4 w-4 text-orange-500" />
-            <AlertTitle className="text-orange-500">Timeout</AlertTitle>
-            <AlertDescription>
-              De verbinding met de server duurde te lang. Dit kan gebeuren als de server te druk is of als er problemen zijn met de internetverbinding.
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        {isGeneratingQuiz ? (
-          <div className="w-full max-w-md my-4 flex flex-col items-center">
-            <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-            <p className="text-center mb-2">Quiz wordt gegenereerd...</p>
-            <Progress value={undefined} className="h-2 w-full animate-pulse" />
-            <p className="text-xs text-center mt-2 text-muted-foreground">
-              Dit kan tot 30 seconden duren. Even geduld...
-            </p>
-          </div>
-        ) : (
-          <Button 
-            onClick={generateQuiz} 
-            disabled={isLoading || isGeneratingQuiz}
-            size="lg"
-            className="mt-4 w-full sm:w-auto"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Quiz genereren...
-              </>
-            ) : generationAttempts > 0 ? (
-              'Opnieuw proberen'
-            ) : (
-              'Start Quiz'
+      <Dialog open onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Quiz</DialogTitle>
+            <DialogDescription>
+              Test je kennis met een AI-gegenereerde quiz over dit boek.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center justify-center space-y-6">
+            {error && (
+              <Alert variant="destructive" className="my-4">
+                <AlertTitle>Fout</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
-          </Button>
-        )}
-      </div>
+            
+            {timeoutOccurred && (
+              <Alert className="my-4 border-orange-500">
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                <AlertTitle className="text-orange-500">Timeout</AlertTitle>
+                <AlertDescription>
+                  De verbinding met de server duurde te lang. Dit kan gebeuren als de server te druk is of als er problemen zijn met de internetverbinding.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {isGeneratingQuiz ? (
+              <div className="w-full max-w-md my-4 flex flex-col items-center">
+                <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+                <p className="text-center mb-2">Quiz wordt gegenereerd...</p>
+                <Progress value={undefined} className="h-2 w-full animate-pulse" />
+                <p className="text-xs text-center mt-2 text-muted-foreground">
+                  Dit kan tot 30 seconden duren. Even geduld...
+                </p>
+              </div>
+            ) : (
+              <Button 
+                onClick={generateQuiz} 
+                disabled={isLoading || isGeneratingQuiz}
+                size="lg"
+                className="mt-4 w-full sm:w-auto"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Quiz genereren...
+                  </>
+                ) : generationAttempts > 0 ? (
+                  'Opnieuw proberen'
+                ) : (
+                  'Start Quiz'
+                )}
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     );
   }
 
@@ -279,107 +285,123 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
   const progress = ((currentQuestionIndex + 1) / quizQuestions.length) * 100;
   
   return (
-    <div className="p-4 sm:p-6 flex flex-col space-y-6">
-      <div className="space-y-2">
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Quiz</DialogTitle>
+          <DialogDescription>
             Vraag {currentQuestionIndex + 1} van {quizQuestions.length}
-          </span>
-          <span className="text-sm font-medium">
-            Score: {score}/{currentQuestionIndex + (isAnswerSubmitted ? 1 : 0)}
-          </span>
-        </div>
-        <Progress value={progress} className="h-2" />
-      </div>
-      
-      <div className="space-y-4">
-        <h3 className="text-xl font-medium">{currentQuestion.question}</h3>
-        
-        <RadioGroup value={selectedAnswer?.toString() || ""} className="space-y-3">
-          {currentQuestion.options.map((option, index) => {
-            let variantClass = "border-border bg-card";
-            
-            if (isAnswerSubmitted) {
-              if (index === currentQuestion.correctAnswer) {
-                variantClass = "border-green-500 bg-green-50 dark:bg-green-950";
-              } else if (index === selectedAnswer) {
-                variantClass = "border-red-500 bg-red-50 dark:bg-red-950";
-              }
-            }
-            
-            return (
-              <div
-                key={index}
-                className={`flex items-center space-x-2 rounded-md border p-3 cursor-pointer transition-colors ${variantClass}`}
-                onClick={() => handleAnswerSelect(index)}
-              >
-                <RadioGroupItem 
-                  value={index.toString()} 
-                  id={`option-${index}`} 
-                  disabled={isAnswerSubmitted}
-                  checked={selectedAnswer === index}
-                />
-                <Label 
-                  htmlFor={`option-${index}`} 
-                  className="flex-grow cursor-pointer"
-                >
-                  {option}
-                </Label>
-                
-                {isAnswerSubmitted && index === currentQuestion.correctAnswer && (
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                )}
-                
-                {isAnswerSubmitted && index === selectedAnswer && index !== currentQuestion.correctAnswer && (
-                  <XCircle className="h-5 w-5 text-red-500" />
-                )}
-              </div>
-            );
-          })}
-        </RadioGroup>
-      </div>
-      
-      {isAnswerSubmitted && (
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-4"
-        >
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleToggleExplanation}
-            className="flex items-center"
-          >
-            <HelpCircle className="mr-2 h-4 w-4" />
-            {showExplanation ? 'Verberg uitleg' : 'Toon uitleg'}
-          </Button>
-          
-          {showExplanation && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="mt-3 p-4 bg-muted rounded-md"
+          </DialogDescription>
+        </DialogHeader>
+
+        <Card className="border-0 shadow-none">
+          <CardHeader>
+            <CardTitle className="text-lg">
+              {quizQuestions[currentQuestionIndex].question}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RadioGroup
+              value={selectedAnswer?.toString()}
+              onValueChange={(value) => handleAnswerSelect(parseInt(value))}
+              className="space-y-3"
+              disabled={isAnswerSubmitted}
             >
-              <p>{currentQuestion.explanation}</p>
-            </motion.div>
-          )}
-        </motion.div>
-      )}
-      
-      <div className="pt-4 flex justify-between">
-        {!isAnswerSubmitted ? (
-          <Button onClick={handleSubmitAnswer}>
-            Controleer antwoord
-          </Button>
-        ) : (
-          <Button onClick={handleNextQuestion}>
-            {currentQuestionIndex < quizQuestions.length - 1 ? 'Volgende vraag' : 'Bekijk resultaten'}
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+              {quizQuestions[currentQuestionIndex].options.map((option, index) => (
+                <div
+                  key={index}
+                  className={`flex items-center space-x-2 rounded-lg border p-4 ${
+                    isAnswerSubmitted
+                      ? index === quizQuestions[currentQuestionIndex].correctAnswer
+                        ? 'border-green-500 bg-green-50'
+                        : index === selectedAnswer
+                        ? 'border-red-500 bg-red-50'
+                        : ''
+                      : 'hover:border-primary'
+                  }`}
+                >
+                  <RadioGroupItem value={index.toString()} id={`option-${index}`} />
+                  <Label
+                    htmlFor={`option-${index}`}
+                    className="flex-grow cursor-pointer"
+                  >
+                    {option}
+                  </Label>
+                  {isAnswerSubmitted && (
+                    <div className="ml-2">
+                      {index === quizQuestions[currentQuestionIndex].correctAnswer ? (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      ) : index === selectedAnswer ? (
+                        <XCircle className="h-5 w-5 text-red-500" />
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </RadioGroup>
+
+            {isAnswerSubmitted && showExplanation && (
+              <Alert className="mt-4">
+                <HelpCircle className="h-4 w-4" />
+                <AlertTitle>Uitleg</AlertTitle>
+                <AlertDescription>
+                  {quizQuestions[currentQuestionIndex].explanation}
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+          <CardFooter className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0">
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleToggleExplanation}
+                disabled={!isAnswerSubmitted}
+              >
+                {showExplanation ? 'Verberg uitleg' : 'Toon uitleg'}
+              </Button>
+              {isQuizComplete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRestartQuiz}
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Opnieuw
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              {!isAnswerSubmitted ? (
+                <Button
+                  onClick={handleSubmitAnswer}
+                  disabled={selectedAnswer === null}
+                >
+                  Controleer antwoord
+                </Button>
+              ) : !isQuizComplete ? (
+                <Button onClick={handleNextQuestion}>
+                  Volgende vraag
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              ) : (
+                <Button onClick={onClose}>
+                  Afronden
+                </Button>
+              )}
+            </div>
+          </CardFooter>
+        </Card>
+
+        {isQuizComplete && (
+          <div className="mt-4 text-center">
+            <p className="text-lg font-semibold">
+              Quiz voltooid! Je score: {score} van de {quizQuestions.length} ({Math.round((score / quizQuestions.length) * 100)}%)
+            </p>
+          </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
