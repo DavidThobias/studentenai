@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw } from 'lucide-react';
+import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -39,6 +39,8 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(false);
   const [isLoadingExistingQuestions, setIsLoadingExistingQuestions] = useState(true);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [generationAttempts, setGenerationAttempts] = useState(0);
+  const [timeoutOccurred, setTimeoutOccurred] = useState(false);
 
   // Check if we already have stored questions for this book/chapter
   const fetchStoredQuestions = async () => {
@@ -98,6 +100,7 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
       setIsLoading(true);
       setIsGeneratingQuiz(true);
       setError(null);
+      setTimeoutOccurred(false);
       
       // First check if we already have stored questions (refresh check)
       const hasStoredQuestions = await fetchStoredQuestions();
@@ -112,11 +115,23 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
         return;
       }
       
-      // Set a timeout for the quiz generation
-      const timeoutId = setTimeout(() => {
+      // Increment attempt counter
+      setGenerationAttempts(prev => prev + 1);
+      
+      // Set a timeout for the quiz generation feedback
+      const feedbackTimeoutId = setTimeout(() => {
         setError('De quiz generatie duurt langer dan verwacht. We werken eraan...');
         toast.info('Quiz generatie duurt langer dan verwacht. Even geduld...');
-      }, 10000); // 10 seconds timeout for feedback
+      }, 8000); // Shorter timeout for feedback
+      
+      // Set a timeout for actual timeout handling
+      const timeoutId = setTimeout(() => {
+        setTimeoutOccurred(true);
+        setError('Het lijkt erop dat de quiz generatie te lang duurt. Probeer het opnieuw of kies een ander hoofdstuk.');
+        toast.error('Timeout bij het genereren van de quiz.');
+        setIsLoading(false);
+        setIsGeneratingQuiz(false);
+      }, 45000); // 45 seconds is a reasonable timeout for the entire operation
       
       // If no stored questions, generate new ones using the edge function
       const { data, error } = await supabase.functions.invoke('generate-quiz', {
@@ -127,11 +142,20 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
         },
       });
       
+      // Clear both timeouts if we get a response
+      clearTimeout(feedbackTimeoutId);
       clearTimeout(timeoutId);
       
       if (error) {
         console.error('Error invoking generate-quiz function:', error);
-        setError('Er is een fout opgetreden bij het genereren van de quiz. Probeer het opnieuw.');
+        setError(`Er is een fout opgetreden bij het genereren van de quiz: ${error.message}`);
+        toast.error('Fout bij het genereren van de quiz.');
+        return;
+      }
+      
+      if (data?.error) {
+        console.error('Error from generate-quiz function:', data.error);
+        setError(`Er is een fout opgetreden bij het genereren van de quiz: ${data.error}`);
         toast.error('Fout bij het genereren van de quiz.');
         return;
       }
@@ -157,7 +181,7 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
       }
     } catch (error) {
       console.error('Error generating quiz:', error);
-      setError('Er is een onverwachte fout opgetreden. Probeer het opnieuw.');
+      setError(`Er is een onverwachte fout opgetreden: ${error instanceof Error ? error.message : 'Onbekende fout'}`);
       toast.error('Er is een fout opgetreden bij het genereren van de quiz.');
     } finally {
       setIsLoading(false);
@@ -242,6 +266,16 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
           </Alert>
         )}
         
+        {timeoutOccurred && (
+          <Alert className="my-4 border-orange-500">
+            <AlertTriangle className="h-4 w-4 text-orange-500" />
+            <AlertTitle className="text-orange-500">Timeout</AlertTitle>
+            <AlertDescription>
+              De verbinding met de server duurde te lang. Dit kan gebeuren als de server te druk is of als er problemen zijn met de internetverbinding.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         {isGeneratingQuiz && (
           <div className="w-full max-w-md my-4">
             <p className="text-center mb-2">Quiz genereren...</p>
@@ -258,7 +292,7 @@ const Quiz = ({ bookId, chapterId, onClose }: QuizProps) => {
           size="lg"
           className="mt-4"
         >
-          {isLoading ? 'Quiz genereren...' : 'Start Quiz'}
+          {isLoading ? 'Quiz genereren...' : generationAttempts > 0 ? 'Opnieuw proberen' : 'Start Quiz'}
         </Button>
       </div>
     );

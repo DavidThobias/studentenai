@@ -188,7 +188,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini', // Using a supported model
+            model: "gpt-4o-mini", // Fixed model name format (removed quotes)
             messages: [
               {
                 role: 'system',
@@ -226,7 +226,7 @@ serve(async (req) => {
     if (!openAIResponse.ok) {
       const errorText = await openAIResponse.text();
       console.error(`OpenAI API error (${openAIResponse.status}): ${errorText}`);
-      throw new Error(`OpenAI API error: ${openAIResponse.status} - ${errorText}`);
+      throw new Error(`OpenAI API error (${openAIResponse.status}): ${errorText}`);
     }
 
     const openAIData = await openAIResponse.json();
@@ -303,7 +303,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error generating quiz:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'An unknown error occurred' }),
+      JSON.stringify({ 
+        error: error.message || 'An unknown error occurred',
+        source: error.stack ? 'Edge function error' : 'Unknown source'
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
