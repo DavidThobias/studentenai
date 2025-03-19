@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -10,6 +11,7 @@ import ParagraphsList from '@/components/book/ParagraphsList';
 import UpcomingFeatures from '@/components/book/UpcomingFeatures';
 import LoadingBookDetail from '@/components/book/LoadingBookDetail';
 import { useBookDetail } from '@/hooks/useBookDetail';
+import { toast } from "sonner"; 
 
 const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +33,11 @@ const BookDetail = () => {
     console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}${paragraphId ? `, paragraph ${paragraphId}` : ''}`);
     setSelectedChapterId(chapterId?.toString());
     setSelectedParagraphId(paragraphId?.toString());
+    
+    // Add a toast to give the user feedback
+    toast.info('Quiz wordt voorbereid...');
+    
+    // Set dialog open which will trigger the quiz to generate
     setQuizOpen(true);
   };
 
@@ -75,28 +82,28 @@ const BookDetail = () => {
 
       {/* Quiz Dialog */}
       <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
-        {quizOpen && (
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {selectedParagraphId 
-                  ? `Quiz over paragraaf ${paragraphs.find(p => p.id.toString() === selectedParagraphId)?.["paragraaf nummer"] || ''}`
-                  : selectedChapterId 
-                    ? `Quiz over hoofdstuk ${chapters.find(c => c.id.toString() === selectedChapterId)?.Hoofdstuknummer || ''}`
-                    : `Quiz over ${book?.Titel}`}
-              </DialogTitle>
-              <DialogDescription>
-                Test je kennis met deze interactieve quiz over het hoofdstuk.
-              </DialogDescription>
-            </DialogHeader>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedParagraphId 
+                ? `Quiz over paragraaf ${paragraphs.find(p => p.id.toString() === selectedParagraphId)?.["paragraaf nummer"] || ''}`
+                : selectedChapterId 
+                  ? `Quiz over hoofdstuk ${chapters.find(c => c.id.toString() === selectedChapterId)?.Hoofdstuknummer || ''}`
+                  : `Quiz over ${book?.Titel}`}
+            </DialogTitle>
+            <DialogDescription>
+              Test je kennis met deze interactieve quiz over het hoofdstuk.
+            </DialogDescription>
+          </DialogHeader>
+          {quizOpen && (
             <Quiz 
               bookId={id || ''} 
               chapterId={selectedChapterId} 
               paragraphId={selectedParagraphId}
               onClose={() => setQuizOpen(false)} 
             />
-          </DialogContent>
-        )}
+          )}
+        </DialogContent>
       </Dialog>
     </div>
   );
