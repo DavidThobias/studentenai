@@ -19,7 +19,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth moet binnen een AuthProvider gebruikt worden');
   }
   return context;
 };
@@ -34,21 +34,29 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Load initial session
   useEffect(() => {
-    // Check active session and user on mount
     const getInitialSession = async () => {
-      setIsLoading(true);
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      setIsLoading(false);
+      try {
+        setIsLoading(true);
+        
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          console.log("User already logged in:", session.user.email);
+        }
+      } catch (error) {
+        console.error("Error retrieving session:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     getInitialSession();
 
-    // Listen for auth changes
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
@@ -57,34 +65,55 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
     );
 
+    // Clean up subscription on unmount
     return () => subscription.unsubscribe();
   }, []);
 
+  // Translate error messages to Dutch
+  const translateError = (errorMessage: string): string => {
+    if (errorMessage.includes('Invalid login credentials')) {
+      return 'Ongeldige inloggegevens. Controleer je e-mailadres en wachtwoord.';
+    }
+    if (errorMessage.includes('Email not confirmed')) {
+      return 'E-mail is nog niet bevestigd. Controleer je inbox.';
+    }
+    if (errorMessage.includes('User already registered')) {
+      return 'Dit e-mailadres is al geregistreerd.';
+    }
+    if (errorMessage.includes('invalid email')) {
+      return 'Ongeldig e-mailadres formaat.';
+    }
+    if (errorMessage.includes('Password should be at least')) {
+      return 'Wachtwoord moet minimaal 6 tekens bevatten.';
+    }
+    return errorMessage;
+  };
+
+  // Sign in with email and password
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      console.log("Attempting to sign in with email:", email);
       
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
       
       if (error) {
-        console.error("Login error:", error);
-        throw error;
+        throw new Error(translateError(error.message));
       }
       
-      console.log("Sign in successful:", data);
+      console.log("Login successful:", data.user?.email);
       navigate('/');
       toast({
         title: "Succesvol ingelogd",
         description: "Welkom terug!",
       });
     } catch (error: any) {
-      console.error("Login error details:", error);
+      console.error("Login error:", error);
       toast({
         title: "Inloggen mislukt",
-        description: error.message.includes('Invalid login credentials') 
-          ? "Ongeldige inloggegevens. Controleer je e-mailadres en wachtwoord."
-          : error.message,
+        description: error.message,
         variant: "destructive",
       });
       throw error;
@@ -93,34 +122,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  // Sign up with email and password
   const signUp = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      console.log("Attempting to sign up with email:", email);
-      
-      // Make sure Supabase is initialized correctly
-      console.log("Supabase client initialized:", !!supabase);
       
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
         options: {
-          // This ensures we get redirected back to our app after email confirmation
-          emailRedirectTo: window.location.origin + '/auth'
+          emailRedirectTo: `${window.location.origin}/auth`
         }
       });
       
       if (error) {
-        console.error("Signup error:", error);
-        throw error;
+        throw new Error(translateError(error.message));
       }
-      
-      console.log("Sign up response:", data);
       
       // Check if email confirmation is required
       if (data?.user?.identities?.length === 0) {
-        console.error("User already exists error");
-        throw new Error("User already registered");
+        throw new Error("Dit e-mailadres is al geregistreerd.");
       }
       
       toast({
@@ -128,26 +149,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         description: "Controleer je e-mail om je registratie te voltooien.",
       });
       
-      // Navigate to login after signup
       navigate('/auth', { state: { justSignedUp: true } });
     } catch (error: any) {
-      console.error("Signup error details:", error);
-      
-      let errorMessage = error.message;
-      
-      // Check for specific error cases
-      if (error.message.includes('User already registered') || 
-          (error.message === "User already registered")) {
-        errorMessage = "Dit e-mailadres is al geregistreerd.";
-      } else if (error.message.includes('Password should be at least')) {
-        errorMessage = "Wachtwoord moet minimaal 6 tekens bevatten.";
-      } else if (error.message.includes('invalid email')) {
-        errorMessage = "Ongeldig e-mailadres formaat.";
-      }
-      
+      console.error("Signup error:", error);
       toast({
         title: "Registratie mislukt",
-        description: errorMessage,
+        description: error.message,
         variant: "destructive",
       });
       throw error;
@@ -156,17 +163,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  // Sign out
   const signOut = async () => {
     try {
       setIsLoading(true);
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      
+      if (error) {
+        throw error;
+      }
+      
       navigate('/auth');
       toast({
         title: "Uitgelogd",
         description: "Tot ziens!",
       });
     } catch (error: any) {
+      console.error("Logout error:", error);
       toast({
         title: "Uitloggen mislukt",
         description: error.message,
