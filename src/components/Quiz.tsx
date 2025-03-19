@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 
 interface QuizProps {
@@ -31,6 +32,7 @@ const Quiz = ({ questions, onClose }: QuizProps) => {
   const [score, setScore] = useState(0);
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [generationAttempts, setGenerationAttempts] = useState(0);
   const [timeoutOccurred, setTimeoutOccurred] = useState(false);
@@ -89,85 +91,94 @@ const Quiz = ({ questions, onClose }: QuizProps) => {
     setShowExplanation(!showExplanation);
   };
 
-  if (quizQuestions.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8 space-y-6">
-        <h2 className="text-2xl font-semibold text-center">Quiz</h2>
-        <p className="text-center text-muted-foreground">
-          Test je kennis met een AI-gegenereerde quiz over dit boek.
-        </p>
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      onClose();
+    }
+  };
 
-        <div className="w-full max-w-[600px]">
-          {error && (
-            <Alert variant="destructive" className="my-4">
-              <AlertTitle>Fout</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          
-          {timeoutOccurred && (
-            <Alert className="my-4 border-orange-500">
-              <AlertTriangle className="h-4 w-4 text-orange-500" />
-              <AlertTitle className="text-orange-500">Timeout</AlertTitle>
-              <AlertDescription>
-                De verbinding met de server duurde te lang. Dit kan gebeuren als de server te druk is of als er problemen zijn met de internetverbinding.
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          {isGeneratingQuiz ? (
-            <div className="w-full max-w-md my-4 flex flex-col items-center">
-              <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-              <p className="text-center mb-2">Quiz wordt gegenereerd...</p>
-              <Progress value={undefined} className="h-2 w-full animate-pulse" />
-              <p className="text-xs text-center mt-2 text-muted-foreground">
-                Dit kan tot 30 seconden duren. Even geduld...
-              </p>
-            </div>
-          ) : (
-            <Button 
-              onClick={handleRestartQuiz} 
-              disabled={isLoading}
-              size="lg"
-              className="mt-4 w-full sm:w-auto"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Quiz genereren...
-                </>
-              ) : (
-                'Start Quiz'
-              )}
-            </Button>
-          )}
+  const renderContent = () => {
+    if (quizQuestions.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center space-y-6">
+          <DialogHeader>
+            <DialogTitle>Quiz</DialogTitle>
+            <DialogDescription>
+              Test je kennis met een AI-gegenereerde quiz over dit boek.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="w-full">
+            {error && (
+              <Alert variant="destructive" className="my-4">
+                <AlertTitle>Fout</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            {timeoutOccurred && (
+              <Alert className="my-4 border-orange-500">
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                <AlertTitle className="text-orange-500">Timeout</AlertTitle>
+                <AlertDescription>
+                  De verbinding met de server duurde te lang. Dit kan gebeuren als de server te druk is of als er problemen zijn met de internetverbinding.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {isGeneratingQuiz ? (
+              <div className="w-full max-w-md my-4 flex flex-col items-center">
+                <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+                <p className="text-center mb-2">Quiz wordt gegenereerd...</p>
+                <Progress value={undefined} className="h-2 w-full animate-pulse" />
+                <p className="text-xs text-center mt-2 text-muted-foreground">
+                  Dit kan tot 30 seconden duren. Even geduld...
+                </p>
+              </div>
+            ) : (
+              <Button 
+                onClick={handleRestartQuiz} 
+                disabled={isLoading}
+                size="lg"
+                className="w-full"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Quiz genereren...
+                  </>
+                ) : (
+                  'Start Quiz'
+                )}
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  const currentQuestion = quizQuestions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / quizQuestions.length) * 100;
-  
-  return (
-    <div className="flex flex-col items-center justify-center p-8 space-y-6">
-      <div className="w-full max-w-[600px]">
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold text-center">
+    const currentQuestion = quizQuestions[currentQuestionIndex];
+    const progress = ((currentQuestionIndex + 1) / quizQuestions.length) * 100;
+    
+    return (
+      <div className="flex flex-col space-y-6">
+        <DialogHeader>
+          <DialogTitle>
             {isQuizComplete ? "Quiz voltooid!" : "Quiz"}
-          </h2>
-          <p className="text-center text-muted-foreground">
+          </DialogTitle>
+          <DialogDescription>
             {isQuizComplete ? (
               "Bekijk hieronder je resultaten"
             ) : (
               `Vraag ${currentQuestionIndex + 1} van ${quizQuestions.length}`
             )}
-          </p>
-        </div>
+          </DialogDescription>
+        </DialogHeader>
 
         {isQuizComplete ? (
           <div className="flex flex-col items-center justify-center space-y-6">
-            <div className="w-full max-w-md">
+            <div className="w-full">
               <Progress 
                 value={Math.round((score / quizQuestions.length) * 100)} 
                 className="h-6" 
@@ -185,13 +196,13 @@ const Quiz = ({ questions, onClose }: QuizProps) => {
               Je hebt {score} van de {quizQuestions.length} vragen goed beantwoord.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 mt-6">
-              <Button onClick={handleRestartQuiz} variant="outline">
+            <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full">
+              <Button onClick={handleRestartQuiz} variant="outline" className="flex-1">
                 <RotateCcw className="mr-2 h-4 w-4" />
                 Opnieuw proberen
               </Button>
               
-              <Button onClick={onClose}>
+              <Button onClick={onClose} className="flex-1">
                 Sluiten
               </Button>
             </div>
@@ -289,7 +300,15 @@ const Quiz = ({ questions, onClose }: QuizProps) => {
           </Card>
         )}
       </div>
-    </div>
+    );
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-[600px]">
+        {renderContent()}
+      </DialogContent>
+    </Dialog>
   );
 };
 
