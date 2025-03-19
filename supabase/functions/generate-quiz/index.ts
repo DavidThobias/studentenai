@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -26,41 +27,6 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    // Check if we already have enough questions for this specific combination
-    const query = supabase.from('quizzes').select('*').eq('book_id', bookId);
-    if (chapterId) {
-      query.eq('chapter_id', chapterId);
-    } else {
-      query.is('chapter_id', null);
-    }
-    
-    if (paragraphId) {
-      query.eq('paragraph_id', paragraphId);
-    } else {
-      query.is('paragraph_id', null);
-    }
-    
-    const { data: existingQuestions, error: existingQuestionsError } = await query;
-    
-    if (!existingQuestionsError && existingQuestions && existingQuestions.length >= numberOfQuestions) {
-      console.log(`Found ${existingQuestions.length} existing questions, returning those instead of generating new ones`);
-      
-      // Return existing questions
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: `Retrieved ${existingQuestions.length} existing questions`,
-          questions: existingQuestions.map(q => ({
-            question: q.question,
-            options: q.options,
-            correctAnswer: q.correct_answer,
-            explanation: q.explanation
-          }))
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Get book details - IMPORTANT: Case sensitive table name!
     console.log(`Fetching book with ID: ${bookId} from Boeken table`);
@@ -262,7 +228,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-3.5-turbo',  // Explicitly set the model
+            model: 'gpt-4o-mini',  // Update to more modern model
             messages: [
               {
                 role: 'system',
@@ -342,7 +308,7 @@ serve(async (req) => {
       throw new Error('OpenAI did not return an array of questions');
     }
 
-    console.log(`Saving ${quizQuestions.length} questions to the database`);
+    console.log(`Generated ${quizQuestions.length} questions, returning directly to client`);
     
     // Save the questions to the database with paragraph_id support
     for (const question of quizQuestions) {
