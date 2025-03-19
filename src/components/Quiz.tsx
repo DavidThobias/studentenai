@@ -10,9 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 
 interface QuizProps {
-  bookId: string;
-  chapterId?: string;
-  paragraphId?: string;
+  questions: QuizQuestion[];
   onClose: () => void;
 }
 
@@ -23,10 +21,10 @@ interface QuizQuestion {
   explanation: string;
 }
 
-const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
+const Quiz = ({ questions, onClose }: QuizProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>(questions);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
@@ -38,108 +36,14 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
   const [timeoutOccurred, setTimeoutOccurred] = useState(false);
 
   useEffect(() => {
-    // Automatisch de quiz genereren bij het laden van de component
-    generateQuiz();
-  }, []); // Leeg dependency array betekent dat dit alleen bij het monten van de component gebeurt
-
-  const generateQuiz = async () => {
-    try {
-      console.log('=== Start Quiz Generation Process ===');
-      console.log('Initial state:', {
-        isLoading,
-        currentError: error,
-        quizQuestionsLength: quizQuestions.length,
-        currentQuestionIndex,
-        isGeneratingQuiz,
-        generationAttempts
-      });
-      
-      console.log('Start generating quiz...');
-      setIsLoading(true);
-      setIsGeneratingQuiz(true);
-      setError(null);
-      setTimeoutOccurred(false);
-      
-      console.log('Generating new questions...');
-      setGenerationAttempts(prev => prev + 1);
-      
-      const feedbackTimeoutId = setTimeout(() => {
-        setError('De quiz generatie duurt langer dan verwacht. We werken eraan...');
-        toast.info('Quiz generatie duurt langer dan verwacht. Even geduld...');
-      }, 5000);
-      
-      const timeoutId = setTimeout(() => {
-        setTimeoutOccurred(true);
-        setError('Het lijkt erop dat de quiz generatie te lang duurt. Probeer het opnieuw of kies een ander hoofdstuk.');
-        toast.error('Timeout bij het genereren van de quiz.');
-        setIsLoading(false);
-        setIsGeneratingQuiz(false);
-      }, 30000);
-      
-      console.log(`Calling generate-quiz function for book ${bookId}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}`);
-      
-      const { data: response, error: functionError } = await supabase.functions.invoke('generate-quiz', {
-        body: {
-          bookId: parseInt(bookId),
-          chapterId: chapterId ? parseInt(chapterId) : null,
-          paragraphId: paragraphId ? parseInt(paragraphId) : null,
-          numberOfQuestions: 3,
-          forceNewQuestions: true, // Altijd nieuwe vragen genereren
-        },
-      });
-      
-      console.log('Function response:', { response, functionError }); // Debug log
-      
-      clearTimeout(feedbackTimeoutId);
-      clearTimeout(timeoutId);
-      
-      if (functionError) {
-        console.error('Error invoking generate-quiz function:', functionError);
-        setError(`Er is een fout opgetreden bij het genereren van de quiz: ${functionError.message}`);
-        toast.error('Fout bij het genereren van de quiz.');
-        return;
-      }
-      
-      if (!response.success) {
-        console.error('Error from generate-quiz function:', response.error);
-        setError(`Er is een fout opgetreden bij het genereren van de quiz: ${response.error}`);
-        toast.error('Fout bij het genereren van de quiz.');
-        return;
-      }
-      
-      if (response.questions && response.questions.length > 0) {
-        console.log('Setting quiz questions:', response.questions.length, 'questions found');
-        const formattedQuestions = response.questions.map((q: any) => ({
-          question: q.question,
-          options: Array.isArray(q.options) 
-            ? q.options.map((opt: any) => String(opt))
-            : [],
-          correctAnswer: q.correctAnswer,
-          explanation: q.explanation
-        }));
-        
-        console.log('Formatted questions:', formattedQuestions);
-        setQuizQuestions(formattedQuestions);
-        setCurrentQuestionIndex(0);
-        setSelectedAnswer(null);
-        setIsAnswerSubmitted(false);
-        setScore(0);
-        setIsQuizComplete(false);
-        toast.success('Quiz is gegenereerd!');
-      } else {
-        console.warn('No questions found in response:', response);
-        setError('Geen vragen konden worden gegenereerd. Probeer het opnieuw.');
-        toast.error('Geen vragen konden worden gegenereerd.');
-      }
-    } catch (error) {
-      console.error('Error generating quiz:', error);
-      setError(`Er is een onverwachte fout opgetreden: ${error instanceof Error ? error.message : 'Onbekende fout'}`);
-      toast.error('Er is een fout opgetreden bij het genereren van de quiz.');
-    } finally {
-      setIsLoading(false);
-      setIsGeneratingQuiz(false);
-    }
-  };
+    setQuizQuestions(questions);
+    setCurrentQuestionIndex(0);
+    setSelectedAnswer(null);
+    setIsAnswerSubmitted(false);
+    setScore(0);
+    setIsQuizComplete(false);
+    setShowExplanation(false);
+  }, [questions]);
 
   const handleAnswerSelect = (index: number) => {
     if (!isAnswerSubmitted) {
@@ -179,7 +83,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
     setScore(0);
     setIsQuizComplete(false);
     setShowExplanation(false);
-    generateQuiz();
   };
 
   const handleToggleExplanation = () => {
@@ -223,8 +126,8 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
             </div>
           ) : (
             <Button 
-              onClick={generateQuiz} 
-              disabled={isLoading || isGeneratingQuiz}
+              onClick={handleRestartQuiz} 
+              disabled={isLoading}
               size="lg"
               className="mt-4 w-full sm:w-auto"
             >
@@ -233,8 +136,6 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Quiz genereren...
                 </>
-              ) : generationAttempts > 0 ? (
-                'Opnieuw proberen'
               ) : (
                 'Start Quiz'
               )}
