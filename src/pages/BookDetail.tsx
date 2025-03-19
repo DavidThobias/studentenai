@@ -75,28 +75,28 @@ const BookDetail = () => {
 
       {/* Quiz Dialog */}
       <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedParagraphId 
-                ? `Quiz over paragraaf ${paragraphs.find(p => p.id.toString() === selectedParagraphId)?.["paragraaf nummer"] || ''}`
-                : selectedChapterId 
-                  ? `Quiz over hoofdstuk ${chapters.find(c => c.id.toString() === selectedChapterId)?.Hoofdstuknummer || ''}`
-                  : `Quiz over ${book?.Titel}`}
-            </DialogTitle>
-            <DialogDescription>
-              Test je kennis met deze interactieve quiz over het hoofdstuk.
-            </DialogDescription>
-          </DialogHeader>
-          {quizOpen && (
+        {quizOpen && (
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedParagraphId 
+                  ? `Quiz over paragraaf ${paragraphs.find(p => p.id.toString() === selectedParagraphId)?.["paragraaf nummer"] || ''}`
+                  : selectedChapterId 
+                    ? `Quiz over hoofdstuk ${chapters.find(c => c.id.toString() === selectedChapterId)?.Hoofdstuknummer || ''}`
+                    : `Quiz over ${book?.Titel}`}
+              </DialogTitle>
+              <DialogDescription>
+                Test je kennis met deze interactieve quiz over het hoofdstuk.
+              </DialogDescription>
+            </DialogHeader>
             <Quiz 
               bookId={id || ''} 
               chapterId={selectedChapterId} 
               paragraphId={selectedParagraphId}
               onClose={() => setQuizOpen(false)} 
             />
-          )}
-        </DialogContent>
+          </DialogContent>
+        )}
       </Dialog>
     </div>
   );
