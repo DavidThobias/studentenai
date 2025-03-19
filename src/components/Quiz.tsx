@@ -50,6 +50,14 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       setTimeoutOccurred(false);
       setGenerationAttempts(prev => prev + 1);
       
+      // Debug log initial state
+      console.log('Quiz generation started with params:', {
+        bookId,
+        chapterId,
+        paragraphId,
+        quizQuestionsLength: quizQuestions.length
+      });
+      
       const feedbackTimeoutId = setTimeout(() => {
         setError('De quiz generatie duurt langer dan verwacht. We werken eraan...');
         toast.info('Quiz generatie duurt langer dan verwacht. Even geduld...');
@@ -74,7 +82,12 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         },
       });
       
-      console.log('Function response:', { data, responseError });
+      console.log('Function response received:', { 
+        hasData: !!data, 
+        hasError: !!responseError,
+        dataKeys: data ? Object.keys(data) : [],
+        responseErrorMessage: responseError?.message
+      });
       
       clearTimeout(feedbackTimeoutId);
       clearTimeout(timeoutId);
@@ -93,21 +106,61 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
         return;
       }
       
-      if (data?.questions && data.questions.length > 0) {
-        console.log('Setting quiz questions:', data.questions.length, 'questions found');
-        const formattedQuestions = data.questions.map((q: any) => ({
-          ...q,
-          options: Array.isArray(q.options) 
-            ? q.options.map((opt: any) => String(opt))
-            : []
+      console.log('Response data structure:', {
+        success: data?.success,
+        message: data?.message,
+        hasQuestions: Array.isArray(data?.questions),
+        questionCount: Array.isArray(data?.questions) ? data.questions.length : 0,
+        firstQuestion: data?.questions?.[0] ? {
+          hasQuestion: !!data.questions[0].question,
+          hasOptions: Array.isArray(data.questions[0].options),
+          optionsCount: Array.isArray(data.questions[0].options) ? data.questions[0].options.length : 0,
+          hasCorrectAnswer: data.questions[0].correctAnswer !== undefined,
+          hasExplanation: !!data.questions[0].explanation
+        } : 'No questions'
+      });
+      
+      if (data?.questions && Array.isArray(data.questions) && data.questions.length > 0) {
+        // Validate each question
+        const validQuestions = data.questions.filter((q: any) => {
+          return (
+            q && 
+            typeof q.question === 'string' && 
+            Array.isArray(q.options) && 
+            q.options.length === 4 &&
+            typeof q.correctAnswer === 'number' &&
+            q.correctAnswer >= 0 && 
+            q.correctAnswer <= 3 &&
+            typeof q.explanation === 'string'
+          );
+        });
+        
+        console.log(`Validated ${validQuestions.length} out of ${data.questions.length} questions`);
+        
+        if (validQuestions.length === 0) {
+          setError('Geen geldige vragen konden worden gegenereerd. Probeer het opnieuw.');
+          toast.error('Geen geldige vragen konden worden gegenereerd.');
+          return;
+        }
+        
+        // Ensure all option values are strings
+        const formattedQuestions = validQuestions.map((q: any) => ({
+          question: q.question,
+          options: q.options.map((opt: any) => String(opt)),
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation
         }));
         
+        console.log(`Setting ${formattedQuestions.length} formatted questions to state`);
+        
+        // Reset quiz state
         setQuizQuestions(formattedQuestions);
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
         setIsAnswerSubmitted(false);
         setScore(0);
         setIsQuizComplete(false);
+        
         toast.success('Quiz is gegenereerd!');
       } else {
         console.warn('No questions found in response:', data);
@@ -123,6 +176,14 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
       setIsGeneratingQuiz(false);
     }
   };
+
+  // Debug effect to log when quiz questions state changes
+  useEffect(() => {
+    console.log(`Quiz questions state updated: ${quizQuestions.length} questions available`);
+    if (quizQuestions.length > 0) {
+      console.log('First question:', quizQuestions[0]);
+    }
+  }, [quizQuestions]);
 
   const handleAnswerSelect = (index: number) => {
     if (!isAnswerSubmitted) {
@@ -167,6 +228,12 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
   const handleToggleExplanation = () => {
     setShowExplanation(!showExplanation);
   };
+
+  // This effect runs once when the component mounts
+  useEffect(() => {
+    console.log('Quiz component mounted with props:', { bookId, chapterId, paragraphId });
+    // Don't automatically generate quiz on mount anymore - let user click the button
+  }, []);
 
   if (quizQuestions.length === 0) {
     return (

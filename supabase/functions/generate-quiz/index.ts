@@ -308,17 +308,30 @@ serve(async (req) => {
       throw new Error('OpenAI did not return an array of questions');
     }
 
-    console.log(`Generated ${quizQuestions.length} questions, returning directly to client`);
+    // Additional validation for each question
+    const validatedQuestions = quizQuestions.filter(q => {
+      if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || 
+          q.correctAnswer === undefined || q.correctAnswer < 0 || q.correctAnswer > 3 || 
+          !q.explanation) {
+        console.warn('Invalid question format, filtering out:', q);
+        return false;
+      }
+      return true;
+    });
+
+    console.log(`Validated ${validatedQuestions.length} out of ${quizQuestions.length} questions`);
     
-    // Removed: Database storage of questions to simplify functionality
+    if (validatedQuestions.length === 0) {
+      throw new Error('No valid questions could be generated from the OpenAI response');
+    }
 
     console.log('Successfully completed quiz generation process');
     
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Generated ${quizQuestions.length} questions`,
-        questions: quizQuestions
+        message: `Generated ${validatedQuestions.length} questions`,
+        questions: validatedQuestions
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

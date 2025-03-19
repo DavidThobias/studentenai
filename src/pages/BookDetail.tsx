@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -10,6 +11,7 @@ import ParagraphsList from '@/components/book/ParagraphsList';
 import UpcomingFeatures from '@/components/book/UpcomingFeatures';
 import LoadingBookDetail from '@/components/book/LoadingBookDetail';
 import { useBookDetail } from '@/hooks/useBookDetail';
+import { toast } from "sonner"; 
 
 const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +34,9 @@ const BookDetail = () => {
     setSelectedChapterId(chapterId?.toString());
     setSelectedParagraphId(paragraphId?.toString());
     setQuizOpen(true);
+    
+    // Add a toast to give the user feedback
+    toast.info('Quiz wordt voorbereid...');
   };
 
   const handleChapterSelect = (chapterId: number) => {
