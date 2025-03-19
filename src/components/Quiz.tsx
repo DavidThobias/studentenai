@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, AlertTriangle, Loader2 } from 'lucide-react';
@@ -46,23 +47,27 @@ const Quiz = ({ bookId, chapterId, paragraphId, onClose }: QuizProps) => {
     try {
       setIsLoadingExistingQuestions(true);
       
+      // First build the base query
       let query = supabase
         .from('quizzes')
         .select('*')
         .eq('book_id', parseInt(bookId));
-        
+      
+      // Then assign the query to a new variable with chapter filter if needed
       if (chapterId) {
         query = query.eq('chapter_id', parseInt(chapterId));
       } else {
         query = query.is('chapter_id', null);
       }
       
+      // Then assign again with paragraph filter if needed
       if (paragraphId) {
         query = query.eq('paragraph_id', parseInt(paragraphId));
       } else {
         query = query.is('paragraph_id', null);
       }
       
+      // Execute the final query
       const { data, error } = await query;
       
       if (error) {
