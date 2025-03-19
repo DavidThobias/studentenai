@@ -42,7 +42,7 @@ const BookDetail = () => {
         const { data: bookData, error: bookError } = await supabase
           .from('Boeken')
           .select('*')
-          .eq('id', id)
+          .eq('id', parseInt(id)) // Convert string to number
           .maybeSingle();
 
         if (bookError) throw bookError;
@@ -58,7 +58,7 @@ const BookDetail = () => {
         const { data: chapterData, error: chapterError } = await supabase
           .from('Chapters')
           .select('*')
-          .eq('Boek_id', id)
+          .eq('Boek_id', parseInt(id)) // Convert string to number
           .order('Hoofdstuknummer', { ascending: true });
 
         if (chapterError) throw chapterError;
