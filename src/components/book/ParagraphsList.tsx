@@ -25,7 +25,6 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
   const [edgeFunctionResult, setEdgeFunctionResult] = useState<any>(null);
   const [isTestingEdgeFunction, setIsTestingEdgeFunction] = useState(false);
   
-  // Log whenever paragraphs or loading state changes
   useEffect(() => {
     console.log('ParagraphsList: paragraphs array updated:', paragraphs);
     console.log('ParagraphsList: loadingParagraphs:', loadingParagraphs);
@@ -38,27 +37,22 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       setIsCheckingDb(true);
       console.log('Checking database directly for paragraphs with chapter_id =', selectedChapterId);
       
-      // Get total count first
       const { count: totalCount } = await supabase
         .from('Paragrafen')
         .select('*', { count: 'exact', head: true });
         
       console.log('Total paragraphs in database:', totalCount);
       
-      // Try multiple approaches
-      // 1. Standard query with number
       const { data: numberData, error: numberError } = await supabase
         .from('Paragrafen')
         .select('*')
         .eq('chapter_id', Number(selectedChapterId));
       
-      // 2. With string conversion
       const { data: stringData, error: stringError } = await supabase
         .from('Paragrafen')
         .select('*')
         .eq('chapter_id', String(selectedChapterId));
       
-      // 3. Get a few samples to inspect
       const { data: sampleData } = await supabase
         .from('Paragrafen')
         .select('*')
@@ -78,7 +72,6 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         sampleData
       });
       
-      // Set the most successful result
       if (numberData && numberData.length > 0) {
         setDirectDbCount(numberData.length);
       } else if (stringData && stringData.length > 0) {
@@ -101,21 +94,17 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       setIsTestingEdgeFunction(true);
       console.log('Testing edge function with chapter_id =', selectedChapterId);
       
-      // Get current auth session to add token if available
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token || '';
       
       console.log('Access token available for edge function test:', !!accessToken);
       
-      // Test the edge function directly
       const response = await fetch('https://ncipejuazrewiizxtkcj.supabase.co/functions/v1/get-paragraphs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Only include Authorization header if we have a token
           ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
         },
-        // Ensure chapterId is passed as a number, not a string
         body: JSON.stringify({ chapterId: Number(selectedChapterId) }),
       });
       
