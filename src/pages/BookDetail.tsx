@@ -29,6 +29,7 @@ const BookDetail = () => {
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
   const [quizTitle, setQuizTitle] = useState("Quiz");
+  const [quizSessionId, setQuizSessionId] = useState<string | null>(null);
 
   const { 
     book, 
@@ -46,9 +47,10 @@ const BookDetail = () => {
       quizQuestionsCount: quizQuestions.length,
       isGeneratingQuiz,
       quizError,
-      quizTitle
+      quizTitle,
+      quizSessionId
     });
-  }, [quizOpen, quizQuestions, isGeneratingQuiz, quizError, quizTitle]);
+  }, [quizOpen, quizQuestions, isGeneratingQuiz, quizError, quizTitle, quizSessionId]);
 
   useEffect(() => {
     if (isGeneratingQuiz || quizQuestions.length > 0 || quizError) {
@@ -63,8 +65,13 @@ const BookDetail = () => {
   const handleStartQuiz = useCallback(async (chapterId?: number, paragraphId?: number) => {
     console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}${paragraphId ? `, paragraph ${paragraphId}` : ''}`);
     
-    setQuizOpen(true);
     setQuizError(null);
+    
+    const sessionId = `quiz-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    setQuizSessionId(sessionId);
+    console.log(`Created new quiz session: ${sessionId}`);
+    
+    setQuizOpen(true);
     setIsGeneratingQuiz(true);
     
     setSelectedChapterId(chapterId?.toString());
@@ -91,7 +98,8 @@ const BookDetail = () => {
           chapterId: chapterId || null,
           paragraphId: paragraphId || null,
           numberOfQuestions: 3,
-          forceNewQuestions: true
+          forceNewQuestions: true,
+          sessionId: sessionId
         },
       });
       
@@ -130,8 +138,7 @@ const BookDetail = () => {
         
         setTimeout(() => {
           setIsGeneratingQuiz(false);
-          setQuizOpen(true);
-        }, 100);
+        }, 500);
         
         toast.success('Quiz is gegenereerd!');
       } else {

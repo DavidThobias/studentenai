@@ -34,35 +34,50 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   const [showExplanation, setShowExplanation] = useState(false);
   const [initialized, setInitialized] = useState(false);
   
-  // Store questions in a ref to keep them stable between renders
-  const questionsRef = useRef<QuizQuestion[]>([]);
+  // Store the active questions permanently in state
+  const [activeQuestions, setActiveQuestions] = useState<QuizQuestion[]>([]);
   
-  // Synchronize the ref with the props when questions change
-  useEffect(() => {
-    if (questions && questions.length > 0) {
-      console.log('Updating questionsRef with', questions.length, 'questions');
-      questionsRef.current = questions;
-    }
-  }, [questions]);
+  // Store the sheet's actual open state
+  const [sheetOpen, setSheetOpen] = useState(false);
   
-  // Simple state debug logging
   useEffect(() => {
-    console.log('Quiz state updated:', { 
+    // Debug log for all state changes
+    console.log('Quiz full state update:', { 
       open, 
-      hasQuestions: questionsRef.current.length > 0,
-      questionsFromProps: questions.length,
+      sheetOpen,
+      hasQuestions: questions.length > 0, 
+      activeQuestionsCount: activeQuestions.length,
       isGenerating, 
       error,
       currentQuestionIndex,
       initialized,
       isQuizComplete
     });
-  }, [open, questions, isGenerating, error, currentQuestionIndex, initialized, isQuizComplete]);
+  }, [open, questions, activeQuestions, sheetOpen, isGenerating, error, currentQuestionIndex, initialized, isQuizComplete]);
 
-  // Initialize quiz when questions are received and not generating
+  // Synchronize external open state with sheet open state
   useEffect(() => {
-    if (open && questions && questions.length > 0 && !isGenerating) {
-      console.log('Valid questions available, initializing quiz state with', questions.length, 'questions');
+    console.log(`Quiz open prop changed: ${open}`);
+    if (open) {
+      setSheetOpen(true);
+    }
+  }, [open]);
+  
+  // When questions arrive, store them permanently in state
+  useEffect(() => {
+    if (questions && questions.length > 0) {
+      console.log(`Setting active questions with ${questions.length} questions from props`);
+      setActiveQuestions(questions);
+    }
+  }, [questions]);
+
+  // Initialize quiz when questions are available and not generating
+  useEffect(() => {
+    if ((open || sheetOpen) && (questions.length > 0 || activeQuestions.length > 0) && !isGenerating && !error) {
+      console.log('Initializing quiz with available questions');
+      
+      // Use either the new questions from props or the stored active questions
+      const questionsToUse = questions.length > 0 ? questions : activeQuestions;
       
       setCurrentQuestionIndex(0);
       setSelectedAnswer(null);
@@ -71,8 +86,18 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       setIsQuizComplete(false);
       setShowExplanation(false);
       setInitialized(true);
+      
+      console.log(`Quiz initialized with ${questionsToUse.length} questions`);
     }
-  }, [open, questions, isGenerating]);
+  }, [open, sheetOpen, questions, activeQuestions, isGenerating, error]);
+
+  // Ensure proper visible state sync
+  useEffect(() => {
+    if (isGenerating || error || activeQuestions.length > 0 || questions.length > 0) {
+      console.log('Quiz should be visible due to content');
+      setSheetOpen(true);
+    }
+  }, [isGenerating, error, activeQuestions, questions]);
 
   const handleAnswerSelect = (index: number) => {
     if (!isAnswerSubmitted) {
@@ -90,10 +115,10 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     console.log(`Submitting answer: ${selectedAnswer}`);
     setIsAnswerSubmitted(true);
     
-    const activeQuestions = questions.length > 0 ? questions : questionsRef.current;
+    const questionsToUse = activeQuestions.length > 0 ? activeQuestions : questions;
     
-    if (activeQuestions && activeQuestions.length > 0) {
-      const currentQuestion = activeQuestions[currentQuestionIndex];
+    if (questionsToUse && questionsToUse.length > 0) {
+      const currentQuestion = questionsToUse[currentQuestionIndex];
       if (selectedAnswer === currentQuestion.correctAnswer) {
         setScore(prevScore => prevScore + 1);
         console.log('Correct answer!');
@@ -104,9 +129,9 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   };
 
   const handleNextQuestion = () => {
-    const activeQuestions = questions.length > 0 ? questions : questionsRef.current;
+    const questionsToUse = activeQuestions.length > 0 ? activeQuestions : questions;
     
-    if (currentQuestionIndex < activeQuestions.length - 1) {
+    if (currentQuestionIndex < questionsToUse.length - 1) {
       console.log(`Moving to next question (${currentQuestionIndex + 1})`);
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
@@ -133,6 +158,14 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     setShowExplanation(!showExplanation);
   };
 
+  const handleCloseQuiz = () => {
+    console.log('Handling close quiz request');
+    // Keep questions in state, just close the sheet
+    setSheetOpen(false);
+    // Call the external onClose handler
+    onClose();
+  };
+
   const renderLoadingContent = () => {
     return (
       <div className="flex flex-col items-center justify-center p-8">
@@ -153,7 +186,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
           <AlertDescription>{error}</AlertDescription>
         </Alert>
         <div className="flex justify-end mt-4">
-          <Button onClick={onClose}>Sluiten</Button>
+          <Button onClick={handleCloseQuiz}>Sluiten</Button>
         </div>
       </>
     );
@@ -165,32 +198,32 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
         <p className="text-center text-muted-foreground">
           Geen quizvragen beschikbaar.
         </p>
-        <Button onClick={onClose}>Sluiten</Button>
+        <Button onClick={handleCloseQuiz}>Sluiten</Button>
       </div>
     );
   };
 
   const renderResultsContent = () => {
-    const activeQuestions = questions.length > 0 ? questions : questionsRef.current;
+    const questionsToUse = activeQuestions.length > 0 ? activeQuestions : questions;
     
     return (
       <div className="flex flex-col items-center justify-center space-y-6">
         <div className="w-full">
           <Progress 
-            value={Math.round((score / activeQuestions.length) * 100)} 
+            value={Math.round((score / questionsToUse.length) * 100)} 
             className="h-6" 
           />
           <p className="text-center mt-2 text-sm text-muted-foreground">
-            {Math.round((score / activeQuestions.length) * 100)}% correct
+            {Math.round((score / questionsToUse.length) * 100)}% correct
           </p>
         </div>
         
         <div className="w-32 h-32 rounded-full border-4 flex items-center justify-center">
-          <span className="text-4xl font-bold">{score}/{activeQuestions.length}</span>
+          <span className="text-4xl font-bold">{score}/{questionsToUse.length}</span>
         </div>
         
         <p className="text-center text-lg">
-          Je hebt {score} van de {activeQuestions.length} vragen goed beantwoord.
+          Je hebt {score} van de {questionsToUse.length} vragen goed beantwoord.
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full">
@@ -199,7 +232,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
             Opnieuw proberen
           </Button>
           
-          <Button onClick={onClose} className="flex-1">
+          <Button onClick={handleCloseQuiz} className="flex-1">
             Sluiten
           </Button>
         </div>
@@ -208,20 +241,20 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   };
 
   const renderQuestionContent = () => {
-    const activeQuestions = questions.length > 0 ? questions : questionsRef.current;
+    const questionsToUse = activeQuestions.length > 0 ? activeQuestions : questions;
     
-    if (!activeQuestions || activeQuestions.length === 0 || currentQuestionIndex >= activeQuestions.length) {
+    if (!questionsToUse || questionsToUse.length === 0 || currentQuestionIndex >= questionsToUse.length) {
       console.error('Invalid questions array or currentQuestionIndex:', { 
-        questionsLength: activeQuestions?.length, 
+        questionsLength: questionsToUse?.length, 
         currentQuestionIndex 
       });
       return renderEmptyContent();
     }
 
-    const currentQuestion = activeQuestions[currentQuestionIndex];
+    const currentQuestion = questionsToUse[currentQuestionIndex];
     
     if (!currentQuestion) {
-      console.error('Current question is undefined. Index:', currentQuestionIndex, 'Questions:', activeQuestions);
+      console.error('Current question is undefined. Index:', currentQuestionIndex, 'Questions:', questionsToUse);
       return (
         <Alert variant="destructive" className="mt-4">
           <AlertCircle className="h-4 w-4" />
@@ -311,7 +344,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
               </Button>
             ) : (
               <Button onClick={handleNextQuestion}>
-                {currentQuestionIndex < activeQuestions.length - 1 ? (
+                {currentQuestionIndex < questionsToUse.length - 1 ? (
                   <>
                     Volgende vraag
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -332,7 +365,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       isGenerating,
       error,
       questionsFromProps: questions?.length || 0,
-      questionsFromRef: questionsRef.current?.length || 0,
+      activeQuestionsCount: activeQuestions?.length || 0,
       currentQuestionIndex,
       isQuizComplete,
       initialized
@@ -346,8 +379,8 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       return renderErrorContent();
     }
 
-    // First check props, then check ref for questions
-    const hasQuestions = questions.length > 0 || questionsRef.current.length > 0;
+    // Check for questions in either source
+    const hasQuestions = questions.length > 0 || activeQuestions.length > 0;
     if (!hasQuestions) {
       return renderEmptyContent();
     }
@@ -359,28 +392,26 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     return renderQuestionContent();
   };
 
-  // Track when questions are actually available in the component
-  useEffect(() => {
-    if (open && (questions.length > 0 || questionsRef.current.length > 0)) {
-      const sourceText = questions.length > 0 ? "props" : "ref";
-      const count = questions.length > 0 ? questions.length : questionsRef.current.length;
-      console.log(`Quiz component has ${count} questions from ${sourceText}`);
-    }
-  }, [open, questions]);
-
-  // THE KEY CHANGE: Always use true for the Sheet's open state when we have questions or are generating
-  const shouldBeOpen = open || isGenerating || questions.length > 0 || questionsRef.current.length > 0;
+  // Always keep mounted once we have questions
+  const shouldForceMount = questions.length > 0 || activeQuestions.length > 0 || isGenerating || error;
   
   return (
-    <Sheet open={shouldBeOpen} onOpenChange={(isOpen) => {
-      console.log(`Sheet onOpenChange: ${isOpen}`);
-      if (!isOpen && !isGenerating) onClose();
-    }}>
+    <Sheet 
+      open={sheetOpen} 
+      onOpenChange={(isOpen) => {
+        console.log(`Sheet onOpenChange: ${isOpen}`);
+        if (!isOpen && !isGenerating) {
+          handleCloseQuiz();
+        } else if (isOpen) {
+          setSheetOpen(true);
+        }
+      }}
+    >
       <SheetContent 
         side="right" 
         className="sm:max-w-md w-[95vw] overflow-y-auto"
         // Always keep the content mounted once we have questions or are generating
-        forceMount={true}
+        forceMount={shouldForceMount}
       >
         <SheetHeader className="mb-4">
           <SheetTitle>
@@ -393,9 +424,9 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
             {isGenerating ? "Even geduld terwijl we je quiz voorbereiden." :
              error ? "Er is een probleem opgetreden bij het genereren van de quiz." :
              isQuizComplete ? "Bekijk hieronder je resultaten" :
-             questions && questions.length > 0 ? `Vraag ${currentQuestionIndex + 1} van ${questions.length}` :
-             questionsRef.current && questionsRef.current.length > 0 ? `Vraag ${currentQuestionIndex + 1} van ${questionsRef.current.length}` :
-             "Quiz informatie"}
+             questions.length > 0 || activeQuestions.length > 0 ? 
+               `Vraag ${currentQuestionIndex + 1} van ${questions.length || activeQuestions.length}` :
+               "Quiz informatie"}
           </SheetDescription>
         </SheetHeader>
         
@@ -403,10 +434,11 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
           {import.meta.env.DEV && (
             <div className="bg-gray-100 p-2 mb-4 text-xs rounded">
               <div>Debug: Questions from props: {questions?.length || 0}</div>
-              <div>Debug: Questions from ref: {questionsRef.current?.length || 0}</div>
-              <div>isGenerating: {String(isGenerating)}</div>
-              <div>error: {error ? 'Yes' : 'No'}</div>
-              <div>shouldBeOpen: {String(shouldBeOpen)}</div>
+              <div>Debug: Active questions: {activeQuestions?.length || 0}</div>
+              <div>Debug: isGenerating: {String(isGenerating)}</div>
+              <div>Debug: error: {error ? 'Yes' : 'No'}</div>
+              <div>Debug: sheetOpen: {String(sheetOpen)}</div>
+              <div>Debug: forceMount: {String(shouldForceMount)}</div>
             </div>
           )}
           {renderContent()}

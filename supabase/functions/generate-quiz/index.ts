@@ -22,13 +22,13 @@ serve(async (req) => {
   }
 
   try {
-    const { bookId, chapterId, paragraphId, numberOfQuestions = 5 } = await req.json();
+    const { bookId, chapterId, paragraphId, numberOfQuestions = 5, sessionId } = await req.json();
     
     if (!bookId) {
       throw new Error('Book ID is required');
     }
 
-    console.log(`Generating quiz for book ${bookId}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}, ${numberOfQuestions} questions`);
+    console.log(`Generating quiz for book ${bookId}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}, ${numberOfQuestions} questions, session ${sessionId || 'none'}`);
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -322,12 +322,46 @@ serve(async (req) => {
       throw new Error('No valid questions were generated');
     }
 
-    // Return the generated questions without saving to the database
+    // If we have a session ID, store the questions for persistence
+    if (sessionId) {
+      try {
+        console.log(`Storing ${quizQuestions.length} questions for session ${sessionId}`);
+        
+        // Store each question in the quizzes table
+        for (const question of quizQuestions) {
+          const { error } = await supabase
+            .from('quizzes')
+            .insert({
+              book_id: bookId,
+              chapter_id: chapterId || null,
+              paragraph_id: paragraphId || null,
+              question: question.question,
+              options: question.options,
+              correct_answer: question.correctAnswer,
+              explanation: question.explanation,
+              session_id: sessionId
+            });
+            
+          if (error) {
+            console.error('Error saving quiz question to database:', error);
+            // Continue with the next question, don't fail the whole operation
+          }
+        }
+        
+        console.log(`Successfully stored questions for session ${sessionId}`);
+      } catch (storageError) {
+        // Log the error but don't fail the function - we can still return the questions
+        console.error('Error storing quiz questions:', storageError);
+      }
+    }
+
+    // Return the generated questions
     return new Response(
       JSON.stringify({
         success: true,
         message: `Generated ${quizQuestions.length} questions successfully`,
-        questions: quizQuestions
+        questions: quizQuestions,
+        sessionId: sessionId
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
