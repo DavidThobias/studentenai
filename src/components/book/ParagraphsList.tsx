@@ -1,3 +1,4 @@
+
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +36,9 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     
     try {
       setIsCheckingDb(true);
-      console.log('Checking database directly for paragraphs with chapter_id =', selectedChapterId);
+      // Convert chapter ID to number to ensure type safety
+      const numericChapterId = Number(selectedChapterId);
+      console.log('Checking database directly for paragraphs with chapter_id =', numericChapterId);
       
       const { count: totalCount } = await supabase
         .from('Paragrafen')
@@ -46,12 +49,12 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       const { data: numberData, error: numberError } = await supabase
         .from('Paragrafen')
         .select('*')
-        .eq('chapter_id', Number(selectedChapterId));
+        .eq('chapter_id', numericChapterId);
       
       const { data: stringData, error: stringError } = await supabase
         .from('Paragrafen')
         .select('*')
-        .eq('chapter_id', String(selectedChapterId));
+        .eq('chapter_id', String(numericChapterId));
       
       const { data: sampleData } = await supabase
         .from('Paragrafen')
@@ -92,7 +95,9 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     
     try {
       setIsTestingEdgeFunction(true);
-      console.log('Testing edge function with chapter_id =', selectedChapterId);
+      // Convert chapter ID to number for consistent type handling
+      const numericChapterId = Number(selectedChapterId);
+      console.log('Testing edge function with chapter_id =', numericChapterId);
       
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token || '';
@@ -105,7 +110,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
           'Content-Type': 'application/json',
           ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ chapterId: Number(selectedChapterId) }),
+        body: JSON.stringify({ chapterId: numericChapterId }),
       });
       
       console.log('Edge function response status:', response.status);
