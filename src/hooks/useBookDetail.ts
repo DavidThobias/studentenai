@@ -148,7 +148,15 @@ export const useBookDetail = (id: string | undefined) => {
         const mappedParagraphs = mapBooksDataToParagraphs(booksData);
         console.log(`Mapped ${mappedParagraphs.length} paragraphs from books table`);
         
-        setParagraphs(mappedParagraphs);
+        // Cast the mapped paragraphs to ensure type compatibility
+        const typedParagraphs: ParagraphData[] = mappedParagraphs.map(p => ({
+          id: p.id,
+          paragraph_number: p["paragraaf nummer"],
+          content: p.content,
+          chapter_number: p.chapter_id
+        }));
+        
+        setParagraphs(typedParagraphs);
       } else {
         console.log('No paragraphs found.');
         setParagraphs([]);

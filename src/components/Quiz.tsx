@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -54,10 +53,8 @@ const Quiz = ({
 }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(false);
   
-  // This state is used solely for controlling the Sheet component
   const [sheetOpen, setSheetOpen] = useState(false);
   
-  // Synchronize sheetOpen with open prop
   useEffect(() => {
     console.log(`Parent open state changed to: ${open}, updating sheetOpen to match`);
     setSheetOpen(open);
@@ -313,17 +310,14 @@ const Quiz = ({
       onOpenChange={(isOpen) => {
         console.log(`Sheet onOpenChange: ${isOpen}`);
         if (!isOpen) {
-          // Only confirm when there are questions and the quiz is not complete
           if (questions.length > 0 && !isQuizComplete && !isGenerating) {
             const confirmClose = window.confirm("Weet je zeker dat je de quiz wilt sluiten?");
             if (confirmClose) {
               handleCloseQuiz();
             } else {
-              // If user cancels, we force the sheet to stay open
               setSheetOpen(true);
             }
           } else {
-            // In other cases, just close without confirmation
             handleCloseQuiz();
           }
         }

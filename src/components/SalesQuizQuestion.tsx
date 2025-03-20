@@ -8,7 +8,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { BookOpen, Loader2, Brain, Eye, EyeOff, ArrowRight, Bug } from "lucide-react";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import Quiz from "./Quiz";
+import Quiz, { QuizQuestion } from "./Quiz";
 
 interface QuestionData {
   question: string;
@@ -222,11 +222,12 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
         // Format the first question from the response
         const questionData = data.questions[0];
         const formattedQuestion: QuestionData = {
-          vraag: questionData.question,
-          opties: questionData.options.map((opt: string, index: number) => 
+          question: questionData.question,
+          options: questionData.options.map((opt: string, index: number) => 
             `${String.fromCharCode(65 + index)}: ${opt}`
           ),
-          correct: `${String.fromCharCode(65 + questionData.correctAnswer)}: ${questionData.options[questionData.correctAnswer]}`
+          correctAnswer: questionData.correctAnswer,
+          explanation: questionData.explanation
         };
         
         setQuestion(formattedQuestion);
@@ -260,7 +261,10 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
     
     // Extract the letter from the selected answer (A, B, C, or D)
     const selectedLetter = selectedAnswer.charAt(0);
-    const correctLetter = question.correct.charAt(0);
+    
+    // Format the correct answer in the same format
+    const correctIndex = question.correctAnswer;
+    const correctLetter = String.fromCharCode(65 + correctIndex);
     
     setIsCorrect(selectedLetter === correctLetter);
   };
@@ -315,14 +319,14 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
             <CardTitle className="text-xl text-center">Quiz Vraag</CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
-            <p className="text-lg font-medium mb-6">{question.vraag}</p>
+            <p className="text-lg font-medium mb-6">{question.question}</p>
             
             <RadioGroup
               value={selectedAnswer || undefined}
               onValueChange={setSelectedAnswer}
               className="space-y-3"
             >
-              {question.opties.map((option, index) => (
+              {question.options.map((option, index) => (
                 <div 
                   key={index} 
                   className={`flex items-center space-x-2 p-3 rounded-md border ${
@@ -354,7 +358,7 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
                 <AlertDescription className={isCorrect ? 'text-green-600' : 'text-red-600'}>
                   {isCorrect 
                     ? 'Goed gedaan! Je hebt de juiste optie gekozen.'
-                    : `Het juiste antwoord is: ${question.correct}`}
+                    : `Het juiste antwoord is: ${String.fromCharCode(65 + question.correctAnswer)}: ${question.options[question.correctAnswer]}`}
                 </AlertDescription>
               </Alert>
             )}
