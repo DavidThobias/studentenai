@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -41,23 +42,30 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     questionsCount: questions.length, 
     isGenerating, 
     error,
-    firstQuestion: questions[0]?.question || 'No question'
+    firstQuestion: questions[0]?.question || 'No question',
+    cachedQuestionsLength: questions ? questions.length : 0
   });
 
+  // Force the Sheet to be open immediately when props.open changes to true
   useEffect(() => {
+    console.log(`open prop changed to: ${open}`);
     if (open) {
       setLocalOpen(true);
     } else {
+      // Add a small delay before closing to ensure smooth animation
       const timer = setTimeout(() => {
         setLocalOpen(false);
-      }, 100);
+      }, 150);
       return () => clearTimeout(timer);
     }
   }, [open]);
 
+  // Reset quiz state when new questions become available
   useEffect(() => {
-    if (open && questions.length > 0 && !isGenerating) {
-      console.log('New valid questions received, initializing quiz state');
+    if (open && questions && questions.length > 0 && !isGenerating) {
+      console.log('Valid questions available, initializing quiz state with', questions.length, 'questions');
+      
+      // Only reset state if we have questions and aren't in the middle of answering
       setCurrentQuestionIndex(0);
       setSelectedAnswer(null);
       setIsAnswerSubmitted(false);
@@ -68,6 +76,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     }
   }, [open, questions, isGenerating]);
 
+  // Clean up when dialog closes completely
   useEffect(() => {
     if (!open) {
       const timer = setTimeout(() => {
@@ -93,7 +102,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     console.log(`Submitting answer: ${selectedAnswer}`);
     setIsAnswerSubmitted(true);
     
-    if (questions.length > 0) {
+    if (questions && questions.length > 0) {
       const currentQuestion = questions[currentQuestionIndex];
       if (selectedAnswer === currentQuestion.correctAnswer) {
         setScore(prevScore => prevScore + 1);
@@ -132,7 +141,93 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     setShowExplanation(!showExplanation);
   };
 
+  // Render loading content
+  const renderLoadingContent = () => {
+    return (
+      <div className="flex flex-col items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-center font-medium">Quiz wordt gegenereerd...</p>
+        <p className="text-center text-sm text-muted-foreground mt-2">
+          Dit kan enkele seconden duren
+        </p>
+      </div>
+    );
+  };
+
+  // Render error content
+  const renderErrorContent = () => {
+    return (
+      <>
+        <Alert variant="destructive" className="my-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <div className="flex justify-end mt-4">
+          <Button onClick={onClose}>Sluiten</Button>
+        </div>
+      </>
+    );
+  };
+
+  // Render empty content when no questions are available
+  const renderEmptyContent = () => {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-4 p-6">
+        <p className="text-center text-muted-foreground">
+          Geen quizvragen beschikbaar.
+        </p>
+        <Button onClick={onClose}>Sluiten</Button>
+      </div>
+    );
+  };
+
+  // Render results content
+  const renderResultsContent = () => {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-6">
+        <div className="w-full">
+          <Progress 
+            value={Math.round((score / questions.length) * 100)} 
+            className="h-6" 
+          />
+          <p className="text-center mt-2 text-sm text-muted-foreground">
+            {Math.round((score / questions.length) * 100)}% correct
+          </p>
+        </div>
+        
+        <div className="w-32 h-32 rounded-full border-4 flex items-center justify-center">
+          <span className="text-4xl font-bold">{score}/{questions.length}</span>
+        </div>
+        
+        <p className="text-center text-lg">
+          Je hebt {score} van de {questions.length} vragen goed beantwoord.
+        </p>
+        
+        <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full">
+          <Button onClick={handleRestartQuiz} variant="outline" className="flex-1">
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Opnieuw proberen
+          </Button>
+          
+          <Button onClick={onClose} className="flex-1">
+            Sluiten
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  // Render question content
   const renderQuestionContent = () => {
+    // Safety check if questions array is valid
+    if (!questions || questions.length === 0 || currentQuestionIndex >= questions.length) {
+      console.error('Invalid questions array or currentQuestionIndex:', { 
+        questionsLength: questions?.length, 
+        currentQuestionIndex 
+      });
+      return renderEmptyContent();
+    }
+
     const currentQuestion = questions[currentQuestionIndex];
     
     if (!currentQuestion) {
@@ -242,83 +337,12 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     );
   };
 
-  const renderResultsContent = () => {
-    return (
-      <div className="flex flex-col items-center justify-center space-y-6">
-        <div className="w-full">
-          <Progress 
-            value={Math.round((score / questions.length) * 100)} 
-            className="h-6" 
-          />
-          <p className="text-center mt-2 text-sm text-muted-foreground">
-            {Math.round((score / questions.length) * 100)}% correct
-          </p>
-        </div>
-        
-        <div className="w-32 h-32 rounded-full border-4 flex items-center justify-center">
-          <span className="text-4xl font-bold">{score}/{questions.length}</span>
-        </div>
-        
-        <p className="text-center text-lg">
-          Je hebt {score} van de {questions.length} vragen goed beantwoord.
-        </p>
-        
-        <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full">
-          <Button onClick={handleRestartQuiz} variant="outline" className="flex-1">
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Opnieuw proberen
-          </Button>
-          
-          <Button onClick={onClose} className="flex-1">
-            Sluiten
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
-  const renderLoadingContent = () => {
-    return (
-      <div className="flex flex-col items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-        <p className="text-center">Quiz wordt gegenereerd...</p>
-        <p className="text-center text-sm text-muted-foreground mt-2">
-          Dit kan enkele seconden duren
-        </p>
-      </div>
-    );
-  };
-
-  const renderErrorContent = () => {
-    return (
-      <>
-        <Alert variant="destructive" className="my-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-        <div className="flex justify-end mt-4">
-          <Button onClick={onClose}>Sluiten</Button>
-        </div>
-      </>
-    );
-  };
-
-  const renderEmptyContent = () => {
-    return (
-      <div className="flex flex-col items-center justify-center space-y-4 p-6">
-        <p className="text-center text-muted-foreground">
-          Geen quizvragen beschikbaar.
-        </p>
-        <Button onClick={onClose}>Sluiten</Button>
-      </div>
-    );
-  };
-
+  // Main render content function
   const renderContent = () => {
     console.log('Rendering quiz content with state:', {
       isGenerating,
       error,
-      questionsLength: questions.length,
+      questionsLength: questions?.length || 0,
       currentQuestionIndex,
       isQuizComplete,
       initialized
@@ -343,9 +367,10 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     return renderQuestionContent();
   };
 
+  // Log when quiz is opened with questions
   useEffect(() => {
     if (open) {
-      console.log("Quiz component opened with", questions.length, "questions:", questions);
+      console.log("Quiz component opened with", questions?.length || 0, "questions:", questions);
     }
   }, [open, questions]);
 
@@ -360,6 +385,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       <SheetContent 
         side="right" 
         className="sm:max-w-md w-[95vw] overflow-y-auto"
+        // Make sure force mount is a literal true or undefined, not a boolean value
         forceMount={isGenerating ? true : undefined}
       >
         <SheetHeader className="mb-4">
@@ -373,12 +399,20 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
             {isGenerating ? "Even geduld terwijl we je quiz voorbereiden." :
              error ? "Er is een probleem opgetreden bij het genereren van de quiz." :
              isQuizComplete ? "Bekijk hieronder je resultaten" :
-             questions.length > 0 ? `Vraag ${currentQuestionIndex + 1} van ${questions.length}` :
+             questions && questions.length > 0 ? `Vraag ${currentQuestionIndex + 1} van ${questions.length}` :
              "Quiz informatie"}
           </SheetDescription>
         </SheetHeader>
         
         <div className="mt-4">
+          {/* Add debug info in development */}
+          {import.meta.env.DEV && (
+            <div className="bg-gray-100 p-2 mb-4 text-xs rounded">
+              <div>Debug: Questions: {questions?.length || 0}</div>
+              <div>isGenerating: {String(isGenerating)}</div>
+              <div>error: {error ? 'Yes' : 'No'}</div>
+            </div>
+          )}
           {renderContent()}
         </div>
       </SheetContent>
