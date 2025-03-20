@@ -1,3 +1,4 @@
+
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -196,15 +197,14 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                 {onStartQuiz && (
                   <Button 
                     onClick={() => {
-                      // Log original value and type for debugging
+                      // Make sure chapter_number is a number
                       console.log('Original chapter_number:', paragraph.chapter_number);
                       console.log('Type of chapter_number:', typeof paragraph.chapter_number);
                       
-                      // Safely convert to number with robust parsing
-                      const chapterId = safeParseInt(paragraph.chapter_number);
+                      // Ensure we're passing a number to onStartQuiz
+                      const chapterId = Number(paragraph.chapter_number);
                       console.log('Converted chapter_number to:', chapterId);
                       
-                      // Call onStartQuiz with properly typed parameters
                       onStartQuiz(chapterId, paragraph.id);
                     }}
                     variant="outline"
