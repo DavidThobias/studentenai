@@ -8,8 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface BookData {
   id: number;
-  Titel?: string;
-  Auteur?: string;
+  book_title?: string;
 }
 
 interface BookOverviewProps {
@@ -27,7 +26,7 @@ const BookOverview = ({ book }: BookOverviewProps) => {
   const [bookDetails, setBookDetails] = useState<ChapterInfo | null>(null);
   const [loading, setLoading] = useState(false);
   
-  const isSalesBook = book?.Titel?.toLowerCase().includes('sales');
+  const isSalesBook = book?.book_title?.toLowerCase().includes('sales');
 
   useEffect(() => {
     if (book?.id) {
@@ -40,44 +39,38 @@ const BookOverview = ({ book }: BookOverviewProps) => {
       setLoading(true);
       console.log(`BookOverview: Fetching details for book ID: ${bookId}`);
       
-      // Get chapter count
+      if (!book?.book_title) return;
+      
+      // Get unique chapter numbers for this book
       const { data: chapters, error: chaptersError } = await supabase
-        .from('Chapters')
-        .select('id')
-        .eq('Boek_id', bookId);
+        .from('books')
+        .select('chapter_number')
+        .eq('book_title', book.book_title)
+        .order('chapter_number')
+        .distinct();
       
       if (chaptersError) {
         console.error('Error fetching chapters:', chaptersError);
         return;
       }
       
-      console.log(`BookOverview: Found ${chapters?.length || 0} chapters for book ID: ${bookId}`);
+      console.log(`BookOverview: Found ${chapters?.length || 0} chapters for book title: ${book.book_title}`);
       
       // Get paragraph count for this book
-      const chapterIds = chapters?.map(c => c.id) || [];
-      let paragraphCount = 0;
+      const { count, error: paragraphsError } = await supabase
+        .from('books')
+        .select('id', { count: 'exact', head: true })
+        .eq('book_title', book.book_title);
       
-      if (chapterIds.length > 0) {
-        console.log(`BookOverview: Getting paragraph count for chapter IDs:`, chapterIds);
-        
-        const { count, error: paragraphsError } = await supabase
-          .from('Paragrafen')
-          .select('id', { count: 'exact', head: true })
-          .in('chapter_id', chapterIds);
-        
-        console.log(`BookOverview: Paragraph count query result:`, { count, error: paragraphsError });
-        
-        if (paragraphsError) {
-          console.error('Error fetching paragraphs:', paragraphsError);
-        } else {
-          paragraphCount = count || 0;
-          console.log(`BookOverview: Total paragraph count: ${paragraphCount}`);
-        }
+      console.log(`BookOverview: Paragraph count query result:`, { count, error: paragraphsError });
+      
+      if (paragraphsError) {
+        console.error('Error fetching paragraphs:', paragraphsError);
       }
       
       setBookDetails({
         count: chapters?.length || 0,
-        paragraphCount
+        paragraphCount: count || 0
       });
       
     } catch (error) {
@@ -102,7 +95,7 @@ const BookOverview = ({ book }: BookOverviewProps) => {
           <div>
             <h2 className="text-2xl font-semibold mb-4">Over dit boek</h2>
             <p className="text-muted-foreground mb-2">
-              Dit is een samenvatting van het boek "{book?.Titel}" door {book?.Auteur}.
+              Dit is een samenvatting van het boek "{book?.book_title}" door onbekende auteur.
             </p>
             {bookDetails && (
               <div className="text-sm text-muted-foreground">

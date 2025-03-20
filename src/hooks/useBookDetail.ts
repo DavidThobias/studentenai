@@ -7,15 +7,14 @@ import { mapBooksDataToParagraphs } from '@/lib/bookDataAdapter';
 
 interface BookData {
   id: number;
-  Titel?: string;
-  Auteur?: string;
+  book_title?: string;
 }
 
 interface ChapterData {
   id: number;
-  Titel?: string;
-  Hoofdstuknummer?: string;
-  Boek_id: number;
+  chapter_title?: string;
+  chapter_number: number;
+  book_id: number;
 }
 
 interface ParagraphData {
@@ -45,10 +44,9 @@ export const useBookDetail = (id: string | undefined) => {
         const numericBookId = parseInt(id);
         console.log(`Fetching book details for ID: ${numericBookId}`);
         
-        console.log("Supabase client initialized:", !!supabase);
-        
+        // Fetch book from books table
         const { data: bookData, error: bookError } = await supabase
-          .from('Boeken')
+          .from('books')
           .select('*')
           .eq('id', numericBookId)
           .maybeSingle();
@@ -67,26 +65,43 @@ export const useBookDetail = (id: string | undefined) => {
         }
 
         console.log('Book data retrieved:', bookData);
-        setBook(bookData);
+        setBook({
+          id: bookData.id,
+          book_title: bookData.book_title
+        });
 
-        console.log(`Fetching chapters for book ID: ${numericBookId}`);
+        // Get chapters for this book (based on unique chapter numbers)
         const { data: chapterData, error: chapterError } = await supabase
-          .from('Chapters')
-          .select('*')
-          .eq('Boek_id', numericBookId)
-          .order('Hoofdstuknummer', { ascending: true });
+          .from('books')
+          .select('id, chapter_number, chapter_title')
+          .eq('book_title', bookData.book_title)
+          .order('chapter_number', { ascending: true });
 
         if (chapterError) {
           console.error('Error fetching chapters:', chapterError);
           setError('Fout bij ophalen hoofdstukken');
           throw chapterError;
         }
+
+        // Deduplicate chapters and map to ChapterData format
+        const uniqueChapters = new Map<number, ChapterData>();
+        chapterData?.forEach(ch => {
+          if (!uniqueChapters.has(ch.chapter_number)) {
+            uniqueChapters.set(ch.chapter_number, {
+              id: ch.chapter_number,
+              chapter_title: ch.chapter_title,
+              chapter_number: ch.chapter_number,
+              book_id: numericBookId
+            });
+          }
+        });
         
-        console.log(`Retrieved ${chapterData?.length || 0} chapters:`, chapterData);
-        setChapters(chapterData || []);
+        const chaptersArray = Array.from(uniqueChapters.values());
+        console.log(`Retrieved ${chaptersArray.length} chapters:`, chaptersArray);
+        setChapters(chaptersArray);
         
-        if (chapterData && chapterData.length > 0) {
-          const firstChapterId = chapterData[0].id;
+        if (chaptersArray.length > 0) {
+          const firstChapterId = chaptersArray[0].id;
           console.log(`Setting initial selected chapter ID: ${firstChapterId}`);
           setSelectedChapterId(firstChapterId);
           
@@ -114,74 +129,14 @@ export const useBookDetail = (id: string | undefined) => {
       const numericChapterId = Number(chapterId);
       
       console.log(`Fetching paragraphs for chapter ID: ${numericChapterId}`);
-      console.log(`chapter_id type: ${typeof numericChapterId}, value: ${numericChapterId}`);
       
-      console.log('Trying Edge Function first...');
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const accessToken = sessionData?.session?.access_token || '';
-        
-        console.log(`Access token available: ${!!accessToken}`);
-        
-        const response = await fetch('https://ncipejuazrewiizxtkcj.supabase.co/functions/v1/get-paragraphs', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
-          },
-          body: JSON.stringify({ chapterId: numericChapterId }),
-        });
-        
-        console.log('Edge function status:', response.status);
-        console.log('Edge function status text:', response.statusText);
-        
-        if (response.ok) {
-          const responseData = await response.json();
-          console.log('Edge function response:', responseData);
-          
-          if (responseData.success && responseData.paragraphs && responseData.paragraphs.length > 0) {
-            const sortedParagraphs = [...responseData.paragraphs].sort((a, b) => {
-              const aNum = a["paragraaf nummer"] || 0;
-              const bNum = b["paragraaf nummer"] || 0;
-              return aNum - bNum;
-            });
-            
-            setParagraphs(sortedParagraphs);
-            setLoadingParagraphs(false);
-            return;
-          }
-        } else {
-          const errorData = await response.text();
-          console.log('Edge function error response:', errorData);
-        }
-      } catch (edgeFunctionError) {
-        console.error('Error calling edge function:', edgeFunctionError);
-      }
-      
-      console.log('Trying direct Supabase query...');
-      
-      // Try original table (Paragrafen)
-      const paragraphsFromParagrafen = await fetchFromParagrafen(numericChapterId);
-      if (paragraphsFromParagrafen && paragraphsFromParagrafen.length > 0) {
-        console.log(`Retrieved ${paragraphsFromParagrafen.length} paragraphs from Paragrafen table`);
-        const sortedParagraphs = [...paragraphsFromParagrafen].sort((a, b) => {
-          const aNum = a["paragraaf nummer"] || 0;
-          const bNum = b["paragraaf nummer"] || 0;
-          return aNum - bNum;
-        });
-        
-        setParagraphs(sortedParagraphs);
-        setLoadingParagraphs(false);
-        return;
-      }
-      
-      // Try new books table as fallback
-      console.log('Trying new books table...');
+      // Try to get paragraphs directly from books table
       const { data: booksData, error: booksError } = await supabase
         .from('books')
         .select('*')
-        .eq('chapter_number', numericChapterId);
-        
+        .eq('chapter_number', numericChapterId)
+        .order('paragraph_number', { ascending: true });
+      
       console.log('Books table query result:', {
         data: booksData,
         error: booksError,
@@ -194,46 +149,16 @@ export const useBookDetail = (id: string | undefined) => {
         console.log(`Mapped ${mappedParagraphs.length} paragraphs from books table`);
         
         setParagraphs(mappedParagraphs);
-        setLoadingParagraphs(false);
-        return;
+      } else {
+        console.log('No paragraphs found.');
+        setParagraphs([]);
       }
-      
-      console.log('No paragraphs found in any table.');
-      setParagraphs([]);
     } catch (error) {
       console.error('Error fetching paragraphs:', error);
       toast.error('Er is een fout opgetreden bij het ophalen van de paragrafen');
       setParagraphs([]);
     } finally {
       setLoadingParagraphs(false);
-    }
-  };
-  
-  const fetchFromParagrafen = async (numericChapterId: number): Promise<ParagraphData[] | null> => {
-    try {
-      const { data: paragraphData, error: paragraphError } = await supabase
-        .from('Paragrafen')
-        .select('*')
-        .eq('chapter_id', numericChapterId);
-        
-      if (!paragraphError && paragraphData && paragraphData.length > 0) {
-        return paragraphData;
-      }
-      
-      // Try with string conversion
-      const { data: stringData, error: stringError } = await supabase
-        .from('Paragrafen')
-        .select('*')
-        .eq('chapter_id', String(numericChapterId));
-        
-      if (!stringError && stringData && stringData.length > 0) {
-        return stringData;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Error in fetchFromParagrafen:', error);
-      return null;
     }
   };
 

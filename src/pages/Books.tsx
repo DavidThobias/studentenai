@@ -11,8 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface BookData {
   id: number;
-  Titel?: string;
-  Auteur?: string;
+  book_title: string;
+  chapter_title?: string;
 }
 
 const BooksPage = () => {
@@ -27,14 +27,29 @@ const BooksPage = () => {
       try {
         setLoading(true);
         const { data, error } = await supabase
-          .from('Boeken')
-          .select('*');
+          .from('books')
+          .select('id, book_title')
+          .distinct('book_title');
         
         if (error) {
           throw error;
         }
         
-        setBooks(data || []);
+        // Transform to deduplicated books by title
+        const uniqueBooks: BookData[] = [];
+        const bookTitles = new Set();
+        
+        data?.forEach(book => {
+          if (!bookTitles.has(book.book_title)) {
+            bookTitles.add(book.book_title);
+            uniqueBooks.push({
+              id: book.id,
+              book_title: book.book_title
+            });
+          }
+        });
+        
+        setBooks(uniqueBooks);
       } catch (error) {
         console.error('Error fetching books:', error);
         toast.error('Er is een fout opgetreden bij het ophalen van de boeken.');
@@ -67,8 +82,7 @@ const BooksPage = () => {
   // Filter books based on search query and category
   const filteredBooks = books.filter(book => {
     const matchesSearch = !searchQuery || 
-      (book.Titel?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-       book.Auteur?.toLowerCase().includes(searchQuery.toLowerCase()));
+      (book.book_title?.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesCategory = selectedCategory === 'all';
     
@@ -154,8 +168,8 @@ const BooksPage = () => {
                     {/* Placeholder for future book cover images */}
                   </div>
                   <div className="p-4">
-                    <h3 className="font-medium text-foreground truncate">{book.Titel || 'Onbekende titel'}</h3>
-                    <p className="text-sm text-muted-foreground">{book.Auteur || 'Onbekende auteur'}</p>
+                    <h3 className="font-medium text-foreground truncate">{book.book_title || 'Onbekende titel'}</h3>
+                    <p className="text-sm text-muted-foreground">{'Onbekende auteur'}</p>
                     <div className="flex items-center mt-2">
                       <div className="text-xs bg-study-100 text-study-700 px-2 py-1 rounded">
                         {categories[categories.length - 1].name}

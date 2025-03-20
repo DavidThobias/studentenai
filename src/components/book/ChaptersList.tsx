@@ -5,9 +5,9 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 
 interface ChapterData {
   id: number;
-  Titel?: string;
-  Hoofdstuknummer?: string;
-  Boek_id: number;
+  chapter_title?: string;
+  chapter_number: number;
+  book_id: number;
 }
 
 interface ChaptersListProps {
@@ -30,7 +30,7 @@ const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect, selectedChapterI
               className={`transition-all hover:shadow-md ${selectedChapterId === chapter.id ? 'border-study-500 shadow-md' : ''}`}
             >
               <CardHeader>
-                <CardTitle className="text-xl">{chapter.Hoofdstuknummer}. {chapter.Titel}</CardTitle>
+                <CardTitle className="text-xl">{chapter.chapter_number}. {chapter.chapter_title}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
