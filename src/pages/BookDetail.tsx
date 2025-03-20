@@ -108,12 +108,14 @@ const BookDetail = () => {
         {id && book?.id && (
           <div className="mb-12">
             <h2 className="text-2xl font-semibold mb-6">Quiz</h2>
+            {/* Use a separate instance of SalesQuizQuestion that doesn't conflict with the chapter quizzes */}
             <SalesQuizQuestion showDebug={true} bookId={book.id} />
           </div>
         )}
 
         <UpcomingFeatures />
         
+        {/* This Quiz is for chapter-specific quizzes, separate from SalesQuizQuestion */}
         <Quiz 
           questions={questions} 
           onClose={handleCloseQuiz} 

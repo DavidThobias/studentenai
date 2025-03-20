@@ -1,11 +1,12 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Brain, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useQuiz } from '@/hooks/useQuiz';
 import Quiz from '@/components/Quiz';
+import { toast } from "sonner";
 
 interface DebugData {
   prompt?: string;
@@ -39,13 +40,38 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
     restartQuiz
   } = useQuiz();
 
+  // Ensure Quiz closes when there are no questions
+  useEffect(() => {
+    if (!isGenerating && questions.length === 0 && quizOpen) {
+      console.log('No questions available, closing quiz');
+      setQuizOpen(false);
+    }
+  }, [isGenerating, questions, quizOpen]);
+
+  // Ensure Quiz opens when questions are ready
+  useEffect(() => {
+    if (!isGenerating && questions.length > 0 && !quizOpen) {
+      console.log('Questions ready, opening quiz');
+      setQuizOpen(true);
+    }
+  }, [isGenerating, questions, quizOpen]);
+
   const handleStartQuiz = async () => {
-    // Generate 5 sales questions at once
-    await generateSalesQuiz(5);
-    setQuizOpen(true);
+    try {
+      console.log('Starting sales quiz generation');
+      // Generate 5 sales questions at once
+      await generateSalesQuiz(5);
+      
+      // Quiz will automatically open when questions are ready due to the useEffect
+      console.log(`Generated ${questions.length} sales questions`);
+    } catch (error) {
+      console.error('Error starting quiz:', error);
+      toast.error('Er ging iets mis bij het starten van de quiz');
+    }
   };
 
   const handleCloseQuiz = () => {
+    console.log('Closing quiz');
     setQuizOpen(false);
   };
 
@@ -93,25 +119,25 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
             </Button>
           )}
         </div>
-      ) : (
-        <Quiz 
-          questions={questions} 
-          onClose={handleCloseQuiz} 
-          open={quizOpen} 
-          title="Quiz: Basisboek Sales"
-          error={quizError}
-          isGenerating={isGenerating}
-          currentQuestionIndex={currentQuestionIndex}
-          selectedAnswer={selectedAnswer}
-          isAnswerSubmitted={isAnswerSubmitted}
-          score={score}
-          isQuizComplete={isQuizComplete}
-          handleAnswerSelect={handleAnswerSelect}
-          handleSubmitAnswer={handleSubmitAnswer}
-          handleNextQuestion={handleNextQuestion}
-          restartQuiz={restartQuiz}
-        />
-      )}
+      ) : null}
+      
+      <Quiz 
+        questions={questions} 
+        onClose={handleCloseQuiz} 
+        open={quizOpen} 
+        title="Quiz: Basisboek Sales"
+        error={quizError}
+        isGenerating={isGenerating}
+        currentQuestionIndex={currentQuestionIndex}
+        selectedAnswer={selectedAnswer}
+        isAnswerSubmitted={isAnswerSubmitted}
+        score={score}
+        isQuizComplete={isQuizComplete}
+        handleAnswerSelect={handleAnswerSelect}
+        handleSubmitAnswer={handleSubmitAnswer}
+        handleNextQuestion={handleNextQuestion}
+        restartQuiz={restartQuiz}
+      />
       
       {/* Debug section (shown if we have debug data and it's enabled) */}
       {showDebug && showDebugSection && debugData.prompt && (
