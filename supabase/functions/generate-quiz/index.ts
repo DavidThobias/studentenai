@@ -152,6 +152,13 @@ serve(async (req) => {
         contentToUse = `This is a book titled "${book.Titel}" by ${book.Auteur}. Please generate some general knowledge questions about this topic.`;
         contentSource = `Book: ${book.Titel}`;
       } else {
+        // Get all paragraphs in the database to debug
+        const { data: allParagraphs } = await supabase
+          .from('Paragraven')
+          .select('id, chapter_id, "paragraaf nummer"');
+          
+        console.log('All paragraphs in database:', allParagraphs);
+        
         // Get first paragraph of this chapter
         const { data: firstParagraph, error: paragraphError } = await supabase
           .from('Paragraven')
@@ -231,7 +238,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${openAIApiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',  // Corrected model name from 'gpt-4-mini'
+        model: 'gpt-4o-mini',  // Using the correct model name
         messages: [
           {
             role: 'system',
@@ -355,23 +362,20 @@ serve(async (req) => {
       }
     }
 
-    // Prepare response object
+    // Prepare response object - ALWAYS include debug info regardless of debug flag
     const responseObject = {
       success: true,
       message: `Generated ${quizQuestions.length} questions successfully`,
       questions: quizQuestions,
-      sessionId: sessionId
-    };
-
-    // Add debug information if requested
-    if (debug) {
-      responseObject.debug = {
+      sessionId: sessionId,
+      // Always include debug information
+      debug: {
         prompt: openAIPrompt,
         response: openAIData
-      };
-    }
+      }
+    };
 
-    // Return the generated questions
+    // Return the generated questions with debug info
     return new Response(
       JSON.stringify(responseObject),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { BookOpen, Loader2, Brain } from "lucide-react";
+import { BookOpen, Loader2, Brain, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -32,6 +32,7 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
   const [loading, setLoading] = useState(false);
   const [debugData, setDebugData] = useState<DebugData>({});
   const [debugAccordion, setDebugAccordion] = useState<string | null>(null);
+  const [showDebugSection, setShowDebugSection] = useState(showDebug);
 
   const generateQuestion = async () => {
     try {
@@ -42,10 +43,10 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
       setDebugData({});
       setDebugAccordion(null);
       
-      console.log("Generating question with debug:", showDebug, "bookId:", bookId);
+      console.log("Generating question with debug:", showDebugSection, "bookId:", bookId);
       
-      // Include bookId if available
-      const payload = bookId ? { bookId, debug: showDebug } : { debug: showDebug };
+      // Include bookId if available and always include debug
+      const payload = bookId ? { bookId, debug: true } : { debug: true };
       
       console.log("Payload for generate-quiz:", payload);
       
@@ -53,7 +54,7 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
         body: payload
       });
       
-      console.log("Response from generate-quiz:", data, error);
+      console.log("Full response from generate-quiz:", data, error);
       
       if (error) {
         console.error('Error generating question:', error);
@@ -74,8 +75,8 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
         
         setQuestion(formattedQuestion);
         
-        // Save debug data if available
-        if (showDebug && data.debug) {
+        // Always save debug data regardless of showDebug setting
+        if (data.debug) {
           console.log("Debug data received:", data.debug);
           setDebugData({
             prompt: data.debug.prompt,
@@ -83,9 +84,12 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
           });
           // Auto-open the prompt accordion
           setDebugAccordion("prompt");
+        } else {
+          console.warn("No debug data in response despite requesting it");
         }
       } else {
         toast.error('Ongeldige response ontvangen van de server');
+        console.error('Invalid response from server:', data);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -108,7 +112,7 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
   return (
     <div className="w-full max-w-3xl mx-auto">
       {!question ? (
-        <div className="text-center">
+        <div className="flex flex-col items-center gap-4">
           <Button 
             onClick={generateQuestion} 
             disabled={loading}
@@ -127,6 +131,27 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
               </>
             )}
           </Button>
+          
+          {showDebug && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowDebugSection(!showDebugSection)}
+              className="text-xs"
+            >
+              {showDebugSection ? (
+                <>
+                  <EyeOff className="mr-1 h-3 w-3" />
+                  Verberg debug info
+                </>
+              ) : (
+                <>
+                  <Eye className="mr-1 h-3 w-3" />
+                  Toon debug info
+                </>
+              )}
+            </Button>
+          )}
         </div>
       ) : (
         <Card className="shadow-lg border-study-100">
@@ -178,8 +203,32 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
               </Alert>
             )}
             
-            {/* Debug section */}
-            {showDebug && (debugData.prompt || debugData.response) && (
+            {/* Debug section - show regardless of initial showDebug prop if user has toggled it on */}
+            {showDebug && (
+              <div className="flex justify-end mt-4">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowDebugSection(!showDebugSection)}
+                  className="text-xs"
+                >
+                  {showDebugSection ? (
+                    <>
+                      <EyeOff className="mr-1 h-3 w-3" />
+                      Verberg debug info
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="mr-1 h-3 w-3" />
+                      Toon debug info
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+            
+            {/* Always show debug if enabled */}
+            {showDebug && showDebugSection && (
               <div className="mt-6 border border-gray-200 rounded-md overflow-hidden">
                 <Accordion 
                   type="single" 

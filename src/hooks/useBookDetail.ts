@@ -88,8 +88,9 @@ export const useBookDetail = (id: string | undefined) => {
           console.log(`Setting initial selected chapter ID to ${firstChapterId}`);
           setSelectedChapterId(firstChapterId);
           
-          // Just fetch the paragraphs - don't try to be smart with pre-checking
           await fetchParagraphs(firstChapterId);
+        } else {
+          console.log('No chapters found for this book');
         }
       } catch (error) {
         console.error('Error fetching book details:', error);
@@ -109,33 +110,50 @@ export const useBookDetail = (id: string | undefined) => {
       setSelectedChapterId(chapterId);
       console.log(`Fetching paragraphs for chapter ID: ${chapterId}`);
       
-      // Simplified approach - just fetch paragraphs directly
+      // First, print all available paragraphs from the database to debug
+      const { data: allParas, error: allParasError } = await supabase
+        .from('Paragraven')
+        .select('id, chapter_id, "paragraaf nummer"');
+      
+      console.log('All paragraphs in database:', allParas);
+      
+      if (allParasError) {
+        console.error('Error fetching all paragraphs:', allParasError);
+      }
+      
+      // Try fetching paragraphs for this chapter - use double quotes for column names with spaces
       const { data: paragraphData, error: paragraphError } = await supabase
         .from('Paragraven')
         .select('*')
-        .eq('chapter_id', chapterId)
-        .order('"paragraaf nummer"', { ascending: true });
-
+        .eq('chapter_id', chapterId);
+      
       if (paragraphError) {
         console.error('Error fetching paragraphs:', paragraphError);
         setError('Fout bij ophalen paragrafen');
         throw paragraphError;
       }
       
-      // Debug log all paragraphs
-      console.log(`Retrieved paragraphs for chapter ${chapterId}:`, paragraphData);
-      setParagraphs(paragraphData || []);
+      console.log(`Retrieved ${paragraphData?.length || 0} paragraphs for chapter ${chapterId}:`, paragraphData);
       
-      // Also log all paragraphs in the database for debugging
-      const { data: allParagraphs } = await supabase
-        .from('Paragraven')
-        .select('id, chapter_id, "paragraaf nummer"');
+      if (paragraphData && paragraphData.length > 0) {
+        setParagraphs(paragraphData);
+      } else {
+        console.log(`No paragraphs found for chapter ${chapterId}`);
+        setParagraphs([]);
         
-      console.log('All paragraphs in database:', allParagraphs);
+        // Additional debug query to check if any paragraphs exist for this chapter
+        const { count, error: countError } = await supabase
+          .from('Paragraven')
+          .select('*', { count: 'exact', head: true })
+          .eq('chapter_id', chapterId);
+        
+        console.log(`Count query for chapter ${chapterId} paragraphs:`, count, countError);
+      }
       
     } catch (error) {
       console.error('Error fetching paragraphs:', error);
       toast.error('Er is een fout opgetreden bij het ophalen van de paragrafen');
+      setParagraphs([]);
     } finally {
       setLoadingParagraphs(false);
     }

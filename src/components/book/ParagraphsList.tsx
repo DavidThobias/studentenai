@@ -1,7 +1,8 @@
 
-import { ListChecks, FileText, Loader2 } from 'lucide-react';
+import { ListChecks, FileText, Loader2, DatabaseIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ParagraphData {
   id: number;
@@ -31,7 +32,9 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz }: Paragrap
           {paragraphs.map((paragraph) => (
             <Card key={paragraph.id} className="transition-all hover:shadow-md">
               <CardHeader>
-                <CardTitle className="text-lg">Paragraaf {paragraph["paragraaf nummer"]}</CardTitle>
+                <CardTitle className="text-lg">
+                  Paragraaf {paragraph["paragraaf nummer"] || "ID: " + paragraph.id}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground line-clamp-3">
@@ -59,12 +62,21 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz }: Paragrap
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 border border-dashed border-gray-200 rounded-lg">
-          <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-muted-foreground">
-            Geen paragrafen gevonden voor dit hoofdstuk. 
-            Het kan zijn dat er nog geen paragrafen zijn toegevoegd.
-          </p>
+        <div className="space-y-4">
+          <div className="text-center py-8 border border-dashed border-gray-200 rounded-lg">
+            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-muted-foreground">
+              Geen paragrafen gevonden voor dit hoofdstuk. 
+              Het kan zijn dat er nog geen paragrafen zijn toegevoegd.
+            </p>
+          </div>
+          
+          <Alert variant="info" className="bg-blue-50 border-blue-200">
+            <DatabaseIcon className="h-4 w-4" />
+            <AlertDescription className="ml-2">
+              Database ID van het huidige hoofdstuk: {JSON.stringify({ chapter_id: window.location.pathname.split('/').pop() })}
+            </AlertDescription>
+          </Alert>
         </div>
       )}
     </div>
