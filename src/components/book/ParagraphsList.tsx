@@ -35,6 +35,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     
     try {
       setIsCheckingDb(true);
+      // Convert chapter ID to number to ensure type safety
       const numericChapterId = Number(selectedChapterId);
       console.log('Checking database directly for paragraphs with chapter_number =', numericChapterId);
       
@@ -44,11 +45,13 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         
       console.log('Total paragraphs in database:', totalCount);
       
+      // Query books table by chapter_number with numeric value
       const { data: chapterData, error: chapterError } = await supabase
         .from('books')
         .select('*')
         .eq('chapter_number', numericChapterId);
       
+      // Check for string based chapter number as fallback
       const { data: stringChapterData, error: stringChapterError } = await supabase
         .from('books')
         .select('*')
@@ -67,6 +70,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         }
       });
       
+      // Count total paragraphs
       let totalParagraphCount = 0;
       
       if (chapterData && chapterData.length > 0) {
@@ -92,6 +96,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     
     try {
       setIsTestingEdgeFunction(true);
+      // Convert chapter ID to number for consistent type handling
       const numericChapterId = Number(selectedChapterId);
       console.log('Testing edge function with chapter_id =', numericChapterId);
       
@@ -135,21 +140,27 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     }
   };
 
+  // Helper function for safe type conversion
   const safeParseInt = (value: any, fallback: number = 0): number => {
+    // Handle undefined or null
     if (value === undefined || value === null) {
       console.warn('safeParseInt: value is undefined or null, using fallback:', fallback);
       return fallback;
     }
     
+    // Convert to string (if it's not already)
     const stringValue = String(value).trim();
     
+    // Handle empty string
     if (stringValue === '') {
       console.warn('safeParseInt: value is empty string, using fallback:', fallback);
       return fallback;
     }
     
+    // Parse with radix 10
     const parsedValue = parseInt(stringValue, 10);
     
+    // Check for NaN
     if (isNaN(parsedValue)) {
       console.warn(`safeParseInt: "${value}" could not be parsed as integer, using fallback:`, fallback);
       return fallback;
@@ -185,12 +196,15 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                 {onStartQuiz && (
                   <Button 
                     onClick={() => {
+                      // Log original value and type for debugging
                       console.log('Original chapter_number:', paragraph.chapter_number);
                       console.log('Type of chapter_number:', typeof paragraph.chapter_number);
                       
+                      // Safely convert to number with robust parsing
                       const chapterId = safeParseInt(paragraph.chapter_number);
                       console.log('Converted chapter_number to:', chapterId);
                       
+                      // Call onStartQuiz with properly typed parameters
                       onStartQuiz(chapterId, paragraph.id);
                     }}
                     variant="outline"
