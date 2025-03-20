@@ -5,19 +5,19 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { mapBooksDataToParagraphs } from '@/lib/bookDataAdapter';
 
-interface BookData {
+export interface BookData {
   id: number;
   book_title?: string;
 }
 
-interface ChapterData {
+export interface ChapterData {
   id: number;
   chapter_title?: string;
   chapter_number: number;
   book_id: number;
 }
 
-interface ParagraphData {
+export interface ParagraphData {
   id: number;
   paragraph_number?: number;
   content?: string;
@@ -148,7 +148,15 @@ export const useBookDetail = (id: string | undefined) => {
         const mappedParagraphs = mapBooksDataToParagraphs(booksData);
         console.log(`Mapped ${mappedParagraphs.length} paragraphs from books table`);
         
-        setParagraphs(mappedParagraphs);
+        // Need to explicitly type this as ParagraphData[]
+        const typedParagraphs: ParagraphData[] = mappedParagraphs.map(p => ({
+          id: p.id,
+          paragraph_number: p.paragraph_number,
+          content: p.content,
+          chapter_number: numericChapterId
+        }));
+        
+        setParagraphs(typedParagraphs);
       } else {
         console.log('No paragraphs found.');
         setParagraphs([]);

@@ -9,9 +9,14 @@ import UpcomingFeatures from '@/components/book/UpcomingFeatures';
 import LoadingBookDetail from '@/components/book/LoadingBookDetail';
 import { useBookDetail } from '@/hooks/useBookDetail';
 import SalesQuizQuestion from '@/components/SalesQuizQuestion';
+import { useState } from 'react';
+import Quiz from '@/components/Quiz';
+import { useQuiz } from '@/hooks/useQuiz';
 
 const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
 
   const { 
     book, 
@@ -21,12 +26,30 @@ const BookDetail = () => {
     loadingParagraphs, 
     error, 
     fetchParagraphs,
-    selectedChapterId
   } = useBookDetail(id);
+
+  const {
+    questions,
+    isGenerating,
+    quizError,
+    generateQuiz
+  } = useQuiz();
 
   const handleChapterSelect = (chapterId: number) => {
     console.log(`Selected chapter ID: ${chapterId}`);
+    setSelectedChapterId(chapterId);
     fetchParagraphs(chapterId);
+  };
+
+  const handleStartQuiz = () => {
+    if (book?.id && selectedChapterId) {
+      generateQuiz(book.id, selectedChapterId);
+      setQuizOpen(true);
+    }
+  };
+
+  const handleCloseQuiz = () => {
+    setQuizOpen(false);
   };
 
   if (loading) {
@@ -44,7 +67,10 @@ const BookDetail = () => {
           </Alert>
         )}
 
-        <BookOverview book={book} />
+        <BookOverview 
+          book={book} 
+          onStartQuiz={handleStartQuiz}
+        />
 
         <ChaptersList 
           chapters={chapters}
@@ -66,6 +92,15 @@ const BookDetail = () => {
         )}
 
         <UpcomingFeatures />
+        
+        <Quiz 
+          questions={questions} 
+          onClose={handleCloseQuiz} 
+          open={quizOpen} 
+          title={`Quiz: ${book?.book_title}`}
+          error={quizError}
+          isGenerating={isGenerating}
+        />
       </div>
     </div>
   );

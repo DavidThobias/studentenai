@@ -1,71 +1,63 @@
 
-import { ChevronRight, Brain, FileText } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from 'react';
+import { ChevronRight, ChevronDown, BookOpen } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-interface ChapterData {
+interface Chapter {
   id: number;
   chapter_title?: string;
   chapter_number: number;
-  book_id: number;
 }
 
 interface ChaptersListProps {
-  chapters: ChapterData[];
+  chapters: Chapter[];
   onChapterSelect: (chapterId: number) => void;
-  onStartQuiz?: (chapterId?: number, paragraphId?: number) => void;
-  selectedChapterId?: number | null;
+  selectedChapterId: number | null;
 }
 
-const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect, selectedChapterId }: ChaptersListProps) => {
+const ChaptersList = ({ chapters, onChapterSelect, selectedChapterId }: ChaptersListProps) => {
+  const [isOpen, setIsOpen] = useState(true);
+
+  if (!chapters || chapters.length === 0) {
+    return (
+      <div className="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
+        <p className="text-center text-muted-foreground">Geen hoofdstukken beschikbaar</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="mb-12">
-      <h2 className="text-2xl font-semibold mb-6">Hoofdstukken</h2>
-      
-      {chapters.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {chapters.map((chapter) => (
-            <Card 
-              key={chapter.id} 
-              className={`transition-all hover:shadow-md ${selectedChapterId === chapter.id ? 'border-study-500 shadow-md' : ''}`}
-            >
-              <CardHeader>
-                <CardTitle className="text-xl">{chapter.chapter_number}. {chapter.chapter_title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Leer over de belangrijkste concepten in dit hoofdstuk en test je kennis.
-                </p>
-              </CardContent>
-              <CardFooter className="flex flex-col sm:flex-row gap-2">
-                {onStartQuiz && (
-                  <Button 
-                    onClick={() => onStartQuiz(chapter.id)} 
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                  >
-                    <Brain className="mr-2 h-4 w-4" />
-                    Start quiz
-                  </Button>
-                )}
-                <Button 
-                  variant={selectedChapterId === chapter.id ? "default" : "ghost"}
-                  className="w-full sm:w-auto justify-between"
-                  onClick={() => onChapterSelect(chapter.id)}
-                >
-                  {selectedChapterId === chapter.id ? 'Geselecteerd' : 'Bekijk paragrafen'}
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-8 border border-dashed border-gray-200 rounded-lg">
-          <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-muted-foreground">Nog geen hoofdstukken beschikbaar voor dit boek.</p>
-        </div>
-      )}
+    <div className="mb-8">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen} className="border border-gray-200 rounded-lg overflow-hidden">
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" className="w-full flex items-center justify-between p-4 text-left">
+            <div className="flex items-center">
+              <BookOpen className="h-5 w-5 mr-2" />
+              <span className="font-medium">Hoofdstukken ({chapters.length})</span>
+            </div>
+            {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="border-t border-gray-200">
+          <div className="divide-y divide-gray-200">
+            {chapters.map((chapter) => (
+              <button
+                key={chapter.id}
+                onClick={() => onChapterSelect(chapter.id)}
+                className={`w-full text-left p-4 hover:bg-gray-50 transition-colors ${
+                  selectedChapterId === chapter.id ? 'bg-gray-100' : ''
+                }`}
+              >
+                <div className="flex items-center">
+                  <span className="font-medium mr-2">H{chapter.chapter_number}:</span>
+                  <span>{chapter.chapter_title || `Hoofdstuk ${chapter.chapter_number}`}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 };

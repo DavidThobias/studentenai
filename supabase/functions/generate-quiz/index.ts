@@ -35,7 +35,7 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Get book details - IMPORTANT: Use the 'books' table
+    // Get book details from books table
     console.log(`Fetching book with ID: ${bookId} from books table`);
     const { data: book, error: bookError } = await supabase
       .from('books')
