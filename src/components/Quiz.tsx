@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+
+import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
-interface QuizQuestion {
+export interface QuizQuestion {
   question: string;
   options: string[];
   correctAnswer: number;
@@ -23,127 +24,50 @@ interface QuizProps {
   title?: string;
   error: string | null;
   isGenerating: boolean;
+  currentQuestionIndex: number;
+  selectedAnswer: number | null;
+  isAnswerSubmitted: boolean;
+  score: number;
+  isQuizComplete: boolean;
+  handleAnswerSelect: (index: number) => void;
+  handleSubmitAnswer: () => void;
+  handleNextQuestion: () => void;
+  restartQuiz: () => void;
 }
 
-const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }: QuizProps) => {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
-  const [score, setScore] = useState(0);
-  const [isQuizComplete, setIsQuizComplete] = useState(false);
+const Quiz = ({ 
+  questions, 
+  onClose, 
+  open, 
+  title = "Quiz", 
+  error, 
+  isGenerating,
+  currentQuestionIndex,
+  selectedAnswer,
+  isAnswerSubmitted,
+  score,
+  isQuizComplete,
+  handleAnswerSelect,
+  handleSubmitAnswer,
+  handleNextQuestion,
+  restartQuiz
+}: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(false);
-  const [initialized, setInitialized] = useState(false);
   
-  const [activeQuestions, setActiveQuestions] = useState<QuizQuestion[]>([]);
-  
+  // This state is used solely for controlling the Sheet component
   const [sheetOpen, setSheetOpen] = useState(false);
   
+  // Synchronize sheetOpen with open prop
   useEffect(() => {
-    console.log('Quiz full state update:', { 
-      open, 
-      sheetOpen,
-      hasQuestions: questions.length > 0, 
-      activeQuestionsCount: activeQuestions.length,
-      isGenerating, 
-      error,
-      currentQuestionIndex,
-      initialized,
-      isQuizComplete
-    });
-  }, [open, questions, activeQuestions, sheetOpen, isGenerating, error, currentQuestionIndex, initialized, isQuizComplete]);
-
-  useEffect(() => {
-    console.log(`Quiz open prop changed: ${open}`);
-    if (open) {
-      setSheetOpen(true);
-    }
+    console.log(`Parent open state changed to: ${open}, updating sheetOpen to match`);
+    setSheetOpen(open);
   }, [open]);
-  
-  useEffect(() => {
-    if (questions && questions.length > 0) {
-      console.log(`Setting active questions with ${questions.length} questions from props`);
-      setActiveQuestions(questions);
-    }
-  }, [questions]);
 
   useEffect(() => {
-    if ((open || sheetOpen) && (questions.length > 0 || activeQuestions.length > 0) && !isGenerating && !error) {
-      console.log('Initializing quiz with available questions');
-      
-      const questionsToUse = questions.length > 0 ? questions : activeQuestions;
-      
-      setCurrentQuestionIndex(0);
-      setSelectedAnswer(null);
-      setIsAnswerSubmitted(false);
-      setScore(0);
-      setIsQuizComplete(false);
+    if (isAnswerSubmitted) {
       setShowExplanation(false);
-      setInitialized(true);
-      
-      console.log(`Quiz initialized with ${questionsToUse.length} questions`);
     }
-  }, [open, sheetOpen, questions, activeQuestions, isGenerating, error]);
-
-  useEffect(() => {
-    if (isGenerating || error || activeQuestions.length > 0 || questions.length > 0) {
-      console.log('Quiz should be visible due to content');
-      setSheetOpen(true);
-    }
-  }, [isGenerating, error, activeQuestions, questions]);
-
-  const handleAnswerSelect = (index: number) => {
-    if (!isAnswerSubmitted) {
-      console.log(`Selected answer: ${index}`);
-      setSelectedAnswer(index);
-    }
-  };
-
-  const handleSubmitAnswer = () => {
-    if (selectedAnswer === null) {
-      toast.info('Selecteer eerst een antwoord');
-      return;
-    }
-
-    console.log(`Submitting answer: ${selectedAnswer}`);
-    setIsAnswerSubmitted(true);
-    
-    const questionsToUse = activeQuestions.length > 0 ? activeQuestions : questions;
-    
-    if (questionsToUse && questionsToUse.length > 0) {
-      const currentQuestion = questionsToUse[currentQuestionIndex];
-      if (selectedAnswer === currentQuestion.correctAnswer) {
-        setScore(prevScore => prevScore + 1);
-        console.log('Correct answer!');
-      } else {
-        console.log('Incorrect answer!');
-      }
-    }
-  };
-
-  const handleNextQuestion = () => {
-    const questionsToUse = activeQuestions.length > 0 ? activeQuestions : questions;
-    
-    if (currentQuestionIndex < questionsToUse.length - 1) {
-      console.log(`Moving to next question (${currentQuestionIndex + 1})`);
-      setCurrentQuestionIndex(prev => prev + 1);
-      setSelectedAnswer(null);
-      setIsAnswerSubmitted(false);
-      setShowExplanation(false);
-    } else {
-      console.log('Quiz complete');
-      setIsQuizComplete(true);
-    }
-  };
-
-  const handleRestartQuiz = () => {
-    console.log('Restarting quiz');
-    setCurrentQuestionIndex(0);
-    setSelectedAnswer(null);
-    setIsAnswerSubmitted(false);
-    setScore(0);
-    setIsQuizComplete(false);
-    setShowExplanation(false);
-  };
+  }, [currentQuestionIndex, isAnswerSubmitted]);
 
   const handleToggleExplanation = () => {
     console.log(`${showExplanation ? 'Hiding' : 'Showing'} explanation`);
@@ -151,8 +75,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   };
 
   const handleCloseQuiz = () => {
-    console.log('Handling close quiz request');
-    setSheetOpen(false);
+    console.log('Handling close quiz request from Sheet component');
     onClose();
   };
 
@@ -194,30 +117,28 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   };
 
   const renderResultsContent = () => {
-    const questionsToUse = activeQuestions.length > 0 ? activeQuestions : questions;
-    
     return (
       <div className="flex flex-col items-center justify-center space-y-6">
         <div className="w-full">
           <Progress 
-            value={Math.round((score / questionsToUse.length) * 100)} 
+            value={Math.round((score / questions.length) * 100)} 
             className="h-6" 
           />
           <p className="text-center mt-2 text-sm text-muted-foreground">
-            {Math.round((score / questionsToUse.length) * 100)}% correct
+            {Math.round((score / questions.length) * 100)}% correct
           </p>
         </div>
         
         <div className="w-32 h-32 rounded-full border-4 flex items-center justify-center">
-          <span className="text-4xl font-bold">{score}/{questionsToUse.length}</span>
+          <span className="text-4xl font-bold">{score}/{questions.length}</span>
         </div>
         
         <p className="text-center text-lg">
-          Je hebt {score} van de {questionsToUse.length} vragen goed beantwoord.
+          Je hebt {score} van de {questions.length} vragen goed beantwoord.
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full">
-          <Button onClick={handleRestartQuiz} variant="outline" className="flex-1">
+          <Button onClick={restartQuiz} variant="outline" className="flex-1">
             <RotateCcw className="mr-2 h-4 w-4" />
             Opnieuw proberen
           </Button>
@@ -231,20 +152,18 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   };
 
   const renderQuestionContent = () => {
-    const questionsToUse = activeQuestions.length > 0 ? activeQuestions : questions;
-    
-    if (!questionsToUse || questionsToUse.length === 0 || currentQuestionIndex >= questionsToUse.length) {
+    if (!questions || questions.length === 0 || currentQuestionIndex >= questions.length) {
       console.error('Invalid questions array or currentQuestionIndex:', { 
-        questionsLength: questionsToUse?.length, 
+        questionsLength: questions?.length, 
         currentQuestionIndex 
       });
       return renderEmptyContent();
     }
 
-    const currentQuestion = questionsToUse[currentQuestionIndex];
+    const currentQuestion = questions[currentQuestionIndex];
     
     if (!currentQuestion) {
-      console.error('Current question is undefined. Index:', currentQuestionIndex, 'Questions:', questionsToUse);
+      console.error('Current question is undefined. Index:', currentQuestionIndex, 'Questions:', questions);
       return (
         <Alert variant="destructive" className="mt-4">
           <AlertCircle className="h-4 w-4" />
@@ -259,6 +178,18 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     return (
       <Card className="border-2">
         <CardHeader>
+          <div className="flex justify-between items-center mb-2">
+            <div className="text-sm font-medium text-muted-foreground">
+              Vraag {currentQuestionIndex + 1} van {questions.length}
+            </div>
+            <div className="text-sm font-medium text-muted-foreground">
+              Score: {score} / {isAnswerSubmitted ? currentQuestionIndex + 1 : currentQuestionIndex}
+            </div>
+          </div>
+          <Progress 
+            value={(currentQuestionIndex / questions.length) * 100} 
+            className="h-2 mb-2" 
+          />
           <CardTitle className="text-lg">
             {currentQuestion.question}
           </CardTitle>
@@ -284,10 +215,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
                 }`}
               >
                 <RadioGroupItem value={index.toString()} id={`option-${index}`} />
-                <Label
-                  htmlFor={`option-${index}`}
-                  className="flex-grow cursor-pointer"
-                >
+                <Label htmlFor={`option-${index}`} className="flex-grow cursor-pointer">
                   {option}
                 </Label>
                 {isAnswerSubmitted && (
@@ -333,8 +261,8 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
                 Controleer antwoord
               </Button>
             ) : (
-              <Button onClick={handleNextQuestion}>
-                {currentQuestionIndex < questionsToUse.length - 1 ? (
+              <Button onClick={handleNextQuestion} className="animate-pulse">
+                {currentQuestionIndex < questions.length - 1 ? (
                   <>
                     Volgende vraag
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -354,11 +282,9 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     console.log('Rendering quiz content with state:', {
       isGenerating,
       error,
-      questionsFromProps: questions?.length || 0,
-      activeQuestionsCount: activeQuestions?.length || 0,
+      questionsCount: questions?.length || 0,
       currentQuestionIndex,
-      isQuizComplete,
-      initialized
+      isQuizComplete
     });
     
     if (isGenerating) {
@@ -369,7 +295,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       return renderErrorContent();
     }
 
-    const hasQuestions = questions.length > 0 || activeQuestions.length > 0;
+    const hasQuestions = questions.length > 0;
     if (!hasQuestions) {
       return renderEmptyContent();
     }
@@ -381,24 +307,31 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     return renderQuestionContent();
   };
 
-  const shouldForceMountContent = activeQuestions.length > 0 || questions.length > 0 || isGenerating || error !== null;
-  
   return (
     <Sheet 
       open={sheetOpen} 
       onOpenChange={(isOpen) => {
         console.log(`Sheet onOpenChange: ${isOpen}`);
-        if (!isOpen && !isGenerating) {
-          handleCloseQuiz();
-        } else if (isOpen) {
-          setSheetOpen(true);
+        if (!isOpen) {
+          // Only confirm when there are questions and the quiz is not complete
+          if (questions.length > 0 && !isQuizComplete && !isGenerating) {
+            const confirmClose = window.confirm("Weet je zeker dat je de quiz wilt sluiten?");
+            if (confirmClose) {
+              handleCloseQuiz();
+            } else {
+              // If user cancels, we force the sheet to stay open
+              setSheetOpen(true);
+            }
+          } else {
+            // In other cases, just close without confirmation
+            handleCloseQuiz();
+          }
         }
       }}
     >
       <SheetContent 
         side="right" 
         className="sm:max-w-md w-[95vw] overflow-y-auto"
-        forceMount={shouldForceMountContent ? true : undefined}
       >
         <SheetHeader className="mb-4">
           <SheetTitle>
@@ -411,8 +344,8 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
             {isGenerating ? "Even geduld terwijl we je quiz voorbereiden." :
              error ? "Er is een probleem opgetreden bij het genereren van de quiz." :
              isQuizComplete ? "Bekijk hieronder je resultaten" :
-             questions.length > 0 || activeQuestions.length > 0 ? 
-               `Vraag ${currentQuestionIndex + 1} van ${questions.length || activeQuestions.length}` :
+             questions.length > 0 ? 
+               `Vraag ${currentQuestionIndex + 1} van ${questions.length}` :
                "Quiz informatie"}
           </SheetDescription>
         </SheetHeader>
@@ -420,12 +353,13 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
         <div className="mt-4">
           {import.meta.env.DEV && (
             <div className="bg-gray-100 p-2 mb-4 text-xs rounded">
-              <div>Debug: Questions from props: {questions?.length || 0}</div>
-              <div>Debug: Active questions: {activeQuestions?.length || 0}</div>
+              <div>Debug: Questions: {questions?.length || 0}</div>
+              <div>Debug: Current index: {currentQuestionIndex}</div>
               <div>Debug: isGenerating: {String(isGenerating)}</div>
               <div>Debug: error: {error ? 'Yes' : 'No'}</div>
+              <div>Debug: isQuizComplete: {String(isQuizComplete)}</div>
               <div>Debug: sheetOpen: {String(sheetOpen)}</div>
-              <div>Debug: forceMount: {String(shouldForceMountContent)}</div>
+              <div>Debug: parent open: {String(open)}</div>
             </div>
           )}
           {renderContent()}

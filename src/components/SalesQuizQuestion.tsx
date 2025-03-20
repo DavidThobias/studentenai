@@ -1,18 +1,20 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { BookOpen, Loader2, Brain, Eye, EyeOff } from "lucide-react";
+import { BookOpen, Loader2, Brain, Eye, EyeOff, ArrowRight, Bug } from "lucide-react";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import Quiz from "./Quiz";
 
 interface QuestionData {
-  vraag: string;
-  opties: string[];
-  correct: string;
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation: string;
 }
 
 interface DebugData {
@@ -33,6 +35,160 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
   const [debugData, setDebugData] = useState<DebugData>({});
   const [debugAccordion, setDebugAccordion] = useState<string | null>(null);
   const [showDebugSection, setShowDebugSection] = useState(showDebug);
+  
+  // Quiz state
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [questions, setQuestions] = useState<Array<QuizQuestion>>([]);
+  const [quizError, setQuizError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [quizSelectedAnswer, setQuizSelectedAnswer] = useState<number | null>(null);
+  const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
+  const [score, setScore] = useState(0);
+  const [isQuizComplete, setIsQuizComplete] = useState(false);
+  
+  // Debug state for tracking quiz progression
+  const [stateLog, setStateLog] = useState<string[]>([]);
+  
+  // Add debug log function
+  const addLog = (message: string) => {
+    console.log(`[QUIZ DEBUG] ${message}`);
+    setStateLog(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
+  };
+
+  // Log state changes
+  useEffect(() => {
+    if (quizOpen) {
+      addLog(`Quiz state update: currentQuestion=${currentQuestionIndex}, totalQuestions=${questions.length}, isAnswerSubmitted=${isAnswerSubmitted}, score=${score}`);
+    }
+  }, [quizOpen, currentQuestionIndex, isAnswerSubmitted, score, questions.length]);
+
+  const generateSalesQuiz = async (questionCount: number = 5) => {
+    try {
+      setIsGenerating(true);
+      setQuizError(null);
+      setQuestions([]);
+      setCurrentQuestionIndex(0);
+      setQuizSelectedAnswer(null);
+      setIsAnswerSubmitted(false);
+      setScore(0);
+      setIsQuizComplete(false);
+      
+      addLog(`Generating ${questionCount} quiz questions`);
+      
+      const { data, error } = await supabase.functions.invoke('generate-quiz', {
+        body: { count: questionCount, bookId, debug: true }
+      });
+      
+      if (error) {
+        console.error('Error generating quiz:', error);
+        setQuizError(`Er is een fout opgetreden: ${error.message}`);
+        addLog(`Error: ${error.message}`);
+        return;
+      }
+      
+      if (data && data.success && data.questions && data.questions.length > 0) {
+        setQuestions(data.questions);
+        addLog(`Received ${data.questions.length} questions successfully`);
+        
+        // Store debug data if available
+        if (data.debug) {
+          setDebugData({
+            prompt: data.debug.prompt,
+            response: data.debug.response
+          });
+          setDebugAccordion("prompt");
+        }
+        
+        // Automatically open quiz when questions are ready
+        setQuizOpen(true);
+      } else {
+        setQuizError('Geen vragen konden worden gegenereerd');
+        addLog(`Failed to generate questions: Invalid response format`);
+      }
+    } catch (err) {
+      console.error('Error in generateSalesQuiz:', err);
+      setQuizError(`Er is een onverwachte fout opgetreden`);
+      addLog(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleStartQuiz = async () => {
+    try {
+      addLog('Starting quiz generation');
+      await generateSalesQuiz(5);
+    } catch (error) {
+      console.error('Error starting quiz:', error);
+      toast.error('Er ging iets mis bij het starten van de quiz');
+    }
+  };
+
+  const handleAnswerSelect = (index: number) => {
+    if (!isAnswerSubmitted) {
+      addLog(`Selected answer: ${index}`);
+      setQuizSelectedAnswer(index);
+    }
+  };
+
+  const handleSubmitAnswer = () => {
+    if (quizSelectedAnswer === null) {
+      toast.info('Selecteer eerst een antwoord');
+      return;
+    }
+
+    addLog(`Submitting answer: ${quizSelectedAnswer}`);
+    setIsAnswerSubmitted(true);
+    
+    if (questions.length > 0) {
+      const currentQuestion = questions[currentQuestionIndex];
+      if (quizSelectedAnswer === currentQuestion.correctAnswer) {
+        setScore(prevScore => prevScore + 1);
+        addLog('Answer correct, score updated');
+      } else {
+        addLog('Answer incorrect');
+      }
+    }
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      addLog(`Moving to next question (${currentQuestionIndex + 1})`);
+      setCurrentQuestionIndex(prevIndex => prevIndex + 1);
+      setQuizSelectedAnswer(null);
+      setIsAnswerSubmitted(false);
+    } else {
+      addLog('Quiz complete, showing results');
+      setIsQuizComplete(true);
+    }
+  };
+
+  const forceNextQuestion = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      addLog(`FORCE: Moving to next question (${currentQuestionIndex + 1})`);
+      setCurrentQuestionIndex(prevIndex => prevIndex + 1);
+      setQuizSelectedAnswer(null);
+      setIsAnswerSubmitted(false);
+    } else {
+      addLog('FORCE: Cannot advance, already at last question');
+      toast.info('Je bent al bij de laatste vraag');
+    }
+  };
+
+  const restartQuiz = () => {
+    addLog('Restarting quiz');
+    setCurrentQuestionIndex(0);
+    setQuizSelectedAnswer(null);
+    setIsAnswerSubmitted(false);
+    setScore(0);
+    setIsQuizComplete(false);
+  };
+
+  const handleCloseQuiz = () => {
+    addLog('Closing quiz');
+    setQuizOpen(false);
+  };
 
   const generateQuestion = async () => {
     try {
@@ -114,20 +270,20 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
       {!question ? (
         <div className="flex flex-col items-center gap-4">
           <Button 
-            onClick={generateQuestion} 
-            disabled={loading}
+            onClick={handleStartQuiz} 
+            disabled={loading || isGenerating}
             size="lg"
             className="bg-study-600 hover:bg-study-700 text-white"
           >
-            {loading ? (
+            {loading || isGenerating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Vraag genereren...
+                Quiz genereren...
               </>
             ) : (
               <>
                 <Brain className="mr-2 h-5 w-5" />
-                Genereer een quizvraag over sales
+                Genereer quizvragen over sales
               </>
             )}
           </Button>
@@ -286,6 +442,69 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
             </Button>
           </CardFooter>
         </Card>
+      )}
+
+      {/* Quiz Component */}
+      <Quiz 
+        questions={questions} 
+        onClose={handleCloseQuiz} 
+        open={quizOpen} 
+        title="Quiz over Sales"
+        error={quizError}
+        isGenerating={isGenerating}
+        currentQuestionIndex={currentQuestionIndex}
+        selectedAnswer={quizSelectedAnswer}
+        isAnswerSubmitted={isAnswerSubmitted}
+        score={score}
+        isQuizComplete={isQuizComplete}
+        handleAnswerSelect={handleAnswerSelect}
+        handleSubmitAnswer={handleSubmitAnswer}
+        handleNextQuestion={handleNextQuestion}
+        restartQuiz={restartQuiz}
+      />
+
+      {/* Debug panel - only show when quiz is open */}
+      {quizOpen && showDebug && showDebugSection && (
+        <div className="mt-6 border border-gray-200 rounded-md p-4 bg-gray-50">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-medium">Quiz Debug Panel</h3>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={forceNextQuestion}
+              className="bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-200"
+            >
+              <Bug className="mr-1 h-3 w-3" />
+              Force Next Question
+            </Button>
+          </div>
+          <div className="text-xs font-mono h-40 overflow-y-auto p-2 bg-gray-100 rounded border border-gray-300">
+            {stateLog.map((log, i) => (
+              <div key={i} className="border-b border-gray-200 py-1">{log}</div>
+            ))}
+            {stateLog.length === 0 && <div className="text-gray-500">No logs yet</div>}
+          </div>
+          <div className="mt-2 text-xs grid grid-cols-2 gap-2">
+            <div className="bg-gray-100 p-1 rounded">
+              <span className="font-bold">Questions:</span> {questions.length}
+            </div>
+            <div className="bg-gray-100 p-1 rounded">
+              <span className="font-bold">Current Index:</span> {currentQuestionIndex}
+            </div>
+            <div className="bg-gray-100 p-1 rounded">
+              <span className="font-bold">Answer Submitted:</span> {isAnswerSubmitted ? 'Yes' : 'No'}
+            </div>
+            <div className="bg-gray-100 p-1 rounded">
+              <span className="font-bold">Score:</span> {score}
+            </div>
+            <div className="bg-gray-100 p-1 rounded">
+              <span className="font-bold">Complete:</span> {isQuizComplete ? 'Yes' : 'No'}
+            </div>
+            <div className="bg-gray-100 p-1 rounded">
+              <span className="font-bold">Selected Answer:</span> {quizSelectedAnswer !== null ? quizSelectedAnswer : 'None'}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
