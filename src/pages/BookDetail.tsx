@@ -86,6 +86,7 @@ const BookDetail = () => {
         console.error('Error invoking generate-quiz function:', functionError);
         setQuizError(`Er is een fout opgetreden bij het genereren van de quiz: ${functionError.message}`);
         toast.error('Fout bij het genereren van de quiz.');
+        setIsGeneratingQuiz(false);
         return;
       }
       
@@ -93,6 +94,7 @@ const BookDetail = () => {
         console.error('Error from generate-quiz function:', response.error);
         setQuizError(`Er is een fout opgetreden bij het genereren van de quiz: ${response.error}`);
         toast.error('Fout bij het genereren van de quiz.');
+        setIsGeneratingQuiz(false);
         return;
       }
       
@@ -108,12 +110,6 @@ const BookDetail = () => {
         }));
         
         console.log('Formatted questions:', formattedQuestions);
-        
-        // Make sure dialog is open before setting questions
-        if (!quizOpen) {
-          setQuizOpen(true);
-        }
-        
         setQuizQuestions(formattedQuestions);
         setIsGeneratingQuiz(false);
         toast.success('Quiz is gegenereerd!');
@@ -137,12 +133,6 @@ const BookDetail = () => {
 
   const handleCloseQuiz = () => {
     setQuizOpen(false);
-    // Only clear questions when dialog is fully closed
-    setTimeout(() => {
-      if (!quizOpen) {
-        setQuizQuestions([]);
-      }
-    }, 300);
   };
 
   if (loading) {
@@ -180,7 +170,7 @@ const BookDetail = () => {
         <UpcomingFeatures />
       </div>
 
-      {/* Always render Quiz component */}
+      {/* Quiz component using Sheet instead of Dialog */}
       <Quiz 
         questions={quizQuestions}
         onClose={handleCloseQuiz}
