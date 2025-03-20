@@ -13,8 +13,8 @@ interface ChapterData {
 
 interface ChaptersListProps {
   chapters: ChapterData[];
-  onStartQuiz: (chapterId?: number, paragraphId?: number) => void;
   onChapterSelect: (chapterId: number) => void;
+  onStartQuiz?: (chapterId?: number, paragraphId?: number) => void;
 }
 
 const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect }: ChaptersListProps) => {
@@ -35,14 +35,16 @@ const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect }: ChaptersListPr
                 </p>
               </CardContent>
               <CardFooter className="flex flex-col sm:flex-row gap-2">
-                <Button 
-                  onClick={() => onStartQuiz(chapter.id)} 
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                >
-                  <Brain className="mr-2 h-4 w-4" />
-                  Start quiz
-                </Button>
+                {onStartQuiz && (
+                  <Button 
+                    onClick={() => onStartQuiz(chapter.id)} 
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                  >
+                    <Brain className="mr-2 h-4 w-4" />
+                    Start quiz
+                  </Button>
+                )}
                 <Button 
                   variant="ghost" 
                   className="w-full sm:w-auto justify-between"

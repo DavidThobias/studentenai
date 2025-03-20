@@ -13,7 +13,7 @@ interface ParagraphData {
 interface ParagraphsListProps {
   paragraphs: ParagraphData[];
   loadingParagraphs: boolean;
-  onStartQuiz: (chapterId?: number, paragraphId?: number) => void;
+  onStartQuiz?: (chapterId?: number, paragraphId?: number) => void;
 }
 
 const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz }: ParagraphsListProps) => {
@@ -43,15 +43,17 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz }: Paragrap
                 </p>
               </CardContent>
               <CardFooter className="flex flex-row gap-2">
-                <Button 
-                  onClick={() => onStartQuiz(paragraph.chapter_id, paragraph.id)}
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                >
-                  <ListChecks className="mr-2 h-4 w-4" />
-                  Quiz over paragraaf
-                </Button>
+                {onStartQuiz && (
+                  <Button 
+                    onClick={() => onStartQuiz(paragraph.chapter_id, paragraph.id)}
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                  >
+                    <ListChecks className="mr-2 h-4 w-4" />
+                    Quiz over paragraaf
+                  </Button>
+                )}
               </CardFooter>
             </Card>
           ))}
