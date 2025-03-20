@@ -34,14 +34,11 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   const [showExplanation, setShowExplanation] = useState(false);
   const [initialized, setInitialized] = useState(false);
   
-  // Store the active questions permanently in state
   const [activeQuestions, setActiveQuestions] = useState<QuizQuestion[]>([]);
   
-  // Store the sheet's actual open state
   const [sheetOpen, setSheetOpen] = useState(false);
   
   useEffect(() => {
-    // Debug log for all state changes
     console.log('Quiz full state update:', { 
       open, 
       sheetOpen,
@@ -55,7 +52,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     });
   }, [open, questions, activeQuestions, sheetOpen, isGenerating, error, currentQuestionIndex, initialized, isQuizComplete]);
 
-  // Synchronize external open state with sheet open state
   useEffect(() => {
     console.log(`Quiz open prop changed: ${open}`);
     if (open) {
@@ -63,7 +59,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     }
   }, [open]);
   
-  // When questions arrive, store them permanently in state
   useEffect(() => {
     if (questions && questions.length > 0) {
       console.log(`Setting active questions with ${questions.length} questions from props`);
@@ -71,12 +66,10 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     }
   }, [questions]);
 
-  // Initialize quiz when questions are available and not generating
   useEffect(() => {
     if ((open || sheetOpen) && (questions.length > 0 || activeQuestions.length > 0) && !isGenerating && !error) {
       console.log('Initializing quiz with available questions');
       
-      // Use either the new questions from props or the stored active questions
       const questionsToUse = questions.length > 0 ? questions : activeQuestions;
       
       setCurrentQuestionIndex(0);
@@ -91,7 +84,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     }
   }, [open, sheetOpen, questions, activeQuestions, isGenerating, error]);
 
-  // Ensure proper visible state sync
   useEffect(() => {
     if (isGenerating || error || activeQuestions.length > 0 || questions.length > 0) {
       console.log('Quiz should be visible due to content');
@@ -160,9 +152,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
 
   const handleCloseQuiz = () => {
     console.log('Handling close quiz request');
-    // Keep questions in state, just close the sheet
     setSheetOpen(false);
-    // Call the external onClose handler
     onClose();
   };
 
@@ -379,7 +369,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       return renderErrorContent();
     }
 
-    // Check for questions in either source
     const hasQuestions = questions.length > 0 || activeQuestions.length > 0;
     if (!hasQuestions) {
       return renderEmptyContent();
@@ -392,8 +381,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     return renderQuestionContent();
   };
 
-  // Always keep mounted once we have questions
-  const shouldForceMount = questions.length > 0 || activeQuestions.length > 0 || isGenerating || error;
+  const shouldForceMountContent = activeQuestions.length > 0 || questions.length > 0 || isGenerating || error !== null;
   
   return (
     <Sheet 
@@ -410,8 +398,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       <SheetContent 
         side="right" 
         className="sm:max-w-md w-[95vw] overflow-y-auto"
-        // Always keep the content mounted once we have questions or are generating
-        forceMount={shouldForceMount}
+        forceMount={shouldForceMountContent ? true : undefined}
       >
         <SheetHeader className="mb-4">
           <SheetTitle>
@@ -438,7 +425,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
               <div>Debug: isGenerating: {String(isGenerating)}</div>
               <div>Debug: error: {error ? 'Yes' : 'No'}</div>
               <div>Debug: sheetOpen: {String(sheetOpen)}</div>
-              <div>Debug: forceMount: {String(shouldForceMount)}</div>
+              <div>Debug: forceMount: {String(shouldForceMountContent)}</div>
             </div>
           )}
           {renderContent()}
