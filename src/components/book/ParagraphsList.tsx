@@ -99,11 +99,19 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       setIsTestingEdgeFunction(true);
       console.log('Testing edge function with chapter_id =', selectedChapterId);
       
+      // Get current auth session to add token if available
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || '';
+      
+      console.log('Access token available for edge function test:', !!accessToken);
+      
       // Test the edge function directly
       const response = await fetch('https://ncipejuazrewiizxtkcj.supabase.co/functions/v1/get-paragraphs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // Only include Authorization header if we have a token
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({ chapterId: selectedChapterId }),
       });

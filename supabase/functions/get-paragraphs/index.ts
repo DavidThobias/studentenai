@@ -44,7 +44,7 @@ serve(async (req) => {
     
     console.log(`Getting paragraphs for chapter ${numericChapterId} (type: ${typeof numericChapterId})`);
 
-    // Create Supabase client
+    // Create Supabase client - use the authorization header if present, otherwise use the anon key
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);

@@ -124,12 +124,19 @@ export const useBookDetail = (id: string | undefined) => {
       // APPROACH 1: Try Edge Function first - this is the most reliable method
       console.log('Trying Edge Function first...');
       try {
-        // Get the full Supabase URL for the edge function
+        // Get the session - properly await for the token
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token || '';
+        
+        console.log(`Access token available: ${!!accessToken}`);
+        
+        // Call the edge function with proper authorization header if available
         const result = await fetch('https://ncipejuazrewiizxtkcj.supabase.co/functions/v1/get-paragraphs', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabase.auth.getSession()?.data?.session?.access_token || ''}`,
+            // Only include Authorization header if we have a token
+            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
           },
           body: JSON.stringify({ chapterId: numericChapterId }),
         });
@@ -153,6 +160,7 @@ export const useBookDetail = (id: string | undefined) => {
         }
       } catch (edgeFunctionError) {
         console.error('Error calling edge function:', edgeFunctionError);
+        // Continue to other approaches
       }
       
       // APPROACH 2: Try direct Supabase query - Split into separate operations to avoid deep type instantiation
