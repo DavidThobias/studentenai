@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -41,7 +40,6 @@ const BookDetail = () => {
     fetchParagraphs 
   } = useBookDetail(id);
 
-  // Add debug logging for state changes
   useEffect(() => {
     console.log("BookDetail state:", {
       quizOpen,
@@ -52,10 +50,12 @@ const BookDetail = () => {
     });
   }, [quizOpen, quizQuestions, isGeneratingQuiz, quizError, quizTitle]);
 
-  // Open quiz when needed
   useEffect(() => {
     if (isGeneratingQuiz || quizQuestions.length > 0 || quizError) {
-      console.log('Setting quiz open to true');
+      console.log('Setting quiz open to true due to', 
+        isGeneratingQuiz ? 'generating quiz' : 
+        quizQuestions.length > 0 ? 'questions available' : 
+        'quiz error');
       setQuizOpen(true);
     }
   }, [isGeneratingQuiz, quizQuestions, quizError]);
@@ -63,14 +63,12 @@ const BookDetail = () => {
   const handleStartQuiz = useCallback(async (chapterId?: number, paragraphId?: number) => {
     console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}${paragraphId ? `, paragraph ${paragraphId}` : ''}`);
     
-    // Reset quiz state but preserve any existing questions while loading new ones
+    setQuizOpen(true);
     setQuizError(null);
     setIsGeneratingQuiz(true);
+    
     setSelectedChapterId(chapterId?.toString());
     setSelectedParagraphId(paragraphId?.toString());
-    
-    // Force quiz open immediately
-    setQuizOpen(true);
     
     if (paragraphId) {
       const paragraph = paragraphs.find(p => p.id === paragraphId);
@@ -128,9 +126,13 @@ const BookDetail = () => {
         
         console.log('Formatted questions:', formattedQuestions);
         
-        // Important: Set questions and clear loading state in separate operations
         setQuizQuestions(formattedQuestions);
-        setIsGeneratingQuiz(false);
+        
+        setTimeout(() => {
+          setIsGeneratingQuiz(false);
+          setQuizOpen(true);
+        }, 100);
+        
         toast.success('Quiz is gegenereerd!');
       } else {
         console.warn('No questions found in response:', response);
@@ -153,10 +155,9 @@ const BookDetail = () => {
   const handleCloseQuiz = () => {
     console.log('Closing quiz');
     setQuizOpen(false);
-    // Don't clear questions on close - preserve them
+    setIsGeneratingQuiz(false);
+    setQuizError(null);
   };
-
-  // No cleanup timeout - preserve state
 
   if (loading) {
     return <LoadingBookDetail />;

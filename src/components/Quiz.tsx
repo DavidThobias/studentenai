@@ -33,37 +33,36 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [initialized, setInitialized] = useState(false);
-  const [localOpen, setLocalOpen] = useState(open);
   
+  // Store questions in a ref to keep them stable between renders
   const questionsRef = useRef<QuizQuestion[]>([]);
   
-  console.log("Quiz render with:", { 
-    open, 
-    localOpen,
-    questionsCount: questions.length, 
-    isGenerating, 
-    error,
-    firstQuestion: questions[0]?.question || 'No question',
-    cachedQuestionsLength: questions ? questions.length : 0
-  });
-
+  // Synchronize the ref with the props when questions change
   useEffect(() => {
-    console.log(`open prop changed to: ${open}`);
-    if (open) {
-      setLocalOpen(true);
-    } else {
-      const timer = setTimeout(() => {
-        setLocalOpen(false);
-      }, 150);
-      return () => clearTimeout(timer);
+    if (questions && questions.length > 0) {
+      console.log('Updating questionsRef with', questions.length, 'questions');
+      questionsRef.current = questions;
     }
-  }, [open]);
+  }, [questions]);
+  
+  // Simple state debug logging
+  useEffect(() => {
+    console.log('Quiz state updated:', { 
+      open, 
+      hasQuestions: questionsRef.current.length > 0,
+      questionsFromProps: questions.length,
+      isGenerating, 
+      error,
+      currentQuestionIndex,
+      initialized,
+      isQuizComplete
+    });
+  }, [open, questions, isGenerating, error, currentQuestionIndex, initialized, isQuizComplete]);
 
+  // Initialize quiz when questions are received and not generating
   useEffect(() => {
     if (open && questions && questions.length > 0 && !isGenerating) {
       console.log('Valid questions available, initializing quiz state with', questions.length, 'questions');
-      
-      questionsRef.current = questions;
       
       setCurrentQuestionIndex(0);
       setSelectedAnswer(null);
@@ -91,8 +90,10 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     console.log(`Submitting answer: ${selectedAnswer}`);
     setIsAnswerSubmitted(true);
     
-    if (questions && questions.length > 0) {
-      const currentQuestion = questions[currentQuestionIndex];
+    const activeQuestions = questions.length > 0 ? questions : questionsRef.current;
+    
+    if (activeQuestions && activeQuestions.length > 0) {
+      const currentQuestion = activeQuestions[currentQuestionIndex];
       if (selectedAnswer === currentQuestion.correctAnswer) {
         setScore(prevScore => prevScore + 1);
         console.log('Correct answer!');
@@ -103,7 +104,9 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   };
 
   const handleNextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
+    const activeQuestions = questions.length > 0 ? questions : questionsRef.current;
+    
+    if (currentQuestionIndex < activeQuestions.length - 1) {
       console.log(`Moving to next question (${currentQuestionIndex + 1})`);
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
@@ -168,24 +171,26 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   };
 
   const renderResultsContent = () => {
+    const activeQuestions = questions.length > 0 ? questions : questionsRef.current;
+    
     return (
       <div className="flex flex-col items-center justify-center space-y-6">
         <div className="w-full">
           <Progress 
-            value={Math.round((score / questions.length) * 100)} 
+            value={Math.round((score / activeQuestions.length) * 100)} 
             className="h-6" 
           />
           <p className="text-center mt-2 text-sm text-muted-foreground">
-            {Math.round((score / questions.length) * 100)}% correct
+            {Math.round((score / activeQuestions.length) * 100)}% correct
           </p>
         </div>
         
         <div className="w-32 h-32 rounded-full border-4 flex items-center justify-center">
-          <span className="text-4xl font-bold">{score}/{questions.length}</span>
+          <span className="text-4xl font-bold">{score}/{activeQuestions.length}</span>
         </div>
         
         <p className="text-center text-lg">
-          Je hebt {score} van de {questions.length} vragen goed beantwoord.
+          Je hebt {score} van de {activeQuestions.length} vragen goed beantwoord.
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full">
@@ -306,7 +311,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
               </Button>
             ) : (
               <Button onClick={handleNextQuestion}>
-                {currentQuestionIndex < questions.length - 1 ? (
+                {currentQuestionIndex < activeQuestions.length - 1 ? (
                   <>
                     Volgende vraag
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -326,7 +331,8 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     console.log('Rendering quiz content with state:', {
       isGenerating,
       error,
-      questionsLength: questions?.length || 0,
+      questionsFromProps: questions?.length || 0,
+      questionsFromRef: questionsRef.current?.length || 0,
       currentQuestionIndex,
       isQuizComplete,
       initialized
@@ -340,7 +346,9 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       return renderErrorContent();
     }
 
-    if (!questions.length && !questionsRef.current.length) {
+    // First check props, then check ref for questions
+    const hasQuestions = questions.length > 0 || questionsRef.current.length > 0;
+    if (!hasQuestions) {
       return renderEmptyContent();
     }
 
@@ -351,24 +359,28 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     return renderQuestionContent();
   };
 
+  // Track when questions are actually available in the component
   useEffect(() => {
-    if (open && questions && questions.length > 0) {
-      console.log("Quiz component opened with", questions.length, "questions:", questions);
+    if (open && (questions.length > 0 || questionsRef.current.length > 0)) {
+      const sourceText = questions.length > 0 ? "props" : "ref";
+      const count = questions.length > 0 ? questions.length : questionsRef.current.length;
+      console.log(`Quiz component has ${count} questions from ${sourceText}`);
     }
   }, [open, questions]);
 
+  // THE KEY CHANGE: Always use true for the Sheet's open state when we have questions or are generating
+  const shouldBeOpen = open || isGenerating || questions.length > 0 || questionsRef.current.length > 0;
+  
   return (
-    <Sheet 
-      open={localOpen} 
-      onOpenChange={(isOpen) => {
-        console.log(`Sheet onOpenChange: ${isOpen}`);
-        if (!isOpen) onClose();
-      }}
-    >
+    <Sheet open={shouldBeOpen} onOpenChange={(isOpen) => {
+      console.log(`Sheet onOpenChange: ${isOpen}`);
+      if (!isOpen && !isGenerating) onClose();
+    }}>
       <SheetContent 
         side="right" 
         className="sm:max-w-md w-[95vw] overflow-y-auto"
-        forceMount
+        // Always keep the content mounted once we have questions or are generating
+        forceMount={true}
       >
         <SheetHeader className="mb-4">
           <SheetTitle>
@@ -382,6 +394,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
              error ? "Er is een probleem opgetreden bij het genereren van de quiz." :
              isQuizComplete ? "Bekijk hieronder je resultaten" :
              questions && questions.length > 0 ? `Vraag ${currentQuestionIndex + 1} van ${questions.length}` :
+             questionsRef.current && questionsRef.current.length > 0 ? `Vraag ${currentQuestionIndex + 1} van ${questionsRef.current.length}` :
              "Quiz informatie"}
           </SheetDescription>
         </SheetHeader>
@@ -389,10 +402,11 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
         <div className="mt-4">
           {import.meta.env.DEV && (
             <div className="bg-gray-100 p-2 mb-4 text-xs rounded">
-              <div>Debug: Questions: {questions?.length || 0}</div>
+              <div>Debug: Questions from props: {questions?.length || 0}</div>
+              <div>Debug: Questions from ref: {questionsRef.current?.length || 0}</div>
               <div>isGenerating: {String(isGenerating)}</div>
               <div>error: {error ? 'Yes' : 'No'}</div>
-              <div>Cached questions: {questionsRef.current.length}</div>
+              <div>shouldBeOpen: {String(shouldBeOpen)}</div>
             </div>
           )}
           {renderContent()}
