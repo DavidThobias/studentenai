@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -63,7 +64,7 @@ const BookDetail = () => {
     
     try {
       setIsGeneratingQuiz(true);
-      setQuizOpen(true);
+      setQuizOpen(true); // Open the dialog immediately to show loading state
       
       console.log(`Calling generate-quiz function for book ${id}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}`);
       
@@ -186,6 +187,10 @@ const BookDetail = () => {
       {isGeneratingQuiz && quizOpen && (
         <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
           <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Quiz voorbereiden</DialogTitle>
+              <DialogDescription>Even geduld terwijl we je quiz voorbereiden.</DialogDescription>
+            </DialogHeader>
             <div className="flex flex-col items-center justify-center p-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
               <p className="text-center">Quiz wordt gegenereerd...</p>
