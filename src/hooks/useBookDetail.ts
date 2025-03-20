@@ -82,27 +82,14 @@ export const useBookDetail = (id: string | undefined) => {
         console.log(`Retrieved ${chapterData?.length || 0} chapters`);
         setChapters(chapterData || []);
         
-        // Fetch paragraphs for the first chapter if available
+        // If there are chapters, select the first one and fetch its paragraphs
         if (chapterData && chapterData.length > 0) {
           const firstChapterId = chapterData[0].id;
-          setSelectedChapterId(firstChapterId);
           console.log(`Setting initial selected chapter ID to ${firstChapterId}`);
+          setSelectedChapterId(firstChapterId);
           
-          // Check if there are actually paragraphs for this chapter before fetching
-          const { count, error: countError } = await supabase
-            .from('Paragraven')
-            .select('*', { count: 'exact', head: true })
-            .eq('chapter_id', firstChapterId);
-            
-          if (countError) {
-            console.error('Error checking for paragraphs count:', countError);
-          } else if (count && count > 0) {
-            console.log(`Found ${count} paragraphs for chapter ${firstChapterId}, fetching them...`);
-            await fetchParagraphs(firstChapterId);
-          } else {
-            console.log(`No paragraphs found for chapter ${firstChapterId}`);
-            setParagraphs([]);
-          }
+          // Just fetch the paragraphs - don't try to be smart with pre-checking
+          await fetchParagraphs(firstChapterId);
         }
       } catch (error) {
         console.error('Error fetching book details:', error);
@@ -122,21 +109,7 @@ export const useBookDetail = (id: string | undefined) => {
       setSelectedChapterId(chapterId);
       console.log(`Fetching paragraphs for chapter ID: ${chapterId}`);
       
-      // Log all paragraphs in the database for debugging
-      const { data: allParagraphs, error: allError } = await supabase
-        .from('Paragraven')
-        .select('*');
-        
-      if (allError) {
-        console.error('Error fetching all paragraphs:', allError);
-      } else {
-        console.log(`Total paragraphs in database: ${allParagraphs?.length || 0}`);
-        allParagraphs?.forEach(p => {
-          console.log(`Paragraph ID: ${p.id}, Chapter ID: ${p.chapter_id}, Number: ${p["paragraaf nummer"]}`);
-        });
-      }
-      
-      // Fetch paragraphs for the specific chapter
+      // Simplified approach - just fetch paragraphs directly
       const { data: paragraphData, error: paragraphError } = await supabase
         .from('Paragraven')
         .select('*')
@@ -149,14 +122,17 @@ export const useBookDetail = (id: string | undefined) => {
         throw paragraphError;
       }
       
-      console.log(`Retrieved ${paragraphData?.length || 0} paragraphs for chapter ${chapterId}`);
+      // Debug log all paragraphs
+      console.log(`Retrieved paragraphs for chapter ${chapterId}:`, paragraphData);
+      setParagraphs(paragraphData || []);
       
-      if (paragraphData && paragraphData.length > 0) {
-        setParagraphs(paragraphData);
-      } else {
-        console.log(`No paragraphs found for chapter ${chapterId}`);
-        setParagraphs([]);
-      }
+      // Also log all paragraphs in the database for debugging
+      const { data: allParagraphs } = await supabase
+        .from('Paragraven')
+        .select('id, chapter_id, "paragraaf nummer"');
+        
+      console.log('All paragraphs in database:', allParagraphs);
+      
     } catch (error) {
       console.error('Error fetching paragraphs:', error);
       toast.error('Er is een fout opgetreden bij het ophalen van de paragrafen');

@@ -42,15 +42,18 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
       setDebugData({});
       setDebugAccordion(null);
       
+      console.log("Generating question with debug:", showDebug, "bookId:", bookId);
+      
       // Include bookId if available
-      const payload = bookId ? { bookId } : {};
+      const payload = bookId ? { bookId, debug: showDebug } : { debug: showDebug };
+      
+      console.log("Payload for generate-quiz:", payload);
       
       const { data, error } = await supabase.functions.invoke('generate-quiz', {
-        body: {
-          ...payload,
-          debug: showDebug
-        }
+        body: payload
       });
+      
+      console.log("Response from generate-quiz:", data, error);
       
       if (error) {
         console.error('Error generating question:', error);
@@ -78,6 +81,8 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
             prompt: data.debug.prompt,
             response: data.debug.response
           });
+          // Auto-open the prompt accordion
+          setDebugAccordion("prompt");
         }
       } else {
         toast.error('Ongeldige response ontvangen van de server');
