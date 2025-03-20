@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -71,6 +70,74 @@ export const useQuiz = () => {
     }
   };
 
+  const generateSalesQuiz = async (numberOfQuestions: number = 5) => {
+    try {
+      setIsGenerating(true);
+      setQuizError(null);
+      resetQuizState();
+      
+      console.log(`Generating sales quiz with ${numberOfQuestions} questions`);
+      
+      const promises = Array(numberOfQuestions).fill(0).map(async (_, index) => {
+        console.log(`Generating sales question ${index + 1}/${numberOfQuestions}`);
+        
+        const { data, error } = await supabase.functions.invoke('generate-sales-question', {
+          body: { debug: import.meta.env.DEV }
+        });
+        
+        if (error) {
+          console.error(`Error generating sales question ${index + 1}:`, error);
+          throw error;
+        }
+        
+        if (!data?.success || !data?.question) {
+          console.error(`Invalid response from sales question generation ${index + 1}:`, data);
+          throw new Error('Invalid response format');
+        }
+        
+        console.log(`Received sales question ${index + 1}:`, data.question);
+        
+        // Format the question into our QuizQuestion format
+        const questionData = data.question;
+        
+        // Extract the letter from the correct answer (e.g., "A: text" -> extract "A")
+        const correctLetter = questionData.correct.charAt(0);
+        
+        // Convert the letter to an index (A=0, B=1, etc.)
+        const correctIndex = correctLetter.charCodeAt(0) - 65; // 'A' is 65 in ASCII
+        
+        // Remove the letter prefixes from options for cleaner display
+        const cleanOptions = questionData.opties.map((opt: string) => 
+          opt.substring(3) // Remove "X: " prefix
+        );
+        
+        return {
+          question: questionData.vraag,
+          options: cleanOptions,
+          correctAnswer: correctIndex,
+          explanation: "Dit is een door AI gegenereerde vraag over sales."
+        };
+      });
+      
+      try {
+        const generatedQuestions = await Promise.all(promises);
+        console.log(`Successfully generated ${generatedQuestions.length} sales questions`);
+        setQuestions(generatedQuestions);
+      } catch (error) {
+        console.error('Error in one or more question generation promises:', error);
+        setQuizError(`Er is een fout opgetreden bij het genereren van de quiz: ${error instanceof Error ? error.message : 'Onbekende fout'}`);
+        toast.error('Er ging iets mis bij het genereren van de quiz');
+      }
+      
+    } catch (error) {
+      console.error('Error in generateSalesQuiz:', error);
+      setQuizError(`Er is een fout opgetreden: ${error instanceof Error ? error.message : 'Onbekende fout'}`);
+      toast.error('Er ging iets mis bij het genereren van de quiz');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleAnswerSelect = (index: number) => {
     if (!isAnswerSubmitted) {
       setSelectedAnswer(index);
@@ -106,6 +173,7 @@ export const useQuiz = () => {
     isGenerating,
     quizError,
     generateQuiz,
+    generateSalesQuiz,
     currentQuestionIndex,
     selectedAnswer,
     isAnswerSubmitted,
