@@ -41,6 +41,14 @@ const BookDetail = () => {
     fetchParagraphs 
   } = useBookDetail(id);
 
+  // This effect ensures the quiz stays open until manually closed
+  useEffect(() => {
+    if (isGeneratingQuiz || quizQuestions.length > 0 || quizError) {
+      console.log('Setting quiz open to true');
+      setQuizOpen(true);
+    }
+  }, [isGeneratingQuiz, quizQuestions.length, quizError]);
+
   const handleStartQuiz = async (chapterId?: number, paragraphId?: number) => {
     console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}${paragraphId ? `, paragraph ${paragraphId}` : ''}`);
     
@@ -132,8 +140,25 @@ const BookDetail = () => {
   };
 
   const handleCloseQuiz = () => {
+    console.log('Closing quiz');
     setQuizOpen(false);
+    // Don't reset other state immediately to avoid animation issues
   };
+
+  // Clean up quiz state when closed
+  useEffect(() => {
+    if (!quizOpen) {
+      // Delay clearing questions until after animation completes
+      const timer = setTimeout(() => {
+        console.log('Quiz closed, clearing state');
+        setQuizQuestions([]);
+        setQuizError(null);
+        setIsGeneratingQuiz(false);
+      }, 500); // Slightly longer than animation duration to ensure completion
+      
+      return () => clearTimeout(timer);
+    }
+  }, [quizOpen]);
 
   if (loading) {
     return <LoadingBookDetail />;

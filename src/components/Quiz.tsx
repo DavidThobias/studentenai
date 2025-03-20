@@ -34,14 +34,29 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [localOpen, setLocalOpen] = useState(open);
   
   console.log("Quiz render with:", { 
     open, 
+    localOpen,
     questionsCount: questions.length, 
     isGenerating, 
     error,
     firstQuestion: questions[0]?.question || 'No question'
   });
+
+  // Handle open state changes with debounce to avoid animation issues
+  useEffect(() => {
+    if (open) {
+      setLocalOpen(true);
+    } else {
+      // Delay closing to avoid animation issues
+      const timer = setTimeout(() => {
+        setLocalOpen(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
 
   // Reset quiz state when new questions are received
   useEffect(() => {
@@ -60,7 +75,10 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   // Reset initialized state when dialog closes
   useEffect(() => {
     if (!open) {
-      setInitialized(false);
+      const timer = setTimeout(() => {
+        setInitialized(false);
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [open]);
 
@@ -269,6 +287,9 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       <div className="flex flex-col items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
         <p className="text-center">Quiz wordt gegenereerd...</p>
+        <p className="text-center text-sm text-muted-foreground mt-2">
+          Dit kan enkele seconden duren
+        </p>
       </div>
     );
   };
@@ -335,18 +356,24 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   // Additional logging for debugging
   useEffect(() => {
     if (open) {
-      console.log("Quiz dialog opened with", questions.length, "questions:", questions);
+      console.log("Quiz component opened with", questions.length, "questions:", questions);
     }
   }, [open, questions]);
 
   return (
     <Sheet 
-      open={open} 
+      open={localOpen} 
       onOpenChange={(isOpen) => {
+        console.log(`Sheet onOpenChange: ${isOpen}`);
         if (!isOpen) onClose();
       }}
     >
-      <SheetContent side="right" className="sm:max-w-md w-[95vw] overflow-y-auto">
+      <SheetContent 
+        side="right" 
+        className="sm:max-w-md w-[95vw] overflow-y-auto"
+        // Force the sheet to remain mounted even when closed
+        forceMount={isGenerating}
+      >
         <SheetHeader className="mb-4">
           <SheetTitle>
             {isGenerating ? "Quiz voorbereiden" :
