@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+
+import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -259,6 +260,18 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     return (
       <Card className="border-2">
         <CardHeader>
+          <div className="flex justify-between items-center mb-2">
+            <div className="text-sm font-medium text-muted-foreground">
+              Vraag {currentQuestionIndex + 1} van {questionsToUse.length}
+            </div>
+            <div className="text-sm font-medium text-muted-foreground">
+              Score: {score} / {isAnswerSubmitted ? currentQuestionIndex + 1 : currentQuestionIndex}
+            </div>
+          </div>
+          <Progress 
+            value={(currentQuestionIndex / questionsToUse.length) * 100} 
+            className="h-2 mb-2" 
+          />
           <CardTitle className="text-lg">
             {currentQuestion.question}
           </CardTitle>
@@ -333,7 +346,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
                 Controleer antwoord
               </Button>
             ) : (
-              <Button onClick={handleNextQuestion}>
+              <Button onClick={handleNextQuestion} className="animate-pulse">
                 {currentQuestionIndex < questionsToUse.length - 1 ? (
                   <>
                     Volgende vraag

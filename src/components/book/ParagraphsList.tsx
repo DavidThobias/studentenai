@@ -10,13 +10,13 @@ interface ParagraphData {
   id: number;
   paragraph_number?: number;
   content?: string;
-  chapter_number: number;
+  chapter_number: number | string; // Allow both number and string types
 }
 
 interface ParagraphsListProps {
   paragraphs: ParagraphData[];
   loadingParagraphs: boolean;
-  onStartQuiz?: (chapterId?: number, paragraphId?: number) => void;
+  onStartQuiz?: (chapterId: number, paragraphId?: number) => void;
   selectedChapterId?: number | null;
 }
 
@@ -170,7 +170,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                 {onStartQuiz && (
                   <Button 
                     onClick={() => onStartQuiz(
-                      typeof paragraph.chapter_number === 'number' ? paragraph.chapter_number : Number(paragraph.chapter_number),
+                      Number(paragraph.chapter_number),
                       paragraph.id
                     )}
                     variant="outline"
