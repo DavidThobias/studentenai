@@ -30,7 +30,7 @@ serve(async (req) => {
     
     const { chapterId } = reqBody;
     
-    if (!chapterId) {
+    if (chapterId === undefined || chapterId === null) {
       throw new Error('Chapter ID is required');
     }
 
