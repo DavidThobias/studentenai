@@ -56,7 +56,7 @@ const BookOverview = ({ book }: BookOverviewProps) => {
       
       if (chapterIds.length > 0) {
         const { count, error: paragraphsError } = await supabase
-          .from('Paragraven')
+          .from('Paragrafen') // FIXED: Changed from 'Paragraven' to 'Paragrafen'
           .select('id', { count: 'exact', head: true })
           .in('chapter_id', chapterIds);
         
