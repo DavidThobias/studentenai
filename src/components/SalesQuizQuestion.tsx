@@ -23,6 +23,7 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
   const [debugAccordion, setDebugAccordion] = useState<string | null>(null);
   const [showDebugSection, setShowDebugSection] = useState(showDebug);
   const [quizOpen, setQuizOpen] = useState(false);
+  const [shouldOpenQuiz, setShouldOpenQuiz] = useState(false); // New state to control automatic opening
 
   const {
     questions,
@@ -48,17 +49,20 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
     }
   }, [isGenerating, questions, quizOpen]);
 
-  // Ensure Quiz opens when questions are ready
+  // Ensure Quiz opens when questions are ready AND shouldOpenQuiz is true
   useEffect(() => {
-    if (!isGenerating && questions.length > 0 && !quizOpen) {
+    if (shouldOpenQuiz && !isGenerating && questions.length > 0 && !quizOpen) {
       console.log('Questions ready, opening quiz');
       setQuizOpen(true);
+      setShouldOpenQuiz(false); // Reset flag to prevent reopening after manual close
     }
-  }, [isGenerating, questions, quizOpen]);
+  }, [isGenerating, questions, quizOpen, shouldOpenQuiz]);
 
   const handleStartQuiz = async () => {
     try {
       console.log('Starting sales quiz generation');
+      // Set flag to open quiz when questions are ready
+      setShouldOpenQuiz(true);
       // Generate 5 sales questions at once
       await generateSalesQuiz(5);
       
@@ -66,12 +70,14 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
     } catch (error) {
       console.error('Error starting quiz:', error);
       toast.error('Er ging iets mis bij het starten van de quiz');
+      setShouldOpenQuiz(false); // Reset flag if there's an error
     }
   };
 
   const handleCloseQuiz = () => {
     console.log('Closing quiz');
     setQuizOpen(false);
+    // We don't set shouldOpenQuiz here, so the quiz won't reopen automatically
   };
 
   return (
