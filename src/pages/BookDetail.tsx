@@ -43,11 +43,15 @@ const BookDetail = () => {
 
   const handleStartQuiz = async (chapterId?: number, paragraphId?: number) => {
     console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}${paragraphId ? `, paragraph ${paragraphId}` : ''}`);
-    setSelectedChapterId(chapterId?.toString());
-    setSelectedParagraphId(paragraphId?.toString());
+    
+    // Reset quiz state
     setQuizQuestions([]);
     setQuizError(null);
+    setIsGeneratingQuiz(true);
+    setSelectedChapterId(chapterId?.toString());
+    setSelectedParagraphId(paragraphId?.toString());
     
+    // Set quiz title based on selection
     if (paragraphId) {
       const paragraph = paragraphs.find(p => p.id === paragraphId);
       setQuizTitle(`Quiz over paragraaf ${paragraph?.["paragraaf nummer"] || ''}`);
@@ -58,12 +62,11 @@ const BookDetail = () => {
       setQuizTitle(`Quiz over ${book?.Titel || 'het boek'}`);
     }
     
+    // Open dialog immediately to show loading state
+    setQuizOpen(true);
     toast.info('Quiz wordt voorbereid...');
     
     try {
-      setIsGeneratingQuiz(true);
-      setQuizOpen(true); // Open the dialog immediately to show loading state
-      
       console.log(`Calling generate-quiz function for book ${id}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}`);
       
       const { data: response, error: functionError } = await supabase.functions.invoke('generate-quiz', {
