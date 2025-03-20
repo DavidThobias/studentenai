@@ -323,7 +323,7 @@ const Quiz = ({
       open={sheetOpen} 
       onOpenChange={(isOpen) => {
         console.log(`Sheet onOpenChange: ${isOpen}`);
-        if (!isOpen && !isGenerating && questions.length === 0) {
+        if (!isOpen && !isGenerating && questions.length === 0 && !error) {
           handleCloseQuiz();
         } else if (isOpen) {
           setSheetOpen(true);
