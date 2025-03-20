@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,36 +33,25 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   const [score, setScore] = useState(0);
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
-
-  // Debug log to track questions prop
-  useEffect(() => {
-    if (questions.length > 0) {
-      console.log(`Quiz component received ${questions.length} questions:`, questions);
-    }
-  }, [questions]);
-
-  // Reset quiz state when questions change or dialog is opened/closed
+  
+  // Use a ref to track if component is mounted
+  const isMounted = useRef(true);
+  
+  // Log dialog opening and questions
   useEffect(() => {
     if (open) {
-      console.log(`Quiz dialog opened. Questions: ${questions.length}, isGenerating: ${isGenerating}, error: ${error}`);
-      
-      // Wait for questions to be loaded or error to be set
-      if (!isGenerating && questions.length > 0) {
-        console.log('Resetting quiz state with new questions');
-        setCurrentQuestionIndex(0);
-        setSelectedAnswer(null);
-        setIsAnswerSubmitted(false);
-        setScore(0);
-        setIsQuizComplete(false);
-        setShowExplanation(false);
-      }
+      console.log(`Quiz dialog opened with ${questions.length} questions:`, questions);
     }
-  }, [open, questions, isGenerating, error]);
+    
+    return () => {
+      isMounted.current = false;
+    };
+  }, [open, questions]);
 
-  // Reset state completely when dialog is closed
+  // Reset quiz state when questions change 
   useEffect(() => {
-    if (!open) {
-      console.log('Quiz dialog closed, resetting state');
+    if (open && questions.length > 0 && !isGenerating) {
+      console.log('Resetting quiz state with new questions');
       setCurrentQuestionIndex(0);
       setSelectedAnswer(null);
       setIsAnswerSubmitted(false);
@@ -70,7 +59,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       setIsQuizComplete(false);
       setShowExplanation(false);
     }
-  }, [open]);
+  }, [open, questions, isGenerating]);
 
   const handleAnswerSelect = (index: number) => {
     if (!isAnswerSubmitted) {
@@ -86,9 +75,11 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
 
     setIsAnswerSubmitted(true);
     
-    const currentQuestion = questions[currentQuestionIndex];
-    if (selectedAnswer === currentQuestion.correctAnswer) {
-      setScore(prevScore => prevScore + 1);
+    if (questions.length > 0) {
+      const currentQuestion = questions[currentQuestionIndex];
+      if (selectedAnswer === currentQuestion.correctAnswer) {
+        setScore(prevScore => prevScore + 1);
+      }
     }
   };
 
@@ -187,7 +178,24 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       );
     }
 
+    // Make sure we have questions before trying to access them
+    if (questions.length === 0) {
+      return null;
+    }
+
+    // Get current question safely
     const currentQuestion = questions[currentQuestionIndex];
+    if (!currentQuestion) {
+      console.error('Current question is undefined. Index:', currentQuestionIndex, 'Questions:', questions);
+      return (
+        <div className="flex flex-col items-center justify-center space-y-4 p-6">
+          <p className="text-center text-muted-foreground">
+            Fout bij het laden van de vraag.
+          </p>
+          <Button onClick={onClose}>Sluiten</Button>
+        </div>
+      );
+    }
     
     return isQuizComplete ? (
       <div className="flex flex-col items-center justify-center space-y-6">
@@ -315,7 +323,9 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(open) => {
+      if (!open) onClose();
+    }}>
       <DialogContent className="max-w-[600px]">
         <DialogHeader>
           <DialogTitle>{renderDialogTitle()}</DialogTitle>
