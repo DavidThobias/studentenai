@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -76,15 +75,8 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     }
   }, [open, questions, isGenerating]);
 
-  // Clean up when dialog closes completely
-  useEffect(() => {
-    if (!open) {
-      const timer = setTimeout(() => {
-        setInitialized(false);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [open]);
+  // Ensure we preserve state when quiz is just visually closed
+  // Remove the cleanup timeout that was clearing state
 
   const handleAnswerSelect = (index: number) => {
     if (!isAnswerSubmitted) {
@@ -369,8 +361,8 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
 
   // Log when quiz is opened with questions
   useEffect(() => {
-    if (open) {
-      console.log("Quiz component opened with", questions?.length || 0, "questions:", questions);
+    if (open && questions && questions.length > 0) {
+      console.log("Quiz component opened with", questions.length, "questions:", questions);
     }
   }, [open, questions]);
 
@@ -385,8 +377,8 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       <SheetContent 
         side="right" 
         className="sm:max-w-md w-[95vw] overflow-y-auto"
-        // Make sure force mount is a literal true or undefined, not a boolean value
-        forceMount={isGenerating ? true : undefined}
+        // Literally force mount the content when generating or with questions
+        forceMount={isGenerating || (questions && questions.length > 0) ? true : undefined}
       >
         <SheetHeader className="mb-4">
           <SheetTitle>

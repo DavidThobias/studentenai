@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -29,7 +30,6 @@ const BookDetail = () => {
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
   const [quizTitle, setQuizTitle] = useState("Quiz");
-  const [quizRequestId, setQuizRequestId] = useState<string>("");
 
   const { 
     book, 
@@ -47,10 +47,9 @@ const BookDetail = () => {
       quizQuestionsCount: quizQuestions.length,
       isGeneratingQuiz,
       quizError,
-      quizTitle,
-      quizRequestId
+      quizTitle
     });
-  }, [quizOpen, quizQuestions, isGeneratingQuiz, quizError, quizTitle, quizRequestId]);
+  }, [quizOpen, quizQuestions, isGeneratingQuiz, quizError, quizTitle]);
 
   useEffect(() => {
     if (isGeneratingQuiz || quizQuestions.length > 0 || quizError) {
@@ -59,15 +58,8 @@ const BookDetail = () => {
     }
   }, [isGeneratingQuiz, quizQuestions, quizError]);
 
-  const generateQuizRequestId = () => {
-    return `quiz-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  };
-
   const handleStartQuiz = useCallback(async (chapterId?: number, paragraphId?: number) => {
     console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}${paragraphId ? `, paragraph ${paragraphId}` : ''}`);
-    
-    const requestId = generateQuizRequestId();
-    setQuizRequestId(requestId);
     
     setQuizQuestions([]);
     setQuizError(null);
@@ -98,17 +90,11 @@ const BookDetail = () => {
           chapterId: chapterId || null,
           paragraphId: paragraphId || null,
           numberOfQuestions: 3,
-          forceNewQuestions: true,
-          requestId: requestId,
+          forceNewQuestions: true
         },
       });
       
       console.log('Function response:', response);
-      
-      if (requestId !== quizRequestId) {
-        console.log('Ignoring stale quiz response for request', requestId);
-        return;
-      }
       
       if (functionError) {
         console.error('Error invoking generate-quiz function:', functionError);
@@ -153,7 +139,7 @@ const BookDetail = () => {
       toast.error('Er is een fout opgetreden bij het genereren van de quiz.');
       setIsGeneratingQuiz(false);
     }
-  }, [id, book, chapters, paragraphs, quizRequestId]);
+  }, [id, book, chapters, paragraphs]);
 
   const handleChapterSelect = (chapterId: number) => {
     fetchParagraphs(chapterId);
@@ -164,18 +150,7 @@ const BookDetail = () => {
     setQuizOpen(false);
   };
 
-  useEffect(() => {
-    if (!quizOpen) {
-      const timer = setTimeout(() => {
-        console.log('Quiz closed, clearing state');
-        setQuizQuestions([]);
-        setQuizError(null);
-        setIsGeneratingQuiz(false);
-      }, 500);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [quizOpen]);
+  // Remove cleanup timeout that was clearing the quiz state
 
   if (loading) {
     return <LoadingBookDetail />;
@@ -213,7 +188,6 @@ const BookDetail = () => {
       </div>
 
       <Quiz 
-        key={`quiz-${quizRequestId}`}
         questions={quizQuestions}
         onClose={handleCloseQuiz}
         open={quizOpen}
