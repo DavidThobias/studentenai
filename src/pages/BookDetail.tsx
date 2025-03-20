@@ -8,7 +8,6 @@ import ParagraphsList from '@/components/book/ParagraphsList';
 import UpcomingFeatures from '@/components/book/UpcomingFeatures';
 import LoadingBookDetail from '@/components/book/LoadingBookDetail';
 import { useBookDetail } from '@/hooks/useBookDetail';
-import SalesQuizQuestion from '@/components/SalesQuizQuestion';
 
 const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -57,13 +56,6 @@ const BookDetail = () => {
           loadingParagraphs={loadingParagraphs}
           selectedChapterId={selectedChapterId}
         />
-
-        {id && book?.id && (
-          <div className="mb-12">
-            <h2 className="text-2xl font-semibold mb-6">Quiz</h2>
-            <SalesQuizQuestion showDebug={true} bookId={book.id} />
-          </div>
-        )}
 
         <UpcomingFeatures />
       </div>
