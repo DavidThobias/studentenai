@@ -1,4 +1,3 @@
-
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +9,7 @@ interface ParagraphData {
   id: number;
   paragraph_number?: number;
   content?: string;
-  chapter_number: string; // Changed to consistently use string type
+  chapter_number: number; // Changed to consistently use number type
 }
 
 interface ParagraphsListProps {
@@ -46,7 +45,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         
       console.log('Total paragraphs in database:', totalCount);
       
-      // Query books table by chapter_number
+      // Query books table by chapter_number with numeric value
       const { data: chapterData, error: chapterError } = await supabase
         .from('books')
         .select('*')

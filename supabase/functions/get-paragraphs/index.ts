@@ -87,7 +87,7 @@ serve(async (req) => {
       const { data, error } = await supabase
         .from('Paragrafen')
         .select('*')
-        .eq('chapter_id', numericChapterId);
+        .eq('chapter_id', numericChapterId); // Pass numeric value
         
       if (!error && data && data.length > 0) {
         console.log(`Successfully fetched ${data.length} paragraphs via standard query from Paragrafen`);
@@ -98,7 +98,7 @@ serve(async (req) => {
       }
     }
     
-    // If still no data, try with string conversion
+    // If still no data, try with string conversion as fallback only
     if (paragraphsData.length === 0) {
       const { data: stringData, error: stringError } = await supabase
         .from('Paragrafen')
@@ -121,7 +121,7 @@ serve(async (req) => {
       const { data: booksData, error: booksError } = await supabase
         .from('books')
         .select('*')
-        .eq('chapter_number', numericChapterId);
+        .eq('chapter_number', numericChapterId); // Pass numeric value
         
       if (!booksError && booksData && booksData.length > 0) {
         console.log(`Successfully fetched ${booksData.length} records from books table`);
@@ -131,7 +131,7 @@ serve(async (req) => {
           id: book.id,
           "paragraaf nummer": book.paragraph_number,
           content: book.content,
-          chapter_id: book.chapter_number
+          chapter_id: Number(book.chapter_number) // Ensure chapter_id is a number
         }));
         
         dataSource = 'books_table';

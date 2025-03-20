@@ -40,7 +40,7 @@ const BookDetail = () => {
   const handleChapterSelect = (chapterId: number) => {
     console.log(`Selected chapter ID: ${chapterId}`);
     setSelectedChapterId(chapterId);
-    fetchParagraphs(chapterId);
+    fetchParagraphs(chapterId); // This now expects a number
   };
 
   const handleStartQuiz = (chapterId: number, paragraphId?: number) => {

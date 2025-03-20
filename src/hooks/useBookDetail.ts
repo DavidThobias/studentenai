@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
@@ -22,7 +21,7 @@ export interface ParagraphData {
   paragraph_number?: number;
   "paragraaf nummer"?: number; // This is the field coming from the adapter
   content?: string;
-  chapter_number: string; // Changed to string for consistency
+  chapter_number: number; // Changed from string to number to ensure type consistency
 }
 
 export const useBookDetail = (id: string | undefined) => {
@@ -154,7 +153,7 @@ export const useBookDetail = (id: string | undefined) => {
           id: p.id,
           paragraph_number: p["paragraaf nummer"],
           content: p.content,
-          chapter_number: String(numericChapterId) // Ensure chapter_number is a string
+          chapter_number: Number(p.chapter_id)
         }));
         
         console.log('Typed paragraphs:', typedParagraphs);
