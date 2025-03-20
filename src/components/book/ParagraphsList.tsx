@@ -38,7 +38,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground whitespace-pre-line">
                   {paragraph.content ? 
                     paragraph.content : 
                     'Geen inhoud beschikbaar'}
@@ -78,6 +78,8 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                 <li>Geselecteerde hoofdstuk ID: {selectedChapterId}</li>
                 <li>Huidige URL pad: {window.location.pathname}</li>
                 <li>Paragrafen in array: {paragraphs.length}</li>
+                <li>Tabel naam: Paragrafen (correct)</li>
+                <li>Query: SELECT * FROM "Paragrafen" WHERE chapter_id = {selectedChapterId}</li>
               </ul>
             </AlertDescription>
           </Alert>

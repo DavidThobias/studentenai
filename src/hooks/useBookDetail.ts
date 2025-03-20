@@ -112,15 +112,20 @@ export const useBookDetail = (id: string | undefined) => {
       setSelectedChapterId(chapterId);
       console.log(`Fetching paragraphs for chapter ID: ${chapterId}`);
       
+      // FIXED: Using the correct table name "Paragrafen" instead of "Paragraven"
+      const queryString = `from "Paragrafen" where chapter_id = ${chapterId}`;
+      console.log(`Executing query: ${queryString}`);
+      
       // Try fetching paragraphs for this chapter
       const { data: paragraphData, error: paragraphError } = await supabase
-        .from('Paragraven')
+        .from('Paragrafen') // FIXED: Corrected table name
         .select('*')
         .eq('chapter_id', chapterId);
       
       if (paragraphError) {
         console.error('Error fetching paragraphs:', paragraphError);
-        setError('Fout bij ophalen paragrafen');
+        setError(`Fout bij ophalen paragrafen: ${paragraphError.message}`);
+        toast.error(`Fout bij ophalen paragrafen: ${paragraphError.message}`);
         throw paragraphError;
       }
       
@@ -141,10 +146,10 @@ export const useBookDetail = (id: string | undefined) => {
         
         // Additional debug query to check if any paragraphs exist with this chapter_id
         const { count, error: countError } = await supabase
-          .from('Paragraven')
+          .from('Paragrafen') // FIXED: Corrected table name
           .select('*', { count: 'exact', head: true });
         
-        console.log(`Total paragraphs in database: ${count}`, countError);
+        console.log(`Total paragraphs in database: ${count}`, countError ? countError : '');
       }
       
     } catch (error) {

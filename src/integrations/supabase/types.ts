@@ -62,7 +62,7 @@ export type Database = {
           },
         ]
       }
-      Paragraven: {
+      Paragrafen: {
         Row: {
           chapter_id: number | null
           content: string | null
