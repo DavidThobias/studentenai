@@ -19,9 +19,9 @@ interface ChapterData {
 
 interface ParagraphData {
   id: number;
-  "paragraaf nummer"?: number;
+  paragraph_number?: number;
   content?: string;
-  chapter_id: number;
+  chapter_number: number;
 }
 
 export const useBookDetail = (id: string | undefined) => {

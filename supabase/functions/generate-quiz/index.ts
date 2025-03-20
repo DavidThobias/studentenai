@@ -1,3 +1,4 @@
+
 // @deno-types="https://deno.land/x/types/deno.d.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -34,13 +35,13 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Get book details - IMPORTANT: Case sensitive table name!
-    console.log(`Fetching book with ID: ${bookId} from Boeken table`);
+    // Get book details - IMPORTANT: Use the 'books' table
+    console.log(`Fetching book with ID: ${bookId} from books table`);
     const { data: book, error: bookError } = await supabase
-      .from('Boeken')
+      .from('books')
       .select('*')
       .eq('id', bookId)
-      .single();
+      .maybeSingle();
 
     if (bookError) {
       console.error(`Error fetching book: ${JSON.stringify(bookError)}`);
@@ -52,7 +53,7 @@ serve(async (req) => {
       throw new Error(`No book found with ID: ${bookId}`);
     }
 
-    console.log(`Successfully fetched book: ${book.Titel}`);
+    console.log(`Successfully fetched book: ${book.book_title}`);
 
     // Get content for quiz generation
     let contentToUse = '';
@@ -62,44 +63,18 @@ serve(async (req) => {
     if (paragraphId) {
       console.log(`Fetching paragraph with ID: ${paragraphId}`);
       
-      // First try Paragrafen table
       const { data: paragraph, error: paragraphError } = await supabase
-        .from('Paragrafen')
+        .from('books')
         .select('*')
         .eq('id', paragraphId)
         .maybeSingle();
 
       if (!paragraphError && paragraph) {
         contentToUse = paragraph.content || '';
-        contentSource = `Paragraph ${paragraph['paragraaf nummer'] || paragraphId}`;
-        
-        // Also get chapter info for context
-        if (paragraph.chapter_id) {
-          const { data: chapter } = await supabase
-            .from('Chapters')
-            .select('Titel, Hoofdstuknummer')
-            .eq('id', paragraph.chapter_id)
-            .single();
-            
-          if (chapter) {
-            contentSource = `Chapter ${chapter.Hoofdstuknummer}: ${chapter.Titel}, Paragraph ${paragraph['paragraaf nummer'] || paragraphId}`;
-          }
-        }
+        contentSource = `Paragraph ${paragraph.paragraph_number}, Chapter ${paragraph.chapter_number}`;
       } else {
-        // If not found in Paragrafen, try books table
-        const { data: bookParagraph, error: bookParaError } = await supabase
-          .from('books')
-          .select('*')
-          .eq('id', paragraphId)
-          .maybeSingle();
-          
-        if (!bookParaError && bookParagraph) {
-          contentToUse = bookParagraph.content || '';
-          contentSource = `Paragraph ${bookParagraph.paragraph_number}, Chapter ${bookParagraph.chapter_number}`;
-        } else {
-          console.error(`No paragraph found with ID: ${paragraphId} in either table`);
-          throw new Error(`No paragraph found with ID: ${paragraphId}`);
-        }
+        console.error(`No paragraph found with ID: ${paragraphId}`);
+        throw new Error(`No paragraph found with ID: ${paragraphId}`);
       }
     }
     // If chapter ID is provided, get all paragraphs for that chapter
@@ -107,118 +82,79 @@ serve(async (req) => {
       const numericChapterId = Number(chapterId);
       console.log(`Fetching chapter with ID: ${numericChapterId}`);
       
-      // First try Chapters table
-      const { data: chapter, error: chapterError } = await supabase
-        .from('Chapters')
-        .select('*')
-        .eq('id', numericChapterId)
+      // Get chapter info from books table
+      const { data: chapterInfo, error: chapterError } = await supabase
+        .from('books')
+        .select('chapter_title')
+        .eq('chapter_number', numericChapterId)
+        .limit(1)
         .maybeSingle();
-
-      if (!chapterError && chapter) {
-        contentSource = `Chapter ${chapter.Hoofdstuknummer}: ${chapter.Titel}`;
-
-        // Get paragraph content for this chapter from Paragrafen
-        console.log(`Fetching paragraphs for chapter: ${numericChapterId} from Paragrafen`);
+      
+      if (!chapterError && chapterInfo) {
+        contentSource = `Chapter ${numericChapterId}: ${chapterInfo.chapter_title}`;
+        
+        // Get all paragraphs for this chapter
         const { data: paragraphs, error: paragraphsError } = await supabase
-          .from('Paragrafen')
-          .select('content, "paragraaf nummer"')
-          .eq('chapter_id', numericChapterId)
-          .order('"paragraaf nummer"', { ascending: true });
-
+          .from('books')
+          .select('content, paragraph_number')
+          .eq('chapter_number', numericChapterId)
+          .order('paragraph_number', { ascending: true });
+          
         if (!paragraphsError && paragraphs && paragraphs.length > 0) {
           contentToUse = paragraphs.map(p => p.content).join('\n\n');
+          console.log(`Found ${paragraphs.length} paragraphs for chapter ${numericChapterId}`);
         } else {
-          // Try books table as fallback
-          console.log(`Fetching paragraphs for chapter: ${numericChapterId} from books`);
-          const { data: booksParagraphs, error: booksError } = await supabase
-            .from('books')
-            .select('content')
-            .eq('chapter_number', numericChapterId)
-            .order('paragraph_number', { ascending: true });
-            
-          if (!booksError && booksParagraphs && booksParagraphs.length > 0) {
-            contentToUse = booksParagraphs.map(p => p.content).join('\n\n');
-          } else {
-            console.warn(`No paragraphs found for chapter ${numericChapterId} in either table`);
-          }
+          console.warn(`No paragraphs found for chapter ${numericChapterId}`);
+          contentToUse = `Chapter ${numericChapterId}: ${chapterInfo.chapter_title}`;
         }
       } else {
-        // Fallback to books table for chapter info
-        const { data: booksChapter, error: booksChapterError } = await supabase
-          .from('books')
-          .select('chapter_title')
-          .eq('chapter_number', numericChapterId)
-          .limit(1)
-          .maybeSingle();
-          
-        if (!booksChapterError && booksChapter) {
-          contentSource = `Chapter ${numericChapterId}: ${booksChapter.chapter_title}`;
-          
-          // Get all paragraphs for this chapter
-          const { data: booksParagraphs, error: booksParaError } = await supabase
-            .from('books')
-            .select('content')
-            .eq('chapter_number', numericChapterId)
-            .order('paragraph_number', { ascending: true });
-            
-          if (!booksParaError && booksParagraphs && booksParagraphs.length > 0) {
-            contentToUse = booksParagraphs.map(p => p.content).join('\n\n');
-          }
-        } else {
-          console.error(`No chapter found with ID: ${chapterId} in either table`);
-          throw new Error(`No chapter found with ID: ${chapterId}`);
-        }
+        console.error(`No chapter found with number: ${numericChapterId}`);
+        throw new Error(`No chapter found with number: ${numericChapterId}`);
       }
     }
     // If neither chapter nor paragraph specified, use first paragraph of first chapter
     else {
-      console.log(`No specific chapter/paragraph. Getting first paragraph of first chapter`);
+      console.log(`No specific chapter/paragraph. Getting content from the book`);
       
       // Get first chapter
       const { data: firstChapter, error: chapterError } = await supabase
-        .from('Chapters')
-        .select('*')
-        .eq('Boek_id', bookId)
-        .order('Hoofdstuknummer', { ascending: true })
+        .from('books')
+        .select('chapter_number, chapter_title')
+        .eq('book_title', book.book_title)
+        .order('chapter_number', { ascending: true })
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (chapterError || !firstChapter) {
         console.warn(`Could not find first chapter, using book info only`);
-        contentToUse = `This is a book titled "${book.Titel}" by ${book.Auteur}. Please generate some general knowledge questions about this topic.`;
-        contentSource = `Book: ${book.Titel}`;
+        contentToUse = `This is a book titled "${book.book_title}". Please generate some general knowledge questions about this topic.`;
+        contentSource = `Book: ${book.book_title}`;
       } else {
-        // Get all paragraphs in the database to debug
-        const { data: allParagraphs } = await supabase
-          .from('Paragraven')
-          .select('id, chapter_id, "paragraaf nummer"');
-          
-        console.log('All paragraphs in database:', allParagraphs);
-        
         // Get first paragraph of this chapter
         const { data: firstParagraph, error: paragraphError } = await supabase
-          .from('Paragraven')
-          .select('content, "paragraaf nummer"')
-          .eq('chapter_id', firstChapter.id)
-          .order('"paragraaf nummer"', { ascending: true })
+          .from('books')
+          .select('content, paragraph_number')
+          .eq('book_title', book.book_title)
+          .eq('chapter_number', firstChapter.chapter_number)
+          .order('paragraph_number', { ascending: true })
           .limit(1)
-          .single();
+          .maybeSingle();
         
         if (paragraphError || !firstParagraph) {
-          console.warn(`Could not find paragraphs for chapter ${firstChapter.id}, using chapter info only`);
-          contentToUse = `Chapter ${firstChapter.Hoofdstuknummer}: ${firstChapter.Titel}`;
-          contentSource = `Chapter ${firstChapter.Hoofdstuknummer}`;
+          console.warn(`Could not find paragraphs for chapter ${firstChapter.chapter_number}, using chapter info only`);
+          contentToUse = `Chapter ${firstChapter.chapter_number}: ${firstChapter.chapter_title}`;
+          contentSource = `Chapter ${firstChapter.chapter_number}`;
         } else {
           contentToUse = firstParagraph.content || '';
-          contentSource = `Chapter ${firstChapter.Hoofdstuknummer}: ${firstChapter.Titel}, Paragraph ${firstParagraph['paragraaf nummer'] || 1}`;
+          contentSource = `Chapter ${firstChapter.chapter_number}: ${firstChapter.chapter_title}, Paragraph ${firstParagraph.paragraph_number}`;
         }
       }
     }
 
     if (!contentToUse.trim()) {
       console.warn('No content found for generating questions, using book info');
-      contentToUse = `This is a book titled "${book.Titel}" by ${book.Auteur}. Please generate some general knowledge questions about this topic.`;
-      contentSource = `Book: ${book.Titel}`;
+      contentToUse = `This is a book titled "${book.book_title}". Please generate some general knowledge questions about this topic.`;
+      contentSource = `Book: ${book.book_title}`;
     }
 
     // Prepare prompt for OpenAI
@@ -233,7 +169,7 @@ serve(async (req) => {
     Je taak is om ${numberOfQuestions} multiple-choice vragen te genereren over de volgende tekst. 
     De vragen moeten in het Nederlands zijn.
     
-    Boek: ${book.Titel}
+    Boek: ${book.book_title}
     ${contentSource}
     
     Inhoud: ${contentToUse}

@@ -1,3 +1,4 @@
+
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,9 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ParagraphData {
   id: number;
-  "paragraaf nummer"?: number;
+  paragraph_number?: number;
   content?: string;
-  chapter_id: number;
+  chapter_number: number;
 }
 
 interface ParagraphsListProps {
@@ -37,7 +38,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       setIsCheckingDb(true);
       // Convert chapter ID to number to ensure type safety
       const numericChapterId = Number(selectedChapterId);
-      console.log('Checking database directly for paragraphs with chapter_id =', numericChapterId);
+      console.log('Checking database directly for paragraphs with chapter_number =', numericChapterId);
       
       const { count: totalCount } = await supabase
         .from('books')
@@ -155,7 +156,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
             <Card key={paragraph.id} className="transition-all hover:shadow-md">
               <CardHeader>
                 <CardTitle className="text-lg">
-                  Paragraaf {paragraph["paragraaf nummer"] || "ID: " + paragraph.id}
+                  Paragraaf {paragraph.paragraph_number || "ID: " + paragraph.id}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -168,7 +169,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
               <CardFooter className="flex flex-row gap-2">
                 {onStartQuiz && (
                   <Button 
-                    onClick={() => onStartQuiz(paragraph.chapter_id, paragraph.id)}
+                    onClick={() => onStartQuiz(paragraph.chapter_number, paragraph.id)}
                     variant="outline"
                     size="sm"
                     className="w-full sm:w-auto"
