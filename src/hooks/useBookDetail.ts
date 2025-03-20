@@ -173,14 +173,32 @@ export const useBookDetail = (id: string | undefined) => {
         
         console.log(`Total paragraphs in database: ${count}`, countError ? countError : '');
         
-        // Try another query approach without strong typing
-        const rawQuery = await supabase.rpc('get_paragraphs_for_chapter', { chapter_id_param: chapterId })
-          .catch(e => {
-            console.log('RPC method not found, this is expected if not created yet');
-            return { data: null, error: e };
+        // Try alternative approach using the edge function
+        try {
+          console.log('Trying to fetch paragraphs using edge function');
+          const response = await fetch('/api/get-paragraphs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ chapterId }),
           });
-        
-        console.log('Raw query result:', rawQuery);
+          
+          const result = await response.json();
+          console.log('Edge function response:', result);
+          
+          if (result.success && result.paragraphs && result.paragraphs.length > 0) {
+            const sortedParagraphs = [...result.paragraphs].sort((a, b) => {
+              const aNum = a["paragraaf nummer"] || 0;
+              const bNum = b["paragraaf nummer"] || 0;
+              return aNum - bNum;
+            });
+            
+            setParagraphs(sortedParagraphs);
+          }
+        } catch (edgeFunctionError) {
+          console.error('Error calling edge function:', edgeFunctionError);
+        }
       }
       
     } catch (error) {
