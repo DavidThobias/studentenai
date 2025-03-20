@@ -50,7 +50,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       // 1. Standard query with number
       const baseQuery = supabase.from('Paragrafen');
       const selectQuery = baseQuery.select('*');
-      const { data: numberData, error: numberError } = await selectQuery.eq('chapter_id', Number(selectedChapterId));
+      const { data: numberData, error: numberError } = await selectQuery.eq('chapter_id', selectedChapterId);
       
       // 2. With string conversion
       const stringBaseQuery = supabase.from('Paragrafen');

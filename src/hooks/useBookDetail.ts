@@ -167,15 +167,17 @@ export const useBookDetail = (id: string | undefined) => {
       console.log('Trying direct Supabase query...');
       
       // First try a simple count query to test connection
-      const countQuery = supabase.from('Paragrafen').select('*', { count: 'exact', head: true });
-      const { count, error: countError } = await countQuery;
+      const { count, error: countError } = await supabase
+        .from('Paragrafen')
+        .select('*', { count: 'exact', head: true });
       
       console.log(`Total paragraphs in database: ${count}`, countError ? countError : '');
       
-      // Direct query with breaking up the chain to avoid type instantiation issues
-      const baseQuery = supabase.from('Paragrafen');
-      const selectQuery = baseQuery.select('*');
-      const { data: paragraphData, error: paragraphError, status, statusText } = await selectQuery.eq('chapter_id', numericChapterId);
+      // Use a direct query approach to avoid type instantiation issues
+      const { data: paragraphData, error: paragraphError, status, statusText } = await supabase
+        .from('Paragrafen')
+        .select('*')
+        .eq('chapter_id', numericChapterId);
       
       // Log the full response for debugging
       console.log('Supabase direct query response:', { 
@@ -208,9 +210,10 @@ export const useBookDetail = (id: string | undefined) => {
       
       // APPROACH 3: Try string conversion of chapter_id
       console.log('Trying with string conversion of chapter_id...');
-      const stringBaseQuery = supabase.from('Paragrafen');
-      const stringSelectQuery = stringBaseQuery.select('*');
-      const { data: stringData, error: stringError } = await stringSelectQuery.eq('chapter_id', String(numericChapterId));
+      const { data: stringData, error: stringError } = await supabase
+        .from('Paragrafen')
+        .select('*')
+        .eq('chapter_id', String(numericChapterId));
       
       console.log('String conversion query result:', {
         data: stringData,
@@ -235,35 +238,46 @@ export const useBookDetail = (id: string | undefined) => {
       // APPROACH 4: Try different capitalization of the column name
       console.log('Trying alternative column names (Chapter_id, CHAPTER_ID)...');
       
-      // Try with Chapter_id
-      const altBase1 = supabase.from('Paragrafen');
-      const altSelect1 = altBase1.select('*');
-      const { data: altData1 } = await altSelect1.eq('Chapter_id', numericChapterId);
-          
-      if (altData1 && altData1.length > 0) {
-        console.log('Found paragraphs using Chapter_id:', altData1);
-        setParagraphs(altData1);
-        setLoadingParagraphs(false);
-        return; // Exit if successful
+      // Try with Chapter_id - avoid chained methods to prevent deep type instantiation
+      try {
+        const { data: altData1 } = await supabase
+          .from('Paragrafen')
+          .select('*')
+          .eq('Chapter_id', numericChapterId);
+              
+        if (altData1 && altData1.length > 0) {
+          console.log('Found paragraphs using Chapter_id:', altData1);
+          setParagraphs(altData1);
+          setLoadingParagraphs(false);
+          return; // Exit if successful
+        }
+      } catch (error) {
+        console.log('Chapter_id approach failed:', error);
       }
       
-      // Try with CHAPTER_ID
-      const altBase2 = supabase.from('Paragrafen');
-      const altSelect2 = altBase2.select('*');
-      const { data: altData2 } = await altSelect2.eq('CHAPTER_ID', numericChapterId);
-          
-      if (altData2 && altData2.length > 0) {
-        console.log('Found paragraphs using CHAPTER_ID:', altData2);
-        setParagraphs(altData2);
-        setLoadingParagraphs(false);
-        return; // Exit if successful
+      // Try with CHAPTER_ID - avoid chained methods to prevent deep type instantiation
+      try {
+        const { data: altData2 } = await supabase
+          .from('Paragrafen')
+          .select('*')
+          .eq('CHAPTER_ID', numericChapterId);
+              
+        if (altData2 && altData2.length > 0) {
+          console.log('Found paragraphs using CHAPTER_ID:', altData2);
+          setParagraphs(altData2);
+          setLoadingParagraphs(false);
+          return; // Exit if successful
+        }
+      } catch (error) {
+        console.log('CHAPTER_ID approach failed:', error);
       }
       
       // APPROACH 5: Fetch all paragraphs and filter manually
       console.log('Fetching all paragraphs and filtering manually...');
-      const allBase = supabase.from('Paragrafen');
-      const allSelect = allBase.select('*');
-      const { data: allParagraphs } = await allSelect.limit(100);
+      const { data: allParagraphs } = await supabase
+        .from('Paragrafen')
+        .select('*')
+        .limit(100);
           
       console.log('All paragraphs sample:', allParagraphs);
       

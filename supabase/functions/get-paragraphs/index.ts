@@ -47,7 +47,14 @@ serve(async (req) => {
     // Create Supabase client - use the authorization header if present, otherwise use the anon key
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    
+    // Get authorization token from the request headers if available
+    const authHeader = req.headers.get('Authorization');
+    const supabase = authHeader
+      ? createClient(supabaseUrl, supabaseAnonKey, { 
+          global: { headers: { Authorization: authHeader } }
+        })
+      : createClient(supabaseUrl, supabaseAnonKey);
 
     // First, try a direct SQL query with explicit CAST for the chapter_id
     try {
@@ -85,17 +92,19 @@ serve(async (req) => {
     }
 
     // Fall back to standard query with proper type handling
-    const query = supabase.from('Paragrafen');
-    const selectQuery = query.select('*');
-    const { data, error, status } = await selectQuery.eq('chapter_id', numericChapterId);
+    const { data, error, status } = await supabase
+      .from('Paragrafen')
+      .select('*')
+      .eq('chapter_id', numericChapterId);
 
     if (error) {
       console.error(`Error fetching paragraphs: ${JSON.stringify(error)}`);
       
       // One more attempt with string conversion
-      const stringQuery = supabase.from('Paragrafen');
-      const stringSelectQuery = stringQuery.select('*');
-      const { data: stringData, error: stringError } = await stringSelectQuery.eq('chapter_id', String(numericChapterId));
+      const { data: stringData, error: stringError } = await supabase
+        .from('Paragrafen')
+        .select('*')
+        .eq('chapter_id', String(numericChapterId));
       
       if (stringError || !stringData) {
         // If all attempts fail, throw error
@@ -113,7 +122,8 @@ serve(async (req) => {
           query: {
             table: 'Paragrafen',
             chapterId: String(numericChapterId),
-            chapterIdType: typeof String(numericChapterId)
+            chapterIdType: typeof String(numericChapterId),
+            authPresent: !!authHeader
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -132,7 +142,8 @@ serve(async (req) => {
           table: 'Paragrafen',
           chapterId: numericChapterId,
           chapterIdType: typeof numericChapterId,
-          status
+          status,
+          authPresent: !!authHeader
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -146,7 +157,8 @@ serve(async (req) => {
         error: error instanceof Error ? error.message : 'An unknown error occurred',
         query: {
           requestMethod: req.method,
-          contentType: req.headers.get('Content-Type')
+          contentType: req.headers.get('Content-Type'),
+          hasAuth: !!req.headers.get('Authorization')
         }
       }),
       { 
