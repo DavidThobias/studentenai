@@ -30,6 +30,7 @@ const BookDetail = () => {
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
+  const [quizTitle, setQuizTitle] = useState("Quiz");
 
   const { 
     book, 
@@ -48,12 +49,25 @@ const BookDetail = () => {
     setQuizQuestions([]);
     setQuizError(null);
     
+    // Set appropriate quiz title
+    if (paragraphId) {
+      const paragraph = paragraphs.find(p => p.id === paragraphId);
+      setQuizTitle(`Quiz over paragraaf ${paragraph?.["paragraaf nummer"] || ''}`);
+    } else if (chapterId) {
+      const chapter = chapters.find(c => c.id === chapterId);
+      setQuizTitle(`Quiz over hoofdstuk ${chapter?.Hoofdstuknummer || ''}`);
+    } else {
+      setQuizTitle(`Quiz over ${book?.Titel || 'het boek'}`);
+    }
+    
     // Add a toast to give the user feedback
     toast.info('Quiz wordt voorbereid...');
     
     // Generate the quiz questions before opening the dialog
     try {
       setIsGeneratingQuiz(true);
+      // Open the dialog immediately to show loading state
+      setQuizOpen(true);
       
       console.log(`Calling generate-quiz function for book ${id}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}`);
       
@@ -108,13 +122,15 @@ const BookDetail = () => {
       toast.error('Er is een fout opgetreden bij het genereren van de quiz.');
     } finally {
       setIsGeneratingQuiz(false);
-      // Open the dialog after quiz generation attempt is complete
-      setQuizOpen(true);
     }
   };
 
   const handleChapterSelect = (chapterId: number) => {
     fetchParagraphs(chapterId);
+  };
+
+  const handleCloseQuiz = () => {
+    setQuizOpen(false);
   };
 
   if (loading) {
@@ -152,39 +168,47 @@ const BookDetail = () => {
         <UpcomingFeatures />
       </div>
 
-      {/* Quiz Dialog */}
-      <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedParagraphId 
-                ? `Quiz over paragraaf ${paragraphs.find(p => p.id.toString() === selectedParagraphId)?.["paragraaf nummer"] || ''}`
-                : selectedChapterId 
-                  ? `Quiz over hoofdstuk ${chapters.find(c => c.id.toString() === selectedChapterId)?.Hoofdstuknummer || ''}`
-                  : `Quiz over ${book?.Titel}`}
-            </DialogTitle>
-            <DialogDescription>
-              Test je kennis met deze interactieve quiz over het hoofdstuk.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {isGeneratingQuiz ? (
+      {/* Display Quiz Error */}
+      {quizError && quizOpen && (
+        <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Quiz Fout</DialogTitle>
+              <DialogDescription>
+                Er is een probleem opgetreden bij het genereren van de quiz.
+              </DialogDescription>
+            </DialogHeader>
+            <Alert variant="destructive" className="my-4">
+              <AlertDescription>{quizError}</AlertDescription>
+            </Alert>
+            <div className="flex justify-end mt-4">
+              <Button onClick={handleCloseQuiz}>Sluiten</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Display Loading State */}
+      {isGeneratingQuiz && quizOpen && (
+        <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
+          <DialogContent className="sm:max-w-[600px]">
             <div className="flex flex-col items-center justify-center p-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
               <p className="text-center">Quiz wordt gegenereerd...</p>
             </div>
-          ) : quizError ? (
-            <Alert variant="destructive" className="my-4">
-              <AlertDescription>{quizError}</AlertDescription>
-            </Alert>
-          ) : (
-            <Quiz 
-              questions={quizQuestions}
-              onClose={() => setQuizOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Display Quiz Questions */}
+      {!isGeneratingQuiz && !quizError && quizQuestions.length > 0 && (
+        <Quiz 
+          questions={quizQuestions}
+          onClose={handleCloseQuiz}
+          open={quizOpen}
+          title={quizTitle}
+        />
+      )}
     </div>
   );
 };
