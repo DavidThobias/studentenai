@@ -1,4 +1,3 @@
-
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,7 +50,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       const { data: numberData, error: numberError } = await supabase
         .from('Paragrafen')
         .select('*')
-        .eq('chapter_id', selectedChapterId);
+        .eq('chapter_id', Number(selectedChapterId));
       
       // 2. With string conversion
       const { data: stringData, error: stringError } = await supabase
@@ -116,7 +115,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
           // Only include Authorization header if we have a token
           ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
         },
-        // Force to number to ensure consistency
+        // Ensure chapterId is passed as a number, not a string
         body: JSON.stringify({ chapterId: Number(selectedChapterId) }),
       });
       
