@@ -63,7 +63,6 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
       await generateSalesQuiz(5);
       
       // Quiz will automatically open when questions are ready due to the useEffect
-      console.log(`Generated ${questions.length} sales questions`);
     } catch (error) {
       console.error('Error starting quiz:', error);
       toast.error('Er ging iets mis bij het starten van de quiz');
