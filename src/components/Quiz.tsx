@@ -34,11 +34,21 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
 
+  // Debug log to track questions prop
+  useEffect(() => {
+    if (questions.length > 0) {
+      console.log(`Quiz component received ${questions.length} questions:`, questions);
+    }
+  }, [questions]);
+
   // Reset quiz state when questions change or dialog is opened/closed
   useEffect(() => {
     if (open) {
+      console.log(`Quiz dialog opened. Questions: ${questions.length}, isGenerating: ${isGenerating}, error: ${error}`);
+      
       // Wait for questions to be loaded or error to be set
       if (!isGenerating && questions.length > 0) {
+        console.log('Resetting quiz state with new questions');
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
         setIsAnswerSubmitted(false);
@@ -47,11 +57,12 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
         setShowExplanation(false);
       }
     }
-  }, [open, questions, isGenerating]);
+  }, [open, questions, isGenerating, error]);
 
   // Reset state completely when dialog is closed
   useEffect(() => {
     if (!open) {
+      console.log('Quiz dialog closed, resetting state');
       setCurrentQuestionIndex(0);
       setSelectedAnswer(null);
       setIsAnswerSubmitted(false);
@@ -132,6 +143,14 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   };
 
   const renderContent = () => {
+    console.log('Rendering quiz content with state:', {
+      isGenerating,
+      error,
+      questionsLength: questions.length,
+      currentQuestionIndex,
+      isQuizComplete
+    });
+    
     // Show loading state while generating quiz
     if (isGenerating) {
       return (

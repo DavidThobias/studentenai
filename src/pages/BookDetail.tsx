@@ -79,7 +79,7 @@ const BookDetail = () => {
         },
       });
       
-      console.log('Function response:', { response, functionError });
+      console.log('Function response:', response, functionError);
       
       if (functionError) {
         console.error('Error invoking generate-quiz function:', functionError);
