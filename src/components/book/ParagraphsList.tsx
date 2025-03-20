@@ -61,7 +61,10 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz }: Paragrap
       ) : (
         <div className="text-center py-8 border border-dashed border-gray-200 rounded-lg">
           <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-muted-foreground">Selecteer een hoofdstuk om paragrafen te bekijken.</p>
+          <p className="text-muted-foreground">
+            Geen paragrafen gevonden voor dit hoofdstuk. 
+            Het kan zijn dat er nog geen paragrafen zijn toegevoegd.
+          </p>
         </div>
       )}
     </div>

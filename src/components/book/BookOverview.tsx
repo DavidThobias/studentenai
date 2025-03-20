@@ -27,7 +27,7 @@ const BookOverview = ({ book }: BookOverviewProps) => {
   const [bookDetails, setBookDetails] = useState<ChapterInfo | null>(null);
   const [loading, setLoading] = useState(false);
   
-  const isSalesBook = book?.Titel?.includes('Sales');
+  const isSalesBook = book?.Titel?.toLowerCase().includes('sales');
 
   useEffect(() => {
     if (book?.id) {

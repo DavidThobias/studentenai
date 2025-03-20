@@ -1,5 +1,4 @@
 
-import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import BookHeader from '@/components/book/BookHeader';
@@ -25,6 +24,7 @@ const BookDetail = () => {
   } = useBookDetail(id);
 
   const handleChapterSelect = (chapterId: number) => {
+    console.log(`Selected chapter ID: ${chapterId}`);
     fetchParagraphs(chapterId);
   };
 
