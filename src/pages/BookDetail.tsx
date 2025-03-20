@@ -36,7 +36,7 @@ const BookDetail = () => {
   return (
     <div className="min-h-screen bg-background pt-28 pb-20 px-6">
       <div className="max-w-4xl mx-auto">
-        <BookHeader title={book?.Titel} author={book?.Auteur} />
+        <BookHeader title={book?.book_title} author="Onbekende auteur" />
 
         {error && (
           <Alert variant="destructive" className="mb-6">

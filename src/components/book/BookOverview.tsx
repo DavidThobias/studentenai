@@ -42,19 +42,22 @@ const BookOverview = ({ book }: BookOverviewProps) => {
       if (!book?.book_title) return;
       
       // Get unique chapter numbers for this book
-      const { data: chapters, error: chaptersError } = await supabase
+      const { data: chaptersData, error: chaptersError } = await supabase
         .from('books')
         .select('chapter_number')
-        .eq('book_title', book.book_title)
-        .order('chapter_number')
-        .distinct();
+        .eq('book_title', book.book_title);
       
       if (chaptersError) {
         console.error('Error fetching chapters:', chaptersError);
         return;
       }
       
-      console.log(`BookOverview: Found ${chapters?.length || 0} chapters for book title: ${book.book_title}`);
+      // Get unique chapters by manually filtering
+      const uniqueChapterNumbers = Array.from(
+        new Set(chaptersData?.map(ch => ch.chapter_number) || [])
+      );
+      
+      console.log(`BookOverview: Found ${uniqueChapterNumbers.length} chapters for book title: ${book.book_title}`);
       
       // Get paragraph count for this book
       const { count, error: paragraphsError } = await supabase
@@ -69,7 +72,7 @@ const BookOverview = ({ book }: BookOverviewProps) => {
       }
       
       setBookDetails({
-        count: chapters?.length || 0,
+        count: uniqueChapterNumbers.length || 0,
         paragraphCount: count || 0
       });
       

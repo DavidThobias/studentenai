@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Book, Search, ArrowLeft, BookOpen } from 'lucide-react';
@@ -28,8 +27,7 @@ const BooksPage = () => {
         setLoading(true);
         const { data, error } = await supabase
           .from('books')
-          .select('id, book_title')
-          .distinct('book_title');
+          .select('id, book_title');
         
         if (error) {
           throw error;

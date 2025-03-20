@@ -40,59 +40,46 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       console.log('Checking database directly for paragraphs with chapter_id =', numericChapterId);
       
       const { count: totalCount } = await supabase
-        .from('Paragrafen')
+        .from('books')
         .select('*', { count: 'exact', head: true });
         
       console.log('Total paragraphs in database:', totalCount);
       
-      const { data: numberData, error: numberError } = await supabase
-        .from('Paragrafen')
-        .select('*')
-        .eq('chapter_id', numericChapterId);
-      
-      const { data: stringData, error: stringError } = await supabase
-        .from('Paragrafen')
-        .select('*')
-        .eq('chapter_id', String(numericChapterId));
-      
-      // Check new books table
-      const { data: booksData, error: booksError } = await supabase
+      // Query books table by chapter_number
+      const { data: chapterData, error: chapterError } = await supabase
         .from('books')
         .select('*')
         .eq('chapter_number', numericChapterId);
       
+      // Check for string based chapter number as fallback
+      const { data: stringChapterData, error: stringChapterError } = await supabase
+        .from('books')
+        .select('*')
+        .eq('chapter_number', String(numericChapterId));
+      
       console.log('Direct database check results:', {
         numberQuery: {
-          data: numberData,
-          error: numberError,
-          count: numberData?.length || 0
+          data: chapterData,
+          error: chapterError,
+          count: chapterData?.length || 0
         },
         stringQuery: {
-          data: stringData,
-          error: stringError,
-          count: stringData?.length || 0
-        },
-        booksQuery: {
-          data: booksData,
-          error: booksError,
-          count: booksData?.length || 0
+          data: stringChapterData,
+          error: stringChapterError,
+          count: stringChapterData?.length || 0
         }
       });
       
-      // Count total paragraphs across all tables
+      // Count total paragraphs
       let totalParagraphCount = 0;
       
-      if (numberData && numberData.length > 0) {
-        totalParagraphCount += numberData.length;
+      if (chapterData && chapterData.length > 0) {
+        totalParagraphCount += chapterData.length;
       }
       
-      if (stringData && stringData.length > 0 && 
-          !numberData?.some(n => stringData.some(s => s.id === n.id))) {
-        totalParagraphCount += stringData.length;
-      }
-      
-      if (booksData && booksData.length > 0) {
-        totalParagraphCount += booksData.length;
+      if (stringChapterData && stringChapterData.length > 0 && 
+          !chapterData?.some(n => stringChapterData.some(s => s.id === n.id))) {
+        totalParagraphCount += stringChapterData.length;
       }
       
       setDirectDbCount(totalParagraphCount);
@@ -212,9 +199,8 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                 <li>Geselecteerde hoofdstuk ID: {selectedChapterId} (type: {typeof selectedChapterId})</li>
                 <li>Huidige URL pad: {window.location.pathname}</li>
                 <li>Paragrafen in array: {paragraphs.length}</li>
-                <li>Tabel naam: Paragrafen | books (beide worden gecontroleerd)</li>
-                <li>Query: SELECT * FROM "Paragrafen" WHERE chapter_id = {selectedChapterId}</li>
-                <li>Alternatieve query: SELECT * FROM "books" WHERE chapter_number = {selectedChapterId}</li>
+                <li>Tabel naam: books</li>
+                <li>Query: SELECT * FROM "books" WHERE chapter_number = {selectedChapterId}</li>
                 <li>Timestamp: {new Date().toISOString()}</li>
                 <li>Direct DB check result: {directDbCount !== null ? `${directDbCount} paragrafen gevonden` : 'Niet gecontroleerd'}</li>
               </ul>
