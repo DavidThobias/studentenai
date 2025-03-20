@@ -22,7 +22,7 @@ export interface ParagraphData {
   paragraph_number?: number;
   "paragraaf nummer"?: number; // This is the field coming from the adapter
   content?: string;
-  chapter_number: number;
+  chapter_number: string; // Changed to string for consistency
 }
 
 export const useBookDetail = (id: string | undefined) => {
@@ -154,9 +154,10 @@ export const useBookDetail = (id: string | undefined) => {
           id: p.id,
           paragraph_number: p["paragraaf nummer"],
           content: p.content,
-          chapter_number: numericChapterId
+          chapter_number: String(numericChapterId) // Ensure chapter_number is a string
         }));
         
+        console.log('Typed paragraphs:', typedParagraphs);
         setParagraphs(typedParagraphs);
       } else {
         console.log('No paragraphs found.');

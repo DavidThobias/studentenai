@@ -10,7 +10,7 @@ interface ParagraphData {
   id: number;
   paragraph_number?: number;
   content?: string;
-  chapter_number: number | string; // Allow both number and string types
+  chapter_number: string; // Changed to consistently use string type
 }
 
 interface ParagraphsListProps {
@@ -141,6 +141,35 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     }
   };
 
+  // Helper function for safe type conversion
+  const safeParseInt = (value: any, fallback: number = 0): number => {
+    // Handle undefined or null
+    if (value === undefined || value === null) {
+      console.warn('safeParseInt: value is undefined or null, using fallback:', fallback);
+      return fallback;
+    }
+    
+    // Convert to string (if it's not already)
+    const stringValue = String(value).trim();
+    
+    // Handle empty string
+    if (stringValue === '') {
+      console.warn('safeParseInt: value is empty string, using fallback:', fallback);
+      return fallback;
+    }
+    
+    // Parse with radix 10
+    const parsedValue = parseInt(stringValue, 10);
+    
+    // Check for NaN
+    if (isNaN(parsedValue)) {
+      console.warn(`safeParseInt: "${value}" could not be parsed as integer, using fallback:`, fallback);
+      return fallback;
+    }
+    
+    return parsedValue;
+  };
+
   return (
     <div className="mb-12">
       <h2 className="text-2xl font-semibold mb-6">Paragrafen</h2>
@@ -161,18 +190,24 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground whitespace-pre-line">
-                  {paragraph.content ? 
-                    paragraph.content : 
-                    'Geen inhoud beschikbaar'}
+                  {paragraph.content ? paragraph.content : 'Geen inhoud beschikbaar'}
                 </p>
               </CardContent>
               <CardFooter className="flex flex-row gap-2">
                 {onStartQuiz && (
                   <Button 
-                    onClick={() => onStartQuiz(
-                      Number(paragraph.chapter_number),
-                      paragraph.id
-                    )}
+                    onClick={() => {
+                      // Log original value and type for debugging
+                      console.log('Original chapter_number:', paragraph.chapter_number);
+                      console.log('Type of chapter_number:', typeof paragraph.chapter_number);
+                      
+                      // Safely convert to number with robust parsing
+                      const chapterId = safeParseInt(paragraph.chapter_number);
+                      console.log('Converted chapter_number to:', chapterId);
+                      
+                      // Call onStartQuiz with properly typed parameters
+                      onStartQuiz(chapterId, paragraph.id);
+                    }}
                     variant="outline"
                     size="sm"
                     className="w-full sm:w-auto"
@@ -255,4 +290,3 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
 };
 
 export default ParagraphsList;
-

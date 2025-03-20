@@ -17,6 +17,7 @@ const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [quizOpen, setQuizOpen] = useState(false);
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
+  const [selectedParagraphId, setSelectedParagraphId] = useState<number | null>(null);
 
   const { 
     book, 
@@ -26,6 +27,7 @@ const BookDetail = () => {
     loadingParagraphs, 
     error, 
     fetchParagraphs,
+    selectedChapterId: bookDetailSelectedChapterId
   } = useBookDetail(id);
 
   const {
@@ -41,7 +43,20 @@ const BookDetail = () => {
     fetchParagraphs(chapterId);
   };
 
-  const handleStartQuiz = () => {
+  const handleStartQuiz = (chapterId: number, paragraphId?: number) => {
+    console.log(`Starting quiz for chapter ID: ${chapterId}, paragraph ID: ${paragraphId || 'all'}`);
+    
+    if (book?.id) {
+      setSelectedChapterId(chapterId);
+      if (paragraphId) {
+        setSelectedParagraphId(paragraphId);
+      }
+      generateQuiz(book.id, chapterId);
+      setQuizOpen(true);
+    }
+  };
+
+  const handleStartBookQuiz = () => {
     if (book?.id && selectedChapterId) {
       generateQuiz(book.id, selectedChapterId);
       setQuizOpen(true);
@@ -69,7 +84,7 @@ const BookDetail = () => {
 
         <BookOverview 
           book={book} 
-          onStartQuiz={handleStartQuiz}
+          onStartQuiz={handleStartBookQuiz}
         />
 
         <ChaptersList 
@@ -81,7 +96,8 @@ const BookDetail = () => {
         <ParagraphsList 
           paragraphs={paragraphs} 
           loadingParagraphs={loadingParagraphs}
-          selectedChapterId={selectedChapterId}
+          onStartQuiz={handleStartQuiz}
+          selectedChapterId={bookDetailSelectedChapterId}
         />
 
         {id && book?.id && (
