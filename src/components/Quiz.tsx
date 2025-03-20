@@ -1,6 +1,5 @@
-
 import { useState, useEffect, useRef } from 'react';
-import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -33,36 +32,38 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   const [score, setScore] = useState(0);
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   
-  // Use a ref to track if component is mounted
-  const isMounted = useRef(true);
-  
-  // Log dialog opening and questions
-  useEffect(() => {
-    if (open) {
-      console.log(`Quiz dialog opened with ${questions.length} questions:`, questions);
-    }
-    
-    return () => {
-      isMounted.current = false;
-    };
-  }, [open, questions]);
+  console.log("Quiz render with:", { 
+    open, 
+    questionsCount: questions.length, 
+    isGenerating, 
+    error,
+    firstQuestion: questions[0]?.question || 'No question'
+  });
 
-  // Reset quiz state when questions change 
   useEffect(() => {
     if (open && questions.length > 0 && !isGenerating) {
-      console.log('Resetting quiz state with new questions');
+      console.log('New valid questions received, initializing quiz state');
       setCurrentQuestionIndex(0);
       setSelectedAnswer(null);
       setIsAnswerSubmitted(false);
       setScore(0);
       setIsQuizComplete(false);
       setShowExplanation(false);
+      setInitialized(true);
     }
   }, [open, questions, isGenerating]);
 
+  useEffect(() => {
+    if (!open) {
+      setInitialized(false);
+    }
+  }, [open]);
+
   const handleAnswerSelect = (index: number) => {
     if (!isAnswerSubmitted) {
+      console.log(`Selected answer: ${index}`);
       setSelectedAnswer(index);
     }
   };
@@ -73,28 +74,35 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       return;
     }
 
+    console.log(`Submitting answer: ${selectedAnswer}`);
     setIsAnswerSubmitted(true);
     
     if (questions.length > 0) {
       const currentQuestion = questions[currentQuestionIndex];
       if (selectedAnswer === currentQuestion.correctAnswer) {
         setScore(prevScore => prevScore + 1);
+        console.log('Correct answer!');
+      } else {
+        console.log('Incorrect answer!');
       }
     }
   };
 
   const handleNextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
+      console.log(`Moving to next question (${currentQuestionIndex + 1})`);
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
       setIsAnswerSubmitted(false);
       setShowExplanation(false);
     } else {
+      console.log('Quiz complete');
       setIsQuizComplete(true);
     }
   };
 
   const handleRestartQuiz = () => {
+    console.log('Restarting quiz');
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
     setIsAnswerSubmitted(false);
@@ -104,132 +112,28 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   };
 
   const handleToggleExplanation = () => {
+    console.log(`${showExplanation ? 'Hiding' : 'Showing'} explanation`);
     setShowExplanation(!showExplanation);
   };
 
-  const renderDialogTitle = () => {
-    if (isGenerating) {
-      return "Quiz voorbereiden";
-    } else if (error) {
-      return "Quiz Fout";
-    } else if (isQuizComplete) {
-      return "Quiz voltooid!";
-    } else {
-      return title;
-    }
-  };
-
-  const renderDialogDescription = () => {
-    if (isGenerating) {
-      return "Even geduld terwijl we je quiz voorbereiden.";
-    } else if (error) {
-      return "Er is een probleem opgetreden bij het genereren van de quiz.";
-    } else if (isQuizComplete) {
-      return "Bekijk hieronder je resultaten";
-    } else if (questions.length > 0) {
-      return `Vraag ${currentQuestionIndex + 1} van ${questions.length}`;
-    } else {
-      return "Quiz informatie";
-    }
-  };
-
-  const renderContent = () => {
-    console.log('Rendering quiz content with state:', {
-      isGenerating,
-      error,
-      questionsLength: questions.length,
-      currentQuestionIndex,
-      isQuizComplete
-    });
-    
-    // Show loading state while generating quiz
-    if (isGenerating) {
-      return (
-        <div className="flex flex-col items-center justify-center p-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-          <p className="text-center">Quiz wordt gegenereerd...</p>
-        </div>
-      );
-    }
-
-    // Show error state if there's an error
-    if (error) {
-      return (
-        <>
-          <Alert variant="destructive" className="my-4">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-          <div className="flex justify-end mt-4">
-            <Button onClick={onClose}>Sluiten</Button>
-          </div>
-        </>
-      );
-    }
-
-    // If no questions are provided, show a message
-    if (!questions || questions.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center space-y-4 p-6">
-          <p className="text-center text-muted-foreground">
-            Geen quizvragen beschikbaar.
-          </p>
-          <Button onClick={onClose}>Sluiten</Button>
-        </div>
-      );
-    }
-
-    // Make sure we have questions before trying to access them
-    if (questions.length === 0) {
-      return null;
-    }
-
-    // Get current question safely
+  const renderQuestionContent = () => {
     const currentQuestion = questions[currentQuestionIndex];
+    
     if (!currentQuestion) {
       console.error('Current question is undefined. Index:', currentQuestionIndex, 'Questions:', questions);
       return (
-        <div className="flex flex-col items-center justify-center space-y-4 p-6">
-          <p className="text-center text-muted-foreground">
-            Fout bij het laden van de vraag.
-          </p>
-          <Button onClick={onClose}>Sluiten</Button>
-        </div>
+        <Alert variant="destructive" className="mt-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Fout bij het laden van de vraag</AlertTitle>
+          <AlertDescription>
+            Er is een probleem met het laden van deze vraag. Probeer de quiz opnieuw te starten.
+          </AlertDescription>
+        </Alert>
       );
     }
-    
-    return isQuizComplete ? (
-      <div className="flex flex-col items-center justify-center space-y-6">
-        <div className="w-full">
-          <Progress 
-            value={Math.round((score / questions.length) * 100)} 
-            className="h-6" 
-          />
-          <p className="text-center mt-2 text-sm text-muted-foreground">
-            {Math.round((score / questions.length) * 100)}% correct
-          </p>
-        </div>
-        
-        <div className="w-32 h-32 rounded-full border-4 flex items-center justify-center">
-          <span className="text-4xl font-bold">{score}/{questions.length}</span>
-        </div>
-        
-        <p className="text-center text-lg">
-          Je hebt {score} van de {questions.length} vragen goed beantwoord.
-        </p>
-        
-        <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full">
-          <Button onClick={handleRestartQuiz} variant="outline" className="flex-1">
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Opnieuw proberen
-          </Button>
-          
-          <Button onClick={onClose} className="flex-1">
-            Sluiten
-          </Button>
-        </div>
-      </div>
-    ) : (
-      <Card>
+
+    return (
+      <Card className="border-2">
         <CardHeader>
           <CardTitle className="text-lg">
             {currentQuestion.question}
@@ -322,14 +226,144 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     );
   };
 
+  const renderResultsContent = () => {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-6">
+        <div className="w-full">
+          <Progress 
+            value={Math.round((score / questions.length) * 100)} 
+            className="h-6" 
+          />
+          <p className="text-center mt-2 text-sm text-muted-foreground">
+            {Math.round((score / questions.length) * 100)}% correct
+          </p>
+        </div>
+        
+        <div className="w-32 h-32 rounded-full border-4 flex items-center justify-center">
+          <span className="text-4xl font-bold">{score}/{questions.length}</span>
+        </div>
+        
+        <p className="text-center text-lg">
+          Je hebt {score} van de {questions.length} vragen goed beantwoord.
+        </p>
+        
+        <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full">
+          <Button onClick={handleRestartQuiz} variant="outline" className="flex-1">
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Opnieuw proberen
+          </Button>
+          
+          <Button onClick={onClose} className="flex-1">
+            Sluiten
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderLoadingContent = () => {
+    return (
+      <div className="flex flex-col items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-center">Quiz wordt gegenereerd...</p>
+      </div>
+    );
+  };
+
+  const renderErrorContent = () => {
+    return (
+      <>
+        <Alert variant="destructive" className="my-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <div className="flex justify-end mt-4">
+          <Button onClick={onClose}>Sluiten</Button>
+        </div>
+      </>
+    );
+  };
+
+  const renderEmptyContent = () => {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-4 p-6">
+        <p className="text-center text-muted-foreground">
+          Geen quizvragen beschikbaar.
+        </p>
+        <Button onClick={onClose}>Sluiten</Button>
+      </div>
+    );
+  };
+
+  const renderContent = () => {
+    console.log('Rendering quiz content with state:', {
+      isGenerating,
+      error,
+      questionsLength: questions.length,
+      currentQuestionIndex,
+      isQuizComplete,
+      initialized
+    });
+    
+    // Show loading state while generating quiz
+    if (isGenerating) {
+      return renderLoadingContent();
+    }
+
+    // Show error state if there's an error
+    if (error) {
+      return renderErrorContent();
+    }
+
+    // If no questions are provided, show a message
+    if (!questions || questions.length === 0) {
+      return renderEmptyContent();
+    }
+
+    // If quiz is complete, show results
+    if (isQuizComplete) {
+      return renderResultsContent();
+    }
+
+    // Otherwise show the current question
+    return renderQuestionContent();
+  };
+
+  useEffect(() => {
+    if (open) {
+      console.log("Quiz component state:", {
+        hasQuestions: questions.length > 0,
+        currentQuestionIndex,
+        isQuizComplete,
+        isGenerating,
+        error,
+        initialized
+      });
+    }
+  }, [open, questions, currentQuestionIndex, isQuizComplete, isGenerating, error, initialized]);
+
   return (
-    <Dialog open={open} onOpenChange={(open) => {
-      if (!open) onClose();
-    }}>
+    <Dialog 
+      open={open} 
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onClose();
+      }}
+    >
       <DialogContent className="max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>{renderDialogTitle()}</DialogTitle>
-          <DialogDescription>{renderDialogDescription()}</DialogDescription>
+          <DialogTitle>
+            {isGenerating ? "Quiz voorbereiden" :
+             error ? "Quiz Fout" :
+             isQuizComplete ? "Quiz voltooid!" :
+             title}
+          </DialogTitle>
+          <DialogDescription>
+            {isGenerating ? "Even geduld terwijl we je quiz voorbereiden." :
+             error ? "Er is een probleem opgetreden bij het genereren van de quiz." :
+             isQuizComplete ? "Bekijk hieronder je resultaten" :
+             questions.length > 0 ? `Vraag ${currentQuestionIndex + 1} van ${questions.length}` :
+             "Quiz informatie"}
+          </DialogDescription>
         </DialogHeader>
         {renderContent()}
       </DialogContent>

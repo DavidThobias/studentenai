@@ -41,24 +41,10 @@ const BookDetail = () => {
     fetchParagraphs 
   } = useBookDetail(id);
 
-  // Clear quiz state completely when not open
-  useEffect(() => {
-    if (!quizOpen) {
-      // Delay clearing quiz questions to avoid React rendering issues
-      const timer = setTimeout(() => {
-        if (!quizOpen) {
-          setQuizQuestions([]);
-        }
-      }, 300); // Wait for dialog animation to complete
-      
-      return () => clearTimeout(timer);
-    }
-  }, [quizOpen]);
-
   const handleStartQuiz = async (chapterId?: number, paragraphId?: number) => {
     console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}${paragraphId ? `, paragraph ${paragraphId}` : ''}`);
     
-    // Reset quiz state
+    // Reset quiz state immediately
     setQuizQuestions([]);
     setQuizError(null);
     setIsGeneratingQuiz(true);
@@ -144,6 +130,12 @@ const BookDetail = () => {
 
   const handleCloseQuiz = () => {
     setQuizOpen(false);
+    // Clear quiz questions only after dialog is closed
+    setTimeout(() => {
+      if (!quizOpen) {
+        setQuizQuestions([]);
+      }
+    }, 500);
   };
 
   if (loading) {
@@ -181,17 +173,15 @@ const BookDetail = () => {
         <UpcomingFeatures />
       </div>
 
-      {/* Only render Quiz when dialog is open */}
-      {quizOpen && (
-        <Quiz 
-          questions={quizQuestions}
-          onClose={handleCloseQuiz}
-          open={quizOpen}
-          title={quizTitle}
-          error={quizError}
-          isGenerating={isGeneratingQuiz}
-        />
-      )}
+      {/* Always render Quiz component */}
+      <Quiz 
+        questions={quizQuestions}
+        onClose={handleCloseQuiz}
+        open={quizOpen}
+        title={quizTitle}
+        error={quizError}
+        isGenerating={isGeneratingQuiz}
+      />
     </div>
   );
 };
