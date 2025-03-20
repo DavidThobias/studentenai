@@ -126,7 +126,7 @@ const BookOverview = ({ book }: BookOverviewProps) => {
                 className="flex-1 bg-study-600 hover:bg-study-700 text-white"
               >
                 <Brain className="mr-2 h-5 w-5" />
-                {showQuiz ? 'Verberg quiz' : 'Genereer quiz vraag'}
+                {showQuiz ? 'Verberg quiz' : 'Genereer quiz met vragen'}
               </Button>
             )}
           </div>

@@ -20,7 +20,25 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    console.log('Calling OpenAI API to generate a sales question...');
+    // Parse request body
+    const requestData = await req.json();
+    const count = requestData?.count || 1; // Default to 1 if not specified
+    console.log(`Calling OpenAI API to generate ${count} sales questions...`);
+    
+    // Create a prompt that requests multiple questions
+    const systemPrompt = `Je bent een ervaren Nederlandse docent die gespecialiseerd is in sales en marketing. 
+    Je taak is om uitstekende quizvragen te maken over het Basisboek Sales.`;
+    
+    const userPrompt = `Genereer ${count} meerkeuzevragen over het boek Basisboek Sales. 
+    Geef voor elke vraag vier antwoordopties, waarvan er één correct is. 
+    Het correcte antwoord moet worden aangegeven met de letter (A, B, C of D).
+    
+    Formatteer het als JSON: 
+    { 
+      "question": "...", 
+      "options": ["...", "...", "...", "..."], 
+      "correct": "A/B/C/D" 
+    }`;
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -33,15 +51,15 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'Je bent een ervaren Nederlandse docent die gespecialiseerd is in sales en marketing. Je taak is om uitstekende quizvragen te maken over het Basisboek Sales.'
+            content: systemPrompt
           },
           {
             role: 'user',
-            content: 'Genereer een meerkeuzevraag over het boek Basisboek Sales. Geef vier antwoordopties, waarvan er één correct is. Formatteer het als JSON: { "vraag": "...", "opties": ["A: ...", "B: ...", "C: ...", "D: ..."], "correct": "..." }'
+            content: userPrompt
           }
         ],
         temperature: 0.7,
-        max_tokens: 300,
+        max_tokens: 500, // Increased to allow for more questions
       }),
     });
 

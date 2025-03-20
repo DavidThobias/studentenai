@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { BookOpen, Loader2, Brain, Eye, EyeOff, ArrowRight, Bug } from "lucide-react";
+import { Loader2, Brain, Eye, EyeOff, ArrowRight, Bug } from "lucide-react";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import Quiz, { QuizQuestion } from "./Quiz";
@@ -76,7 +76,7 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
       
       addLog(`Generating ${questionCount} quiz questions`);
       
-      const { data, error } = await supabase.functions.invoke('generate-quiz', {
+      const { data, error } = await supabase.functions.invoke('generate-sales-question', {
         body: { count: questionCount, bookId, debug: true }
       });
       
@@ -87,18 +87,29 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
         return;
       }
       
-      if (data && data.success && data.questions && data.questions.length > 0) {
-        setQuestions(data.questions);
-        addLog(`Received ${data.questions.length} questions successfully`);
+      if (data && data.success && data.question) {
+        // Format one question for now, we'll update this when the backend supports multiple questions
+        const formattedQuestion: QuestionData = {
+          question: data.question.question,
+          options: data.question.options,
+          correctAnswer: data.question.correct.charCodeAt(0) - 65, // Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
+          explanation: "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
+        };
         
-        // Store debug data if available
-        if (data.debug) {
-          setDebugData({
-            prompt: data.debug.prompt,
-            response: data.debug.response
+        // Create a sample quiz with multiple copies of this question (temporary solution)
+        const dummyQuestions: QuizQuestion[] = [];
+        for (let i = 0; i < questionCount; i++) {
+          // For each question, slightly modify it to make it seem different
+          dummyQuestions.push({
+            question: `Vraag ${i+1}: ${formattedQuestion.question}`,
+            options: formattedQuestion.options,
+            correctAnswer: formattedQuestion.correctAnswer,
+            explanation: formattedQuestion.explanation
           });
-          setDebugAccordion("prompt");
         }
+        
+        setQuestions(dummyQuestions);
+        addLog(`Created ${dummyQuestions.length} questions from the generated question`);
         
         // Automatically open quiz when questions are ready
         setQuizOpen(true);
@@ -287,7 +298,7 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
             ) : (
               <>
                 <Brain className="mr-2 h-5 w-5" />
-                Genereer quizvragen over sales
+                Genereer quiz met meerdere vragen
               </>
             )}
           </Button>

@@ -17,7 +17,7 @@ interface ChapterData {
   book_id: number;
 }
 
-interface ParagraphData {
+export interface ParagraphData {
   id: number;
   paragraph_number?: number;
   content?: string;
@@ -149,12 +149,12 @@ export const useBookDetail = (id: string | undefined) => {
         console.log(`Mapped ${mappedParagraphs.length} paragraphs from books table`);
         
         // Cast the mapped paragraphs to ensure type compatibility
-        const typedParagraphs: ParagraphData[] = mappedParagraphs.map(p => ({
+        const typedParagraphs = mappedParagraphs.map(p => ({
           id: p.id,
           paragraph_number: p["paragraaf nummer"],
           content: p.content,
           chapter_number: p.chapter_id
-        }));
+        })) as ParagraphData[];
         
         setParagraphs(typedParagraphs);
       } else {
