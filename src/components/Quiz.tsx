@@ -33,50 +33,31 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   const [score, setScore] = useState(0);
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [isReady, setIsReady] = useState(false);
 
-  // Reset quiz state when questions change or dialog is opened
+  // Reset quiz state when questions change or dialog is opened/closed
   useEffect(() => {
     if (open) {
-      setIsReady(false);
-      
-      // Only reset the quiz state if we have questions and are not in loading state
-      if (questions.length > 0 && !isGenerating && !error) {
+      // Wait for questions to be loaded or error to be set
+      if (!isGenerating && questions.length > 0) {
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
         setIsAnswerSubmitted(false);
         setScore(0);
         setIsQuizComplete(false);
         setShowExplanation(false);
-        
-        // Short delay to ensure smooth transition
-        const timer = setTimeout(() => {
-          setIsReady(true);
-        }, 300);
-        
-        return () => clearTimeout(timer);
-      } else {
-        // If we're still loading, immediately set ready for loading state
-        setIsReady(true);
       }
     }
-  }, [open, questions, isGenerating, error]);
+  }, [open, questions, isGenerating]);
 
-  // Reset state when dialog is closed
+  // Reset state completely when dialog is closed
   useEffect(() => {
     if (!open) {
-      // Reset on close with a delay to avoid visual glitches
-      const timer = setTimeout(() => {
-        setCurrentQuestionIndex(0);
-        setSelectedAnswer(null);
-        setIsAnswerSubmitted(false);
-        setScore(0);
-        setIsQuizComplete(false);
-        setShowExplanation(false);
-        setIsReady(false);
-      }, 300);
-      
-      return () => clearTimeout(timer);
+      setCurrentQuestionIndex(0);
+      setSelectedAnswer(null);
+      setIsAnswerSubmitted(false);
+      setScore(0);
+      setIsQuizComplete(false);
+      setShowExplanation(false);
     }
   }, [open]);
 
@@ -188,7 +169,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     }
 
     const currentQuestion = questions[currentQuestionIndex];
-    const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
     
     return isQuizComplete ? (
       <div className="flex flex-col items-center justify-center space-y-6">
@@ -322,8 +302,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
           <DialogTitle>{renderDialogTitle()}</DialogTitle>
           <DialogDescription>{renderDialogDescription()}</DialogDescription>
         </DialogHeader>
-        
-        {isReady && renderContent()}
+        {renderContent()}
       </DialogContent>
     </Dialog>
   );
