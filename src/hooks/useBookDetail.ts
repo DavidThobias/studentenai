@@ -90,7 +90,7 @@ export const useBookDetail = (id: string | undefined) => {
         // If there are chapters, select the first one and fetch its paragraphs
         if (chapterData && chapterData.length > 0) {
           const firstChapterId = chapterData[0].id;
-          console.log(`Setting initial selected chapter ID to ${firstChapterId}`);
+          console.log(`Setting initial selected chapter ID: ${firstChapterId}`);
           setSelectedChapterId(firstChapterId);
           
           await fetchParagraphs(firstChapterId);
@@ -113,35 +113,41 @@ export const useBookDetail = (id: string | undefined) => {
       setLoadingParagraphs(true);
       setError(null);
       setSelectedChapterId(chapterId);
+      
+      // Log detailed debugging information
       console.log(`Fetching paragraphs for chapter ID: ${chapterId}`);
-      
-      // Verify chapter_id is a number
       console.log(`chapter_id type: ${typeof chapterId}, value: ${chapterId}`);
+      console.log(`Query: SELECT * FROM "Paragrafen" WHERE chapter_id = ${chapterId}`);
       
-      // Try a simple query first to test connection
-      const testQuery = await supabase
+      // Convert to number explicitly to ensure correct type
+      const numericChapterId = Number(chapterId);
+      console.log(`Using numericChapterId: ${numericChapterId}, type: ${typeof numericChapterId}`);
+      
+      // Try a simple count query first to test connection
+      const { count, error: countError } = await supabase
         .from('Paragrafen')
-        .select('count')
-        .single();
+        .select('*', { count: 'exact', head: true });
       
-      console.log('Test query result:', testQuery);
+      console.log(`Total paragraphs in database: ${count}`, countError ? countError : '');
       
-      // Construct the full query explicitly to debug
-      const queryString = `from "Paragrafen" where chapter_id = ${chapterId}`;
-      console.log(`Executing query: ${queryString}`);
-      
-      // Try fetching paragraphs for this chapter
+      // Direct query with specific logging
       const { data: paragraphData, error: paragraphError, status, statusText } = await supabase
         .from('Paragrafen')
         .select('*')
-        .eq('chapter_id', chapterId);
+        .eq('chapter_id', numericChapterId);
       
       // Log the full response for debugging
       console.log('Supabase response:', { 
         status,
         statusText,
         data: paragraphData,
-        error: paragraphError
+        error: paragraphError,
+        queryParams: {
+          table: 'Paragrafen',
+          column: 'chapter_id',
+          value: numericChapterId,
+          valueType: typeof numericChapterId
+        }
       });
       
       if (paragraphError) {
@@ -166,14 +172,7 @@ export const useBookDetail = (id: string | undefined) => {
         console.log(`No paragraphs found for chapter ${chapterId}`);
         setParagraphs([]);
         
-        // Additional debug query to check if any paragraphs exist
-        const { count, error: countError } = await supabase
-          .from('Paragrafen')
-          .select('*', { count: 'exact', head: true });
-        
-        console.log(`Total paragraphs in database: ${count}`, countError ? countError : '');
-        
-        // Try alternative approach using the edge function
+        // Try a direct SQL query through the edge function
         try {
           console.log('Trying to fetch paragraphs using edge function');
           const response = await fetch('/api/get-paragraphs', {
@@ -181,7 +180,7 @@ export const useBookDetail = (id: string | undefined) => {
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ chapterId }),
+            body: JSON.stringify({ chapterId: numericChapterId }),
           });
           
           const result = await response.json();
@@ -198,6 +197,61 @@ export const useBookDetail = (id: string | undefined) => {
           }
         } catch (edgeFunctionError) {
           console.error('Error calling edge function:', edgeFunctionError);
+        }
+        
+        // Attempt a different capitalization/naming as a fallback
+        try {
+          console.log('Trying alternative column names (Chapter_id, CHAPTER_ID)');
+          
+          // Try with different capitalization
+          const { data: altData1 } = await supabase
+            .from('Paragrafen')
+            .select('*')
+            .eq('Chapter_id', numericChapterId);
+            
+          if (altData1 && altData1.length > 0) {
+            console.log('Found paragraphs using Chapter_id:', altData1);
+            setParagraphs(altData1);
+            return;
+          }
+          
+          const { data: altData2 } = await supabase
+            .from('Paragrafen')
+            .select('*')
+            .eq('CHAPTER_ID', numericChapterId);
+            
+          if (altData2 && altData2.length > 0) {
+            console.log('Found paragraphs using CHAPTER_ID:', altData2);
+            setParagraphs(altData2);
+            return;
+          }
+        } catch (altError) {
+          console.error('Error trying alternative column names:', altError);
+        }
+        
+        // Try a direct fetch of all paragraphs as a last resort
+        try {
+          console.log('Fetching all paragraphs as a last resort to inspect data');
+          const { data: allParagraphs } = await supabase
+            .from('Paragrafen')
+            .select('*')
+            .limit(20);
+            
+          console.log('Sample of all paragraphs in database:', allParagraphs);
+          
+          // Check if any paragraphs match our chapter ID manually
+          const matchingParagraphs = allParagraphs?.filter(p => {
+            console.log(`Paragraph ${p.id} chapter_id:`, p.chapter_id, typeof p.chapter_id);
+            return p.chapter_id === numericChapterId || 
+                  String(p.chapter_id) === String(numericChapterId);
+          });
+          
+          if (matchingParagraphs && matchingParagraphs.length > 0) {
+            console.log('Found matching paragraphs through manual filtering:', matchingParagraphs);
+            setParagraphs(matchingParagraphs);
+          }
+        } catch (fallbackError) {
+          console.error('Error in fallback paragraph query:', fallbackError);
         }
       }
       

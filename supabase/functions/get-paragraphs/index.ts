@@ -28,36 +28,71 @@ serve(async (req) => {
       throw new Error('Chapter ID is required');
     }
 
-    console.log(`Getting paragraphs for chapter ${chapterId}`);
+    // Ensure chapterId is a number
+    const numericChapterId = typeof chapterId === 'string' ? parseInt(chapterId, 10) : chapterId;
+    
+    console.log(`Getting paragraphs for chapter ${numericChapterId} (type: ${typeof numericChapterId})`);
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Get paragraphs for this chapter
-    const { data, error, status } = await supabase
-      .from('Paragrafen')
-      .select('*')
-      .eq('chapter_id', chapterId);
+    // Try direct SQL approach for more reliable results
+    const { data: sqlData, error: sqlError } = await supabase
+      .rpc('get_paragraphs_by_chapter', { chapter_id_param: numericChapterId });
+    
+    if (sqlError) {
+      console.error(`RPC error: ${JSON.stringify(sqlError)}`);
+      
+      // Fall back to regular query if RPC fails (likely because function doesn't exist)
+      const { data, error, status } = await supabase
+        .from('Paragrafen')
+        .select('*')
+        .eq('chapter_id', numericChapterId);
 
-    if (error) {
-      console.error(`Error fetching paragraphs: ${JSON.stringify(error)}`);
-      throw new Error(`Error fetching paragraphs: ${error.message}`);
+      if (error) {
+        console.error(`Error fetching paragraphs: ${JSON.stringify(error)}`);
+        throw new Error(`Error fetching paragraphs: ${error.message}`);
+      }
+
+      console.log(`Successfully fetched ${data?.length || 0} paragraphs via regular query`);
+      
+      // Return the paragraphs
+      return new Response(
+        JSON.stringify({
+          success: true,
+          paragraphs: data || [],
+          count: data?.length || 0,
+          method: 'direct_query',
+          query: {
+            table: 'Paragrafen',
+            chapterId: numericChapterId,
+            chapterIdType: typeof numericChapterId,
+            status
+          }
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
     }
-
-    console.log(`Successfully fetched ${data?.length || 0} paragraphs`);
-
-    // Return the paragraphs
+    
+    console.log(`Successfully fetched ${sqlData?.length || 0} paragraphs via RPC`);
+    
     return new Response(
       JSON.stringify({
         success: true,
-        paragraphs: data || [],
-        count: data?.length || 0,
+        paragraphs: sqlData || [],
+        count: sqlData?.length || 0,
+        method: 'rpc',
         query: {
-          table: 'Paragrafen',
-          chapterId,
-          chapterIdType: typeof chapterId
+          function: 'get_paragraphs_by_chapter',
+          chapterId: numericChapterId,
+          chapterIdType: typeof numericChapterId
         }
       }),
       { 
@@ -73,7 +108,11 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : 'An unknown error occurred'
+        error: error instanceof Error ? error.message : 'An unknown error occurred',
+        query: {
+          requestMethod: req.method,
+          contentType: req.headers.get('Content-Type')
+        }
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

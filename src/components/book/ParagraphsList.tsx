@@ -1,9 +1,10 @@
 
-import { ListChecks, FileText, Loader2, DatabaseIcon } from 'lucide-react';
+import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from "@/integrations/supabase/client";
 
 interface ParagraphData {
   id: number;
@@ -20,11 +21,52 @@ interface ParagraphsListProps {
 }
 
 const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedChapterId }: ParagraphsListProps) => {
+  const [directDbCount, setDirectDbCount] = useState<number | null>(null);
+  const [isCheckingDb, setIsCheckingDb] = useState(false);
+  
   // Log whenever paragraphs or loading state changes
   useEffect(() => {
     console.log('ParagraphsList: paragraphs array updated:', paragraphs);
     console.log('ParagraphsList: loadingParagraphs:', loadingParagraphs);
   }, [paragraphs, loadingParagraphs]);
+
+  const checkDatabaseDirectly = async () => {
+    if (!selectedChapterId) return;
+    
+    try {
+      setIsCheckingDb(true);
+      console.log('Checking database directly for paragraphs with chapter_id =', selectedChapterId);
+      
+      // Get total count first
+      const { count: totalCount } = await supabase
+        .from('Paragrafen')
+        .select('*', { count: 'exact', head: true });
+        
+      console.log('Total paragraphs in database:', totalCount);
+      
+      // Try direct SQL query as a more reliable method
+      const { data, error, status, statusText } = await supabase
+        .from('Paragrafen')
+        .select('*')
+        .eq('chapter_id', selectedChapterId);
+        
+      console.log('Direct database check results:', {
+        data,
+        error,
+        status,
+        statusText,
+        count: data?.length || 0
+      });
+      
+      if (data) {
+        setDirectDbCount(data.length);
+      }
+    } catch (err) {
+      console.error('Error checking database directly:', err);
+    } finally {
+      setIsCheckingDb(false);
+    }
+  };
 
   return (
     <div className="mb-12">
@@ -89,7 +131,20 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                 <li>Query: SELECT * FROM "Paragrafen" WHERE chapter_id = {selectedChapterId}</li>
                 <li>Type van selectedChapterId: {typeof selectedChapterId}</li>
                 <li>Timestamp: {new Date().toISOString()}</li>
+                <li>Direct DB check result: {directDbCount !== null ? `${directDbCount} paragrafen gevonden` : 'Niet gecontroleerd'}</li>
               </ul>
+              
+              <div className="mt-3">
+                <Button 
+                  onClick={checkDatabaseDirectly} 
+                  variant="outline" 
+                  size="sm"
+                  disabled={isCheckingDb || !selectedChapterId}
+                >
+                  <RefreshCcw className={`mr-2 h-4 w-4 ${isCheckingDb ? 'animate-spin' : ''}`} />
+                  {isCheckingDb ? 'Database controleren...' : 'Database direct controleren'}
+                </Button>
+              </div>
             </AlertDescription>
           </Alert>
         </div>
