@@ -169,7 +169,10 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
               <CardFooter className="flex flex-row gap-2">
                 {onStartQuiz && (
                   <Button 
-                    onClick={() => onStartQuiz(paragraph.chapter_number, paragraph.id)}
+                    onClick={() => onStartQuiz(
+                      typeof paragraph.chapter_number === 'number' ? paragraph.chapter_number : Number(paragraph.chapter_number),
+                      paragraph.id
+                    )}
                     variant="outline"
                     size="sm"
                     className="w-full sm:w-auto"

@@ -20,6 +20,7 @@ export interface ChapterData {
 export interface ParagraphData {
   id: number;
   paragraph_number?: number;
+  "paragraaf nummer"?: number; // This is the field coming from the adapter
   content?: string;
   chapter_number: number;
 }
@@ -151,7 +152,7 @@ export const useBookDetail = (id: string | undefined) => {
         // Need to explicitly type this as ParagraphData[]
         const typedParagraphs: ParagraphData[] = mappedParagraphs.map(p => ({
           id: p.id,
-          paragraph_number: p.paragraph_number,
+          paragraph_number: p["paragraaf nummer"],
           content: p.content,
           chapter_number: numericChapterId
         }));
