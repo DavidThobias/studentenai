@@ -41,6 +41,7 @@ const BookDetail = () => {
     fetchParagraphs 
   } = useBookDetail(id);
 
+  // Add debug logging for state changes
   useEffect(() => {
     console.log("BookDetail state:", {
       quizOpen,
@@ -51,6 +52,7 @@ const BookDetail = () => {
     });
   }, [quizOpen, quizQuestions, isGeneratingQuiz, quizError, quizTitle]);
 
+  // Open quiz when needed
   useEffect(() => {
     if (isGeneratingQuiz || quizQuestions.length > 0 || quizError) {
       console.log('Setting quiz open to true');
@@ -61,12 +63,13 @@ const BookDetail = () => {
   const handleStartQuiz = useCallback(async (chapterId?: number, paragraphId?: number) => {
     console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}${paragraphId ? `, paragraph ${paragraphId}` : ''}`);
     
-    setQuizQuestions([]);
+    // Reset quiz state but preserve any existing questions while loading new ones
     setQuizError(null);
     setIsGeneratingQuiz(true);
     setSelectedChapterId(chapterId?.toString());
     setSelectedParagraphId(paragraphId?.toString());
     
+    // Force quiz open immediately
     setQuizOpen(true);
     
     if (paragraphId) {
@@ -124,8 +127,10 @@ const BookDetail = () => {
         }));
         
         console.log('Formatted questions:', formattedQuestions);
-        setIsGeneratingQuiz(false);
+        
+        // Important: Set questions and clear loading state in separate operations
         setQuizQuestions(formattedQuestions);
+        setIsGeneratingQuiz(false);
         toast.success('Quiz is gegenereerd!');
       } else {
         console.warn('No questions found in response:', response);
@@ -148,9 +153,10 @@ const BookDetail = () => {
   const handleCloseQuiz = () => {
     console.log('Closing quiz');
     setQuizOpen(false);
+    // Don't clear questions on close - preserve them
   };
 
-  // Remove cleanup timeout that was clearing the quiz state
+  // No cleanup timeout - preserve state
 
   if (loading) {
     return <LoadingBookDetail />;

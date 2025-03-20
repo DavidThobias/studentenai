@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +35,8 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
   const [initialized, setInitialized] = useState(false);
   const [localOpen, setLocalOpen] = useState(open);
   
+  const questionsRef = useRef<QuizQuestion[]>([]);
+  
   console.log("Quiz render with:", { 
     open, 
     localOpen,
@@ -45,13 +47,11 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     cachedQuestionsLength: questions ? questions.length : 0
   });
 
-  // Force the Sheet to be open immediately when props.open changes to true
   useEffect(() => {
     console.log(`open prop changed to: ${open}`);
     if (open) {
       setLocalOpen(true);
     } else {
-      // Add a small delay before closing to ensure smooth animation
       const timer = setTimeout(() => {
         setLocalOpen(false);
       }, 150);
@@ -59,12 +59,12 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     }
   }, [open]);
 
-  // Reset quiz state when new questions become available
   useEffect(() => {
     if (open && questions && questions.length > 0 && !isGenerating) {
       console.log('Valid questions available, initializing quiz state with', questions.length, 'questions');
       
-      // Only reset state if we have questions and aren't in the middle of answering
+      questionsRef.current = questions;
+      
       setCurrentQuestionIndex(0);
       setSelectedAnswer(null);
       setIsAnswerSubmitted(false);
@@ -74,9 +74,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       setInitialized(true);
     }
   }, [open, questions, isGenerating]);
-
-  // Ensure we preserve state when quiz is just visually closed
-  // Remove the cleanup timeout that was clearing state
 
   const handleAnswerSelect = (index: number) => {
     if (!isAnswerSubmitted) {
@@ -133,7 +130,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     setShowExplanation(!showExplanation);
   };
 
-  // Render loading content
   const renderLoadingContent = () => {
     return (
       <div className="flex flex-col items-center justify-center p-8">
@@ -146,7 +142,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     );
   };
 
-  // Render error content
   const renderErrorContent = () => {
     return (
       <>
@@ -161,7 +156,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     );
   };
 
-  // Render empty content when no questions are available
   const renderEmptyContent = () => {
     return (
       <div className="flex flex-col items-center justify-center space-y-4 p-6">
@@ -173,7 +167,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     );
   };
 
-  // Render results content
   const renderResultsContent = () => {
     return (
       <div className="flex flex-col items-center justify-center space-y-6">
@@ -209,21 +202,21 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     );
   };
 
-  // Render question content
   const renderQuestionContent = () => {
-    // Safety check if questions array is valid
-    if (!questions || questions.length === 0 || currentQuestionIndex >= questions.length) {
+    const activeQuestions = questions.length > 0 ? questions : questionsRef.current;
+    
+    if (!activeQuestions || activeQuestions.length === 0 || currentQuestionIndex >= activeQuestions.length) {
       console.error('Invalid questions array or currentQuestionIndex:', { 
-        questionsLength: questions?.length, 
+        questionsLength: activeQuestions?.length, 
         currentQuestionIndex 
       });
       return renderEmptyContent();
     }
 
-    const currentQuestion = questions[currentQuestionIndex];
+    const currentQuestion = activeQuestions[currentQuestionIndex];
     
     if (!currentQuestion) {
-      console.error('Current question is undefined. Index:', currentQuestionIndex, 'Questions:', questions);
+      console.error('Current question is undefined. Index:', currentQuestionIndex, 'Questions:', activeQuestions);
       return (
         <Alert variant="destructive" className="mt-4">
           <AlertCircle className="h-4 w-4" />
@@ -329,7 +322,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     );
   };
 
-  // Main render content function
   const renderContent = () => {
     console.log('Rendering quiz content with state:', {
       isGenerating,
@@ -348,7 +340,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       return renderErrorContent();
     }
 
-    if (!questions || questions.length === 0) {
+    if (!questions.length && !questionsRef.current.length) {
       return renderEmptyContent();
     }
 
@@ -359,7 +351,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     return renderQuestionContent();
   };
 
-  // Log when quiz is opened with questions
   useEffect(() => {
     if (open && questions && questions.length > 0) {
       console.log("Quiz component opened with", questions.length, "questions:", questions);
@@ -377,8 +368,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       <SheetContent 
         side="right" 
         className="sm:max-w-md w-[95vw] overflow-y-auto"
-        // Literally force mount the content when generating or with questions
-        forceMount={isGenerating || (questions && questions.length > 0) ? true : undefined}
+        forceMount
       >
         <SheetHeader className="mb-4">
           <SheetTitle>
@@ -397,12 +387,12 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
         </SheetHeader>
         
         <div className="mt-4">
-          {/* Add debug info in development */}
           {import.meta.env.DEV && (
             <div className="bg-gray-100 p-2 mb-4 text-xs rounded">
               <div>Debug: Questions: {questions?.length || 0}</div>
               <div>isGenerating: {String(isGenerating)}</div>
               <div>error: {error ? 'Yes' : 'No'}</div>
+              <div>Cached questions: {questionsRef.current.length}</div>
             </div>
           )}
           {renderContent()}
