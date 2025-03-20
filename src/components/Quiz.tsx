@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -47,34 +48,20 @@ const Quiz = ({
   restartQuiz
 }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
   
   useEffect(() => {
-    console.log('Quiz state update:', { 
+    console.log('Quiz props update:', { 
       open, 
-      sheetOpen,
       hasQuestions: questions.length > 0, 
       isGenerating, 
       error,
       currentQuestionIndex,
       isQuizComplete
     });
-  }, [open, questions, sheetOpen, isGenerating, error, currentQuestionIndex, isQuizComplete]);
-
-  useEffect(() => {
-    console.log(`Parent open state changed to: ${open}, updating sheetOpen to match`);
-    setSheetOpen(open);
-  }, [open]);
+  }, [open, questions, isGenerating, error, currentQuestionIndex, isQuizComplete]);
   
   const handleToggleExplanation = () => {
     setShowExplanation(!showExplanation);
-  };
-
-  const handleCloseQuiz = () => {
-    console.log('Closing quiz from handleCloseQuiz');
-    setSheetOpen(false);
-    setShowExplanation(false);
-    onClose();
   };
 
   const renderLoadingContent = () => {
@@ -97,7 +84,7 @@ const Quiz = ({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
         <div className="flex justify-end mt-4">
-          <Button onClick={handleCloseQuiz}>Sluiten</Button>
+          <Button onClick={onClose}>Sluiten</Button>
         </div>
       </>
     );
@@ -109,7 +96,7 @@ const Quiz = ({
         <p className="text-center text-muted-foreground">
           Geen quizvragen beschikbaar.
         </p>
-        <Button onClick={handleCloseQuiz}>Sluiten</Button>
+        <Button onClick={onClose}>Sluiten</Button>
       </div>
     );
   };
@@ -141,7 +128,7 @@ const Quiz = ({
             Opnieuw proberen
           </Button>
           
-          <Button onClick={handleCloseQuiz} className="flex-1">
+          <Button onClick={onClose} className="flex-1">
             Sluiten
           </Button>
         </div>
@@ -311,22 +298,18 @@ const Quiz = ({
   
   return (
     <Sheet 
-      open={sheetOpen} 
+      open={open} 
       onOpenChange={(isOpen) => {
-        console.log(`Sheet onOpenChange: ${isOpen} (current sheetOpen: ${sheetOpen})`);
+        console.log(`Sheet onOpenChange called with: ${isOpen}`);
         if (!isOpen) {
           if (questions.length > 0 && !isQuizComplete) {
             const confirmClose = window.confirm("Weet je zeker dat je de quiz wilt sluiten?");
             if (confirmClose) {
-              handleCloseQuiz();
-            } else {
-              setSheetOpen(true);
+              onClose();
             }
           } else {
-            handleCloseQuiz();
+            onClose();
           }
-        } else if (isOpen) {
-          setSheetOpen(true);
         }
       }}
     >
@@ -359,7 +342,6 @@ const Quiz = ({
               <div>Debug: isGenerating: {String(isGenerating)}</div>
               <div>Debug: error: {error ? 'Yes' : 'No'}</div>
               <div>Debug: currentQuestionIndex: {currentQuestionIndex}</div>
-              <div>Debug: sheetOpen: {String(sheetOpen)}</div>
               <div>Debug: open (from parent): {String(open)}</div>
             </div>
           )}
