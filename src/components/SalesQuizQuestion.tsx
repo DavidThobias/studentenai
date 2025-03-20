@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { BookOpen, Loader2, Brain } from "lucide-react";
 import { toast } from "sonner";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface QuestionData {
   vraag: string;
@@ -14,11 +15,22 @@ interface QuestionData {
   correct: string;
 }
 
-const SalesQuizQuestion = () => {
+interface DebugData {
+  prompt?: string;
+  response?: any;
+}
+
+interface SalesQuizQuestionProps {
+  showDebug?: boolean;
+  bookId?: number;
+}
+
+const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps) => {
   const [question, setQuestion] = useState<QuestionData | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
+  const [debugData, setDebugData] = useState<DebugData>({});
 
   const generateQuestion = async () => {
     try {
@@ -26,8 +38,17 @@ const SalesQuizQuestion = () => {
       setQuestion(null);
       setSelectedAnswer(null);
       setIsCorrect(null);
+      setDebugData({});
       
-      const { data, error } = await supabase.functions.invoke('generate-sales-question');
+      // Include bookId if available
+      const payload = bookId ? { bookId } : {};
+      
+      const { data, error } = await supabase.functions.invoke('generate-quiz', {
+        body: {
+          ...payload,
+          debug: showDebug
+        }
+      });
       
       if (error) {
         console.error('Error generating question:', error);
@@ -35,8 +56,26 @@ const SalesQuizQuestion = () => {
         return;
       }
       
-      if (data && data.success && data.question) {
-        setQuestion(data.question);
+      if (data && data.success && data.questions && data.questions.length > 0) {
+        // Format the first question from the response
+        const questionData = data.questions[0];
+        const formattedQuestion: QuestionData = {
+          vraag: questionData.question,
+          opties: questionData.options.map((opt: string, index: number) => 
+            `${String.fromCharCode(65 + index)}: ${opt}`
+          ),
+          correct: `${String.fromCharCode(65 + questionData.correctAnswer)}: ${questionData.options[questionData.correctAnswer]}`
+        };
+        
+        setQuestion(formattedQuestion);
+        
+        // Save debug data if available
+        if (showDebug && data.debug) {
+          setDebugData({
+            prompt: data.debug.prompt,
+            response: data.debug.response
+          });
+        }
       } else {
         toast.error('Ongeldige response ontvangen van de server');
       }
@@ -59,7 +98,7 @@ const SalesQuizQuestion = () => {
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto my-8">
+    <div className="w-full max-w-3xl mx-auto">
       {!question ? (
         <div className="text-center">
           <Button 
@@ -129,6 +168,32 @@ const SalesQuizQuestion = () => {
                     : `Het juiste antwoord is: ${question.correct}`}
                 </AlertDescription>
               </Alert>
+            )}
+            
+            {/* Debug section */}
+            {showDebug && (debugData.prompt || debugData.response) && (
+              <div className="mt-6 border border-gray-200 rounded-md overflow-hidden">
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="prompt">
+                    <AccordionTrigger className="px-4 py-2 bg-gray-50 text-sm">
+                      OpenAI Prompt
+                    </AccordionTrigger>
+                    <AccordionContent className="p-4 bg-gray-50 text-xs font-mono whitespace-pre-wrap">
+                      {debugData.prompt || 'Geen prompt beschikbaar'}
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="response">
+                    <AccordionTrigger className="px-4 py-2 bg-gray-50 text-sm">
+                      OpenAI Response
+                    </AccordionTrigger>
+                    <AccordionContent className="p-4 bg-gray-50 text-xs font-mono whitespace-pre-wrap">
+                      {debugData.response ? 
+                        JSON.stringify(debugData.response, null, 2) : 
+                        'Geen response beschikbaar'}
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
             )}
           </CardContent>
           <CardFooter className="flex justify-between flex-col sm:flex-row gap-2">

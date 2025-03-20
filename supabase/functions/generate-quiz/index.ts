@@ -22,13 +22,13 @@ serve(async (req) => {
   }
 
   try {
-    const { bookId, chapterId, paragraphId, numberOfQuestions = 5, sessionId } = await req.json();
+    const { bookId, chapterId, paragraphId, numberOfQuestions = 5, sessionId, debug = false } = await req.json();
     
     if (!bookId) {
       throw new Error('Book ID is required');
     }
 
-    console.log(`Generating quiz for book ${bookId}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}, ${numberOfQuestions} questions, session ${sessionId || 'none'}`);
+    console.log(`Generating quiz for book ${bookId}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}, ${numberOfQuestions} questions, session ${sessionId || 'none'}, debug: ${debug}`);
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -355,14 +355,25 @@ serve(async (req) => {
       }
     }
 
+    // Prepare response object
+    const responseObject = {
+      success: true,
+      message: `Generated ${quizQuestions.length} questions successfully`,
+      questions: quizQuestions,
+      sessionId: sessionId
+    };
+
+    // Add debug information if requested
+    if (debug) {
+      responseObject.debug = {
+        prompt: openAIPrompt,
+        response: openAIData
+      };
+    }
+
     // Return the generated questions
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Generated ${quizQuestions.length} questions successfully`,
-        questions: quizQuestions,
-        sessionId: sessionId
-      }),
+      JSON.stringify(responseObject),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
