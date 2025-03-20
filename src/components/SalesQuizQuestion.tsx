@@ -74,7 +74,7 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
       setScore(0);
       setIsQuizComplete(false);
       
-      addLog(`Generating ${questionCount} quiz questions`);
+      addLog(`Generating ${questionCount} quiz questions for book ID: ${bookId || 'not specified'}`);
       
       const { data, error } = await supabase.functions.invoke('generate-sales-question', {
         body: { count: questionCount, bookId, debug: true }
@@ -87,35 +87,26 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
         return;
       }
       
-      if (data && data.success && data.question) {
-        // Format one question for now, we'll update this when the backend supports multiple questions
-        const formattedQuestion: QuestionData = {
-          question: data.question.question,
-          options: data.question.options,
-          correctAnswer: data.question.correct.charCodeAt(0) - 65, // Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
-          explanation: "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
-        };
+      if (data && data.success && data.questions && Array.isArray(data.questions)) {
+        // Format the questions from the API
+        const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
+          return {
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.correct.charCodeAt(0) - 65, // Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
+            explanation: "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
+          };
+        });
         
-        // Create a sample quiz with multiple copies of this question (temporary solution)
-        const dummyQuestions: QuizQuestion[] = [];
-        for (let i = 0; i < questionCount; i++) {
-          // For each question, slightly modify it to make it seem different
-          dummyQuestions.push({
-            question: `Vraag ${i+1}: ${formattedQuestion.question}`,
-            options: formattedQuestion.options,
-            correctAnswer: formattedQuestion.correctAnswer,
-            explanation: formattedQuestion.explanation
-          });
-        }
-        
-        setQuestions(dummyQuestions);
-        addLog(`Created ${dummyQuestions.length} questions from the generated question`);
+        setQuestions(formattedQuestions);
+        addLog(`Created ${formattedQuestions.length} questions from the API response`);
         
         // Automatically open quiz when questions are ready
         setQuizOpen(true);
       } else {
         setQuizError('Geen vragen konden worden gegenereerd');
         addLog(`Failed to generate questions: Invalid response format`);
+        console.error('Invalid response format:', data);
       }
     } catch (err) {
       console.error('Error in generateSalesQuiz:', err);
@@ -293,12 +284,12 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
             {loading || isGenerating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Quiz genereren...
+                Quiz met meerdere vragen genereren...
               </>
             ) : (
               <>
                 <Brain className="mr-2 h-5 w-5" />
-                Genereer quiz met meerdere vragen
+                Genereer een quiz met meerdere vragen
               </>
             )}
           </Button>
@@ -443,7 +434,7 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
                 </>
               ) : (
                 <>
-                  <BookOpen className="mr-2 h-4 w-4" />
+                  <Loader2 className="mr-2 h-4 w-4" />
                   Nieuwe vraag
                 </>
               )}
