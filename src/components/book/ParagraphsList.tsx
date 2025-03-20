@@ -116,7 +116,8 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
           // Only include Authorization header if we have a token
           ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ chapterId: Number(selectedChapterId) }), // Force to number
+        // Force to number to ensure consistency
+        body: JSON.stringify({ chapterId: Number(selectedChapterId) }),
       });
       
       console.log('Edge function response status:', response.status);

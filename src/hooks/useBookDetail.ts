@@ -182,10 +182,16 @@ export const useBookDetail = (id: string | undefined) => {
       console.log(`Total paragraphs in database: ${count}`, countError ? countError : '');
       
       // Use separate query to avoid chaining and type instantiation issues
-      const paragraphsResult = await supabase
-        .from('Paragrafen')
-        .select('*')
-        .eq('chapter_id', numericChapterId);
+      let paragraphsResult;
+      try {
+        paragraphsResult = await supabase
+          .from('Paragrafen')
+          .select('*')
+          .eq('chapter_id', numericChapterId);
+      } catch (error) {
+        console.error('Error executing direct query:', error);
+        paragraphsResult = { data: null, error: error instanceof Error ? error : new Error('Unknown error') };
+      }
       
       const paragraphData = paragraphsResult.data;
       const paragraphError = paragraphsResult.error;
@@ -223,10 +229,17 @@ export const useBookDetail = (id: string | undefined) => {
       
       // APPROACH 3: Try string conversion of chapter_id
       console.log('Trying with string conversion of chapter_id...');
-      const stringResult = await supabase
-        .from('Paragrafen')
-        .select('*')
-        .eq('chapter_id', String(numericChapterId));
+      
+      let stringResult;
+      try {
+        stringResult = await supabase
+          .from('Paragrafen')
+          .select('*')
+          .eq('chapter_id', String(numericChapterId));
+      } catch (error) {
+        console.error('Error executing string query:', error);
+        stringResult = { data: null, error: error instanceof Error ? error : new Error('Unknown error') };
+      }
       
       const stringData = stringResult.data;
       const stringError = stringResult.error;
@@ -253,10 +266,17 @@ export const useBookDetail = (id: string | undefined) => {
       
       // APPROACH 4: Fetch all paragraphs and filter manually
       console.log('Fetching all paragraphs and filtering manually...');
-      const allParagraphsResult = await supabase
-        .from('Paragrafen')
-        .select('*')
-        .limit(100);
+      
+      let allParagraphsResult;
+      try {
+        allParagraphsResult = await supabase
+          .from('Paragrafen')
+          .select('*')
+          .limit(100);
+      } catch (error) {
+        console.error('Error fetching all paragraphs:', error);
+        allParagraphsResult = { data: [], error: error instanceof Error ? error : new Error('Unknown error') };
+      }
           
       const allParagraphs = allParagraphsResult.data || [];
       console.log('All paragraphs sample:', allParagraphs);
