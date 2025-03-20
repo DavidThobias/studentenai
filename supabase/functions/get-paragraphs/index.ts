@@ -22,7 +22,13 @@ serve(async (req) => {
   }
 
   try {
-    const { chapterId } = await req.json();
+    // Parse the request body
+    const reqBody = await req.json().catch(err => {
+      console.error('Error parsing request body:', err);
+      throw new Error('Invalid JSON in request body');
+    });
+    
+    const { chapterId } = reqBody;
     
     if (!chapterId) {
       throw new Error('Chapter ID is required');
@@ -30,6 +36,11 @@ serve(async (req) => {
 
     // Ensure chapterId is a number
     const numericChapterId = typeof chapterId === 'string' ? parseInt(chapterId, 10) : chapterId;
+    
+    // Validate that we have a valid number
+    if (isNaN(numericChapterId)) {
+      throw new Error(`Invalid chapter ID: ${chapterId} (cannot be converted to a number)`);
+    }
     
     console.log(`Getting paragraphs for chapter ${numericChapterId} (type: ${typeof numericChapterId})`);
 
@@ -46,10 +57,11 @@ serve(async (req) => {
       console.error(`RPC error: ${JSON.stringify(sqlError)}`);
       
       // Fall back to regular query if RPC fails (likely because function doesn't exist)
-      const { data, error, status } = await supabase
+      const query = supabase
         .from('Paragrafen')
-        .select('*')
-        .eq('chapter_id', numericChapterId);
+        .select('*');
+        
+      const { data, error, status } = await query.eq('chapter_id', numericChapterId);
 
       if (error) {
         console.error(`Error fetching paragraphs: ${JSON.stringify(error)}`);

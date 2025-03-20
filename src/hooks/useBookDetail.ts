@@ -130,11 +130,13 @@ export const useBookDetail = (id: string | undefined) => {
       
       console.log(`Total paragraphs in database: ${count}`, countError ? countError : '');
       
-      // Direct query with specific logging
-      const { data: paragraphData, error: paragraphError, status, statusText } = await supabase
+      // Direct query with specific logging - fixed type instantiation issue
+      let paragraphQuery = supabase
         .from('Paragrafen')
-        .select('*')
-        .eq('chapter_id', numericChapterId);
+        .select('*');
+        
+      // Apply the filter separately to avoid excessive type instantiation
+      const { data: paragraphData, error: paragraphError, status, statusText } = await paragraphQuery.eq('chapter_id', numericChapterId);
       
       // Log the full response for debugging
       console.log('Supabase response:', { 
@@ -203,11 +205,9 @@ export const useBookDetail = (id: string | undefined) => {
         try {
           console.log('Trying alternative column names (Chapter_id, CHAPTER_ID)');
           
-          // Try with different capitalization
-          const { data: altData1 } = await supabase
-            .from('Paragrafen')
-            .select('*')
-            .eq('Chapter_id', numericChapterId);
+          // Try with different capitalization - fixed type instantiation issue
+          const altQuery1 = supabase.from('Paragrafen').select('*');
+          const { data: altData1 } = await altQuery1.eq('Chapter_id', numericChapterId);
             
           if (altData1 && altData1.length > 0) {
             console.log('Found paragraphs using Chapter_id:', altData1);
@@ -215,10 +215,8 @@ export const useBookDetail = (id: string | undefined) => {
             return;
           }
           
-          const { data: altData2 } = await supabase
-            .from('Paragrafen')
-            .select('*')
-            .eq('CHAPTER_ID', numericChapterId);
+          const altQuery2 = supabase.from('Paragrafen').select('*');
+          const { data: altData2 } = await altQuery2.eq('CHAPTER_ID', numericChapterId);
             
           if (altData2 && altData2.length > 0) {
             console.log('Found paragraphs using CHAPTER_ID:', altData2);
