@@ -17,7 +17,6 @@ const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [quizOpen, setQuizOpen] = useState(false);
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
-  const [selectedParagraphId, setSelectedParagraphId] = useState<number | null>(null);
 
   const { 
     book, 
@@ -34,13 +33,22 @@ const BookDetail = () => {
     questions,
     isGenerating,
     quizError,
-    generateQuiz
+    generateQuiz,
+    currentQuestionIndex,
+    selectedAnswer,
+    isAnswerSubmitted,
+    score,
+    isQuizComplete,
+    handleAnswerSelect,
+    handleSubmitAnswer,
+    handleNextQuestion,
+    restartQuiz
   } = useQuiz();
 
   const handleChapterSelect = (chapterId: number) => {
     console.log(`Selected chapter ID: ${chapterId}`);
     setSelectedChapterId(chapterId);
-    fetchParagraphs(chapterId); // This now expects a number
+    fetchParagraphs(chapterId);
   };
 
   const handleStartQuiz = (chapterId: number, paragraphId?: number) => {
@@ -48,9 +56,6 @@ const BookDetail = () => {
     
     if (book?.id) {
       setSelectedChapterId(chapterId);
-      if (paragraphId) {
-        setSelectedParagraphId(paragraphId);
-      }
       generateQuiz(book.id, chapterId);
       setQuizOpen(true);
     }
@@ -116,6 +121,15 @@ const BookDetail = () => {
           title={`Quiz: ${book?.book_title}`}
           error={quizError}
           isGenerating={isGenerating}
+          currentQuestionIndex={currentQuestionIndex}
+          selectedAnswer={selectedAnswer}
+          isAnswerSubmitted={isAnswerSubmitted}
+          score={score}
+          isQuizComplete={isQuizComplete}
+          handleAnswerSelect={handleAnswerSelect}
+          handleSubmitAnswer={handleSubmitAnswer}
+          handleNextQuestion={handleNextQuestion}
+          restartQuiz={restartQuiz}
         />
       </div>
     </div>

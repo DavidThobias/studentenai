@@ -14,11 +14,25 @@ export const useQuiz = () => {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
+  const [score, setScore] = useState(0);
+  const [isQuizComplete, setIsQuizComplete] = useState(false);
+
+  const resetQuizState = () => {
+    setCurrentQuestionIndex(0);
+    setSelectedAnswer(null);
+    setIsAnswerSubmitted(false);
+    setScore(0);
+    setIsQuizComplete(false);
+  };
 
   const generateQuiz = async (bookId: number, chapterId: number | null = null, numberOfQuestions: number = 5) => {
     try {
       setIsGenerating(true);
       setQuizError(null);
+      resetQuizState();
       
       console.log(`Generating quiz for book ${bookId}, chapter ${chapterId || 'all'}, ${numberOfQuestions} questions`);
       
@@ -57,10 +71,49 @@ export const useQuiz = () => {
     }
   };
 
+  const handleAnswerSelect = (index: number) => {
+    if (!isAnswerSubmitted) {
+      setSelectedAnswer(index);
+    }
+  };
+
+  const handleSubmitAnswer = () => {
+    if (selectedAnswer === null) return;
+    
+    setIsAnswerSubmitted(true);
+    
+    if (questions[currentQuestionIndex].correctAnswer === selectedAnswer) {
+      setScore(prev => prev + 1);
+    }
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setSelectedAnswer(null);
+      setIsAnswerSubmitted(false);
+    } else {
+      setIsQuizComplete(true);
+    }
+  };
+
+  const restartQuiz = () => {
+    resetQuizState();
+  };
+
   return {
     questions,
     isGenerating,
     quizError,
-    generateQuiz
+    generateQuiz,
+    currentQuestionIndex,
+    selectedAnswer,
+    isAnswerSubmitted,
+    score,
+    isQuizComplete,
+    handleAnswerSelect,
+    handleSubmitAnswer,
+    handleNextQuestion,
+    restartQuiz
   };
 };
