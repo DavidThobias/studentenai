@@ -1,27 +1,27 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { mapBooksDataToParagraphs } from '@/lib/bookDataAdapter';
 
-export interface BookData {
+interface BookData {
   id: number;
   book_title?: string;
 }
 
-export interface ChapterData {
+interface ChapterData {
   id: number;
   chapter_title?: string;
   chapter_number: number;
   book_id: number;
 }
 
-export interface ParagraphData {
+interface ParagraphData {
   id: number;
   paragraph_number?: number;
-  "paragraaf nummer"?: number; // This is the field coming from the adapter
   content?: string;
-  chapter_number: number; // Changed from string to number to ensure type consistency
+  chapter_number: number;
 }
 
 export const useBookDetail = (id: string | undefined) => {
@@ -148,16 +148,7 @@ export const useBookDetail = (id: string | undefined) => {
         const mappedParagraphs = mapBooksDataToParagraphs(booksData);
         console.log(`Mapped ${mappedParagraphs.length} paragraphs from books table`);
         
-        // Need to explicitly type this as ParagraphData[]
-        const typedParagraphs: ParagraphData[] = mappedParagraphs.map(p => ({
-          id: p.id,
-          paragraph_number: p["paragraaf nummer"],
-          content: p.content,
-          chapter_number: Number(p.chapter_id)
-        }));
-        
-        console.log('Typed paragraphs:', typedParagraphs);
-        setParagraphs(typedParagraphs);
+        setParagraphs(mappedParagraphs);
       } else {
         console.log('No paragraphs found.');
         setParagraphs([]);

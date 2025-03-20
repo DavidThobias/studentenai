@@ -33,11 +33,11 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'Je bent een ervaren Nederlandse docent die gespecialiseerd is in sales en marketing. Je taak is om uitstekende quizvragen te maken over het Basisboek Sales, altijd in correct JSON formaat.'
+            content: 'Je bent een ervaren Nederlandse docent die gespecialiseerd is in sales en marketing. Je taak is om uitstekende quizvragen te maken over het Basisboek Sales.'
           },
           {
             role: 'user',
-            content: 'Genereer een meerkeuzevraag over het Basisboek Sales. Gebruik standaard verkoop- en salesconcepten. Geef vier antwoordopties, waarvan er één correct is. Formatteer het als JSON: { "vraag": "...", "opties": ["A: ...", "B: ...", "C: ...", "D: ..."], "correct": "A" } (de waarde van correct moet een van de letters A, B, C, D zijn die overeenkomt met het juiste antwoord)'
+            content: 'Genereer een meerkeuzevraag over het boek Basisboek Sales. Geef vier antwoordopties, waarvan er één correct is. Formatteer het als JSON: { "vraag": "...", "opties": ["A: ...", "B: ...", "C: ...", "D: ..."], "correct": "..." }'
           }
         ],
         temperature: 0.7,
@@ -65,7 +65,7 @@ serve(async (req) => {
       questionData = JSON.parse(content);
       console.log('Successfully parsed JSON directly');
     } catch (e) {
-      console.log('Failed to parse JSON directly, trying to extract JSON from text:', e);
+      console.log('Failed to parse JSON directly, trying to extract JSON from text');
       // If direct parsing fails, try to extract JSON from the text
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -80,38 +80,6 @@ serve(async (req) => {
         console.error('No JSON content found in response');
         throw new Error('Invalid format in OpenAI response');
       }
-    }
-
-    // Validate the question structure
-    if (!questionData || !questionData.vraag || !Array.isArray(questionData.opties) || !questionData.correct) {
-      console.error('Invalid question data structure:', questionData);
-      throw new Error('Invalid question data structure');
-    }
-
-    // Validate the correct answer is one of A, B, C, D
-    const correctLetter = questionData.correct.charAt(0).toUpperCase();
-    if (!['A', 'B', 'C', 'D'].includes(correctLetter)) {
-      console.error('Invalid correct answer, must be A, B, C, or D:', questionData.correct);
-      throw new Error('Invalid correct answer format');
-    }
-
-    // Validate all options start with A:, B:, C:, D:
-    const expectedPrefixes = ['A:', 'B:', 'C:', 'D:'];
-    const allOptionsHaveCorrectPrefix = questionData.opties.every((option: string, index: number) => {
-      return option.startsWith(expectedPrefixes[index]);
-    });
-
-    if (!allOptionsHaveCorrectPrefix || questionData.opties.length !== 4) {
-      console.warn('Options do not have the expected format, attempting to fix...');
-      
-      // Try to fix the options format
-      questionData.opties = questionData.opties.map((option: string, index: number) => {
-        const prefix = expectedPrefixes[index];
-        if (option.startsWith(prefix)) {
-          return option;
-        }
-        return `${prefix} ${option.replace(/^[A-D]:\s*/, '')}`;
-      });
     }
 
     return new Response(

@@ -10,13 +10,13 @@ interface ParagraphData {
   id: number;
   paragraph_number?: number;
   content?: string;
-  chapter_number: number; // Changed to consistently use number type
+  chapter_number: number;
 }
 
 interface ParagraphsListProps {
   paragraphs: ParagraphData[];
   loadingParagraphs: boolean;
-  onStartQuiz?: (chapterId: number, paragraphId?: number) => void;
+  onStartQuiz?: (chapterId?: number, paragraphId?: number) => void;
   selectedChapterId?: number | null;
 }
 
@@ -46,7 +46,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         
       console.log('Total paragraphs in database:', totalCount);
       
-      // Query books table by chapter_number with numeric value
+      // Query books table by chapter_number
       const { data: chapterData, error: chapterError } = await supabase
         .from('books')
         .select('*')
@@ -56,7 +56,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       const { data: stringChapterData, error: stringChapterError } = await supabase
         .from('books')
         .select('*')
-        .eq('chapter_number', numericChapterId);
+        .eq('chapter_number', String(numericChapterId));
       
       console.log('Direct database check results:', {
         numberQuery: {
@@ -141,35 +141,6 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     }
   };
 
-  // Helper function for safe type conversion
-  const safeParseInt = (value: any, fallback: number = 0): number => {
-    // Handle undefined or null
-    if (value === undefined || value === null) {
-      console.warn('safeParseInt: value is undefined or null, using fallback:', fallback);
-      return fallback;
-    }
-    
-    // Convert to string (if it's not already)
-    const stringValue = String(value).trim();
-    
-    // Handle empty string
-    if (stringValue === '') {
-      console.warn('safeParseInt: value is empty string, using fallback:', fallback);
-      return fallback;
-    }
-    
-    // Parse with radix 10
-    const parsedValue = parseInt(stringValue, 10);
-    
-    // Check for NaN
-    if (isNaN(parsedValue)) {
-      console.warn(`safeParseInt: "${value}" could not be parsed as integer, using fallback:`, fallback);
-      return fallback;
-    }
-    
-    return parsedValue;
-  };
-
   return (
     <div className="mb-12">
       <h2 className="text-2xl font-semibold mb-6">Paragrafen</h2>
@@ -190,23 +161,15 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground whitespace-pre-line">
-                  {paragraph.content ? paragraph.content : 'Geen inhoud beschikbaar'}
+                  {paragraph.content ? 
+                    paragraph.content : 
+                    'Geen inhoud beschikbaar'}
                 </p>
               </CardContent>
               <CardFooter className="flex flex-row gap-2">
                 {onStartQuiz && (
                   <Button 
-                    onClick={() => {
-                      // Make sure chapter_number is a number
-                      console.log('Original chapter_number:', paragraph.chapter_number);
-                      console.log('Type of chapter_number:', typeof paragraph.chapter_number);
-                      
-                      // Ensure we're passing a number to onStartQuiz
-                      const chapterId = Number(paragraph.chapter_number);
-                      console.log('Converted chapter_number to:', chapterId);
-                      
-                      onStartQuiz(chapterId, paragraph.id);
-                    }}
+                    onClick={() => onStartQuiz(paragraph.chapter_number, paragraph.id)}
                     variant="outline"
                     size="sm"
                     className="w-full sm:w-auto"

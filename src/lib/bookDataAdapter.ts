@@ -17,7 +17,7 @@ interface ParagraphData {
   id: number;
   "paragraaf nummer"?: number;
   content?: string;
-  chapter_id: number; // Ensure this is always a number
+  chapter_id: number;
 }
 
 /**
@@ -29,7 +29,7 @@ export function mapBooksDataToParagraphs(booksData: BookRecord[]): ParagraphData
     id: book.id || index + 1000, // Use book id or generate a unique one
     "paragraaf nummer": book.paragraph_number,
     content: book.content,
-    chapter_id: Number(book.chapter_number) // Ensure chapter_id is a number
+    chapter_id: book.chapter_number
   }));
 }
 
@@ -44,7 +44,7 @@ export function mapParagraphsToBookData(
 ): BookRecord[] {
   return paragraphs.map(para => ({
     id: para.id,
-    chapter_number: Number(para.chapter_id), // Ensure chapter_number is a number
+    chapter_number: para.chapter_id,
     paragraph_number: para["paragraaf nummer"] || 0,
     book_title: bookTitle,
     chapter_title: chapterTitle,

@@ -13,7 +13,6 @@ interface BookData {
 
 interface BookOverviewProps {
   book: BookData | null;
-  onStartQuiz?: () => void;
 }
 
 interface ChapterInfo {
@@ -21,7 +20,7 @@ interface ChapterInfo {
   paragraphCount: number;
 }
 
-const BookOverview = ({ book, onStartQuiz }: BookOverviewProps) => {
+const BookOverview = ({ book }: BookOverviewProps) => {
   const [showQuiz, setShowQuiz] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [bookDetails, setBookDetails] = useState<ChapterInfo | null>(null);
@@ -120,14 +119,16 @@ const BookOverview = ({ book, onStartQuiz }: BookOverviewProps) => {
               Bekijk samenvatting
             </Button>
             
-            <Button 
-              size="lg" 
-              onClick={onStartQuiz} 
-              className="flex-1 bg-study-600 hover:bg-study-700 text-white"
-            >
-              <Brain className="mr-2 h-5 w-5" />
-              Genereer quiz
-            </Button>
+            {isSalesBook && (
+              <Button 
+                size="lg" 
+                onClick={() => setShowQuiz(!showQuiz)} 
+                className="flex-1 bg-study-600 hover:bg-study-700 text-white"
+              >
+                <Brain className="mr-2 h-5 w-5" />
+                {showQuiz ? 'Verberg quiz' : 'Genereer quiz vraag'}
+              </Button>
+            )}
           </div>
         </div>
       </div>
