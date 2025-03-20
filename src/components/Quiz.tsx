@@ -53,11 +53,14 @@ const Quiz = ({
 }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(false);
   
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(open);
   
   useEffect(() => {
-    console.log(`Parent open state changed to: ${open}, updating sheetOpen to match`);
-    setSheetOpen(open);
+    console.log(`Parent open state changed to: ${open}, current sheetOpen: ${sheetOpen}`);
+    if (open === true) {
+      console.log('Setting sheetOpen to true');
+      setSheetOpen(true);
+    }
   }, [open]);
 
   useEffect(() => {
@@ -66,14 +69,15 @@ const Quiz = ({
     }
   }, [currentQuestionIndex, isAnswerSubmitted]);
 
+  const handleCloseQuizExplicitly = () => {
+    console.log('Explicitly closing quiz via handler');
+    setSheetOpen(false);
+    onClose();
+  };
+
   const handleToggleExplanation = () => {
     console.log(`${showExplanation ? 'Hiding' : 'Showing'} explanation`);
     setShowExplanation(!showExplanation);
-  };
-
-  const handleCloseQuiz = () => {
-    console.log('Handling close quiz request from Sheet component');
-    onClose();
   };
 
   const renderLoadingContent = () => {
@@ -96,7 +100,7 @@ const Quiz = ({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
         <div className="flex justify-end mt-4">
-          <Button onClick={handleCloseQuiz}>Sluiten</Button>
+          <Button onClick={handleCloseQuizExplicitly}>Sluiten</Button>
         </div>
       </>
     );
@@ -108,7 +112,7 @@ const Quiz = ({
         <p className="text-center text-muted-foreground">
           Geen quizvragen beschikbaar.
         </p>
-        <Button onClick={handleCloseQuiz}>Sluiten</Button>
+        <Button onClick={handleCloseQuizExplicitly}>Sluiten</Button>
       </div>
     );
   };
@@ -140,7 +144,7 @@ const Quiz = ({
             Opnieuw proberen
           </Button>
           
-          <Button onClick={handleCloseQuiz} className="flex-1">
+          <Button onClick={handleCloseQuizExplicitly} className="flex-1">
             Sluiten
           </Button>
         </div>
@@ -281,7 +285,8 @@ const Quiz = ({
       error,
       questionsCount: questions?.length || 0,
       currentQuestionIndex,
-      isQuizComplete
+      isQuizComplete,
+      sheetOpen
     });
     
     if (isGenerating) {
@@ -313,12 +318,12 @@ const Quiz = ({
           if (questions.length > 0 && !isQuizComplete && !isGenerating) {
             const confirmClose = window.confirm("Weet je zeker dat je de quiz wilt sluiten?");
             if (confirmClose) {
-              handleCloseQuiz();
+              handleCloseQuizExplicitly();
             } else {
               setSheetOpen(true);
             }
           } else {
-            handleCloseQuiz();
+            handleCloseQuizExplicitly();
           }
         }
       }}
