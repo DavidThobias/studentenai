@@ -1,4 +1,3 @@
-
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,10 +55,11 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         .select('*')
         .eq('chapter_id', String(numericChapterId));
       
-      const { data: sampleData } = await supabase
-        .from('Paragrafen')
+      // Check new books table
+      const { data: booksData, error: booksError } = await supabase
+        .from('books')
         .select('*')
-        .limit(5);
+        .eq('chapter_number', numericChapterId);
       
       console.log('Direct database check results:', {
         numberQuery: {
@@ -72,16 +72,30 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
           error: stringError,
           count: stringData?.length || 0
         },
-        sampleData
+        booksQuery: {
+          data: booksData,
+          error: booksError,
+          count: booksData?.length || 0
+        }
       });
       
+      // Count total paragraphs across all tables
+      let totalParagraphCount = 0;
+      
       if (numberData && numberData.length > 0) {
-        setDirectDbCount(numberData.length);
-      } else if (stringData && stringData.length > 0) {
-        setDirectDbCount(stringData.length);
-      } else {
-        setDirectDbCount(0);
+        totalParagraphCount += numberData.length;
       }
+      
+      if (stringData && stringData.length > 0 && 
+          !numberData?.some(n => stringData.some(s => s.id === n.id))) {
+        totalParagraphCount += stringData.length;
+      }
+      
+      if (booksData && booksData.length > 0) {
+        totalParagraphCount += booksData.length;
+      }
+      
+      setDirectDbCount(totalParagraphCount);
     } catch (err) {
       console.error('Error checking database directly:', err);
       setDirectDbCount(null);
@@ -198,8 +212,9 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                 <li>Geselecteerde hoofdstuk ID: {selectedChapterId} (type: {typeof selectedChapterId})</li>
                 <li>Huidige URL pad: {window.location.pathname}</li>
                 <li>Paragrafen in array: {paragraphs.length}</li>
-                <li>Tabel naam: Paragrafen (correct)</li>
+                <li>Tabel naam: Paragrafen | books (beide worden gecontroleerd)</li>
                 <li>Query: SELECT * FROM "Paragrafen" WHERE chapter_id = {selectedChapterId}</li>
+                <li>Alternatieve query: SELECT * FROM "books" WHERE chapter_number = {selectedChapterId}</li>
                 <li>Timestamp: {new Date().toISOString()}</li>
                 <li>Direct DB check result: {directDbCount !== null ? `${directDbCount} paragrafen gevonden` : 'Niet gecontroleerd'}</li>
               </ul>

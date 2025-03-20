@@ -9,90 +9,32 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      Boeken: {
+      books: {
         Row: {
-          Auteur: string | null
-          created_at: string
+          book_title: string
+          chapter_number: number
+          chapter_title: string
+          content: string
           id: number
-          Titel: string | null
+          paragraph_number: number
         }
         Insert: {
-          Auteur?: string | null
-          created_at?: string
+          book_title: string
+          chapter_number: number
+          chapter_title: string
+          content: string
           id?: number
-          Titel?: string | null
+          paragraph_number: number
         }
         Update: {
-          Auteur?: string | null
-          created_at?: string
+          book_title?: string
+          chapter_number?: number
+          chapter_title?: string
+          content?: string
           id?: number
-          Titel?: string | null
+          paragraph_number?: number
         }
         Relationships: []
-      }
-      Chapters: {
-        Row: {
-          Boek_id: number | null
-          created_at: string
-          Hoofdstuknummer: string | null
-          id: number
-          Titel: string | null
-        }
-        Insert: {
-          Boek_id?: number | null
-          created_at?: string
-          Hoofdstuknummer?: string | null
-          id?: number
-          Titel?: string | null
-        }
-        Update: {
-          Boek_id?: number | null
-          created_at?: string
-          Hoofdstuknummer?: string | null
-          id?: number
-          Titel?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "Chapters_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
-            referencedRelation: "Boeken"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      Paragrafen: {
-        Row: {
-          chapter_id: number | null
-          content: string | null
-          created_at: string
-          id: number
-          "paragraaf nummer": number | null
-        }
-        Insert: {
-          chapter_id?: number | null
-          content?: string | null
-          created_at?: string
-          id?: number
-          "paragraaf nummer"?: number | null
-        }
-        Update: {
-          chapter_id?: number | null
-          content?: string | null
-          created_at?: string
-          id?: number
-          "paragraaf nummer"?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "Paragraven_chapter_id_fkey"
-            columns: ["chapter_id"]
-            isOneToOne: false
-            referencedRelation: "Chapters"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       profiles: {
         Row: {
@@ -117,57 +59,6 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
-      }
-      quizzes: {
-        Row: {
-          book_id: number
-          chapter_id: number | null
-          correct_answer: number
-          created_at: string
-          explanation: string | null
-          id: string
-          options: Json
-          paragraph_id: number | null
-          question: string
-        }
-        Insert: {
-          book_id: number
-          chapter_id?: number | null
-          correct_answer: number
-          created_at?: string
-          explanation?: string | null
-          id?: string
-          options: Json
-          paragraph_id?: number | null
-          question: string
-        }
-        Update: {
-          book_id?: number
-          chapter_id?: number | null
-          correct_answer?: number
-          created_at?: string
-          explanation?: string | null
-          id?: string
-          options?: Json
-          paragraph_id?: number | null
-          question?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quizzes_book_id_fkey"
-            columns: ["book_id"]
-            isOneToOne: false
-            referencedRelation: "Boeken"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quizzes_chapter_id_fkey"
-            columns: ["chapter_id"]
-            isOneToOne: false
-            referencedRelation: "Chapters"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {

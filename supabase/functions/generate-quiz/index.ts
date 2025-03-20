@@ -1,4 +1,3 @@
-
 // @deno-types="https://deno.land/x/types/deno.d.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -62,79 +61,116 @@ serve(async (req) => {
     // If paragraph ID is provided, get specific paragraph
     if (paragraphId) {
       console.log(`Fetching paragraph with ID: ${paragraphId}`);
+      
+      // First try Paragrafen table
       const { data: paragraph, error: paragraphError } = await supabase
-        .from('Paragraven')
+        .from('Paragrafen')
         .select('*')
         .eq('id', paragraphId)
-        .single();
+        .maybeSingle();
 
-      if (paragraphError) {
-        console.error(`Error fetching paragraph: ${JSON.stringify(paragraphError)}`);
-        throw new Error(`Error fetching paragraph: ${paragraphError.message}`);
-      }
-
-      if (!paragraph) {
-        console.error(`No paragraph found with ID: ${paragraphId}`);
-        throw new Error(`No paragraph found with ID: ${paragraphId}`);
-      }
-
-      contentToUse = paragraph.content || '';
-      contentSource = `Paragraph ${paragraph['paragraaf nummer'] || paragraphId}`;
-      
-      // Also get chapter info for context
-      if (paragraph.chapter_id) {
-        const { data: chapter } = await supabase
-          .from('Chapters')
-          .select('Titel, Hoofdstuknummer')
-          .eq('id', paragraph.chapter_id)
-          .single();
+      if (!paragraphError && paragraph) {
+        contentToUse = paragraph.content || '';
+        contentSource = `Paragraph ${paragraph['paragraaf nummer'] || paragraphId}`;
+        
+        // Also get chapter info for context
+        if (paragraph.chapter_id) {
+          const { data: chapter } = await supabase
+            .from('Chapters')
+            .select('Titel, Hoofdstuknummer')
+            .eq('id', paragraph.chapter_id)
+            .single();
+            
+          if (chapter) {
+            contentSource = `Chapter ${chapter.Hoofdstuknummer}: ${chapter.Titel}, Paragraph ${paragraph['paragraaf nummer'] || paragraphId}`;
+          }
+        }
+      } else {
+        // If not found in Paragrafen, try books table
+        const { data: bookParagraph, error: bookParaError } = await supabase
+          .from('books')
+          .select('*')
+          .eq('id', paragraphId)
+          .maybeSingle();
           
-        if (chapter) {
-          contentSource = `Chapter ${chapter.Hoofdstuknummer}: ${chapter.Titel}, Paragraph ${paragraph['paragraaf nummer'] || paragraphId}`;
+        if (!bookParaError && bookParagraph) {
+          contentToUse = bookParagraph.content || '';
+          contentSource = `Paragraph ${bookParagraph.paragraph_number}, Chapter ${bookParagraph.chapter_number}`;
+        } else {
+          console.error(`No paragraph found with ID: ${paragraphId} in either table`);
+          throw new Error(`No paragraph found with ID: ${paragraphId}`);
         }
       }
     }
     // If chapter ID is provided, get all paragraphs for that chapter
     else if (chapterId) {
-      console.log(`Fetching chapter with ID: ${chapterId}`);
+      const numericChapterId = Number(chapterId);
+      console.log(`Fetching chapter with ID: ${numericChapterId}`);
+      
+      // First try Chapters table
       const { data: chapter, error: chapterError } = await supabase
         .from('Chapters')
         .select('*')
-        .eq('id', chapterId)
-        .single();
+        .eq('id', numericChapterId)
+        .maybeSingle();
 
-      if (chapterError) {
-        console.error(`Error fetching chapter: ${JSON.stringify(chapterError)}`);
-        throw new Error(`Error fetching chapter: ${chapterError.message}`);
-      }
+      if (!chapterError && chapter) {
+        contentSource = `Chapter ${chapter.Hoofdstuknummer}: ${chapter.Titel}`;
 
-      if (!chapter) {
-        console.error(`No chapter found with ID: ${chapterId}`);
-        throw new Error(`No chapter found with ID: ${chapterId}`);
-      }
+        // Get paragraph content for this chapter from Paragrafen
+        console.log(`Fetching paragraphs for chapter: ${numericChapterId} from Paragrafen`);
+        const { data: paragraphs, error: paragraphsError } = await supabase
+          .from('Paragrafen')
+          .select('content, "paragraaf nummer"')
+          .eq('chapter_id', numericChapterId)
+          .order('"paragraaf nummer"', { ascending: true });
 
-      contentSource = `Chapter ${chapter.Hoofdstuknummer}: ${chapter.Titel}`;
-
-      // Get paragraph content for this chapter
-      console.log(`Fetching paragraphs for chapter: ${chapterId}`);
-      const { data: paragraphs, error: paragraphsError } = await supabase
-        .from('Paragraven')
-        .select('content, "paragraaf nummer"')
-        .eq('chapter_id', chapterId)
-        .order('"paragraaf nummer"', { ascending: true });
-
-      if (paragraphsError) {
-        console.error(`Error fetching paragraphs: ${JSON.stringify(paragraphsError)}`);
-        throw new Error(`Error fetching paragraphs: ${paragraphsError.message}`);
-      }
-      
-      if (paragraphs && paragraphs.length > 0) {
-        contentToUse = paragraphs.map(p => p.content).join('\n\n');
+        if (!paragraphsError && paragraphs && paragraphs.length > 0) {
+          contentToUse = paragraphs.map(p => p.content).join('\n\n');
+        } else {
+          // Try books table as fallback
+          console.log(`Fetching paragraphs for chapter: ${numericChapterId} from books`);
+          const { data: booksParagraphs, error: booksError } = await supabase
+            .from('books')
+            .select('content')
+            .eq('chapter_number', numericChapterId)
+            .order('paragraph_number', { ascending: true });
+            
+          if (!booksError && booksParagraphs && booksParagraphs.length > 0) {
+            contentToUse = booksParagraphs.map(p => p.content).join('\n\n');
+          } else {
+            console.warn(`No paragraphs found for chapter ${numericChapterId} in either table`);
+          }
+        }
       } else {
-        console.warn(`No paragraphs found for chapter ${chapterId}`);
+        // Fallback to books table for chapter info
+        const { data: booksChapter, error: booksChapterError } = await supabase
+          .from('books')
+          .select('chapter_title')
+          .eq('chapter_number', numericChapterId)
+          .limit(1)
+          .maybeSingle();
+          
+        if (!booksChapterError && booksChapter) {
+          contentSource = `Chapter ${numericChapterId}: ${booksChapter.chapter_title}`;
+          
+          // Get all paragraphs for this chapter
+          const { data: booksParagraphs, error: booksParaError } = await supabase
+            .from('books')
+            .select('content')
+            .eq('chapter_number', numericChapterId)
+            .order('paragraph_number', { ascending: true });
+            
+          if (!booksParaError && booksParagraphs && booksParagraphs.length > 0) {
+            contentToUse = booksParagraphs.map(p => p.content).join('\n\n');
+          }
+        } else {
+          console.error(`No chapter found with ID: ${chapterId} in either table`);
+          throw new Error(`No chapter found with ID: ${chapterId}`);
+        }
       }
     }
-    // If neither paragraph nor chapter specified, use first paragraph of first chapter
+    // If neither chapter nor paragraph specified, use first paragraph of first chapter
     else {
       console.log(`No specific chapter/paragraph. Getting first paragraph of first chapter`);
       

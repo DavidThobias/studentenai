@@ -58,7 +58,10 @@ serve(async (req) => {
       authHeader ? { global: { headers: { Authorization: authHeader } } } : {}
     );
 
-    // First, try a direct SQL query with explicit CAST for the chapter_id
+    let paragraphsData = [];
+    let dataSource = '';
+    
+    // First try the original Paragrafen table with direct SQL
     try {
       console.log(`Executing SQL query with numeric chapter_id: ${numericChapterId}`);
       const { data: rawData, error: rawError } = await supabase.rpc(
@@ -69,83 +72,86 @@ serve(async (req) => {
       );
       
       if (!rawError && rawData && rawData.length > 0) {
-        console.log(`Successfully fetched ${rawData.length} paragraphs via direct SQL`);
-        return new Response(
-          JSON.stringify({
-            success: true,
-            paragraphs: rawData,
-            count: rawData.length,
-            method: 'direct_sql',
-            query: {
-              sql: `SELECT * FROM "Paragrafen" WHERE chapter_id = ${numericChapterId}`,
-              chapterId: numericChapterId,
-              chapterIdType: typeof numericChapterId
-            }
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        console.log(`Successfully fetched ${rawData.length} paragraphs via direct SQL from Paragrafen`);
+        paragraphsData = rawData;
+        dataSource = 'Paragrafen_direct_sql';
       } else if (rawError) {
         console.error(`Direct SQL error: ${JSON.stringify(rawError)}`);
-        // Continue to try other methods
       }
     } catch (sqlError) {
       console.error(`Error executing direct SQL: ${sqlError}`);
-      // Continue to try other methods
     }
-
-    // Fall back to standard query with proper type handling
-    const { data, error, status } = await supabase
-      .from('Paragrafen')
-      .select('*')
-      .eq('chapter_id', numericChapterId);
-
-    if (error) {
-      console.error(`Error fetching paragraphs: ${JSON.stringify(error)}`);
-      
-      // One more attempt with string conversion
+    
+    // If no data yet, try normal Paragrafen query
+    if (paragraphsData.length === 0) {
+      const { data, error } = await supabase
+        .from('Paragrafen')
+        .select('*')
+        .eq('chapter_id', numericChapterId);
+        
+      if (!error && data && data.length > 0) {
+        console.log(`Successfully fetched ${data.length} paragraphs via standard query from Paragrafen`);
+        paragraphsData = data;
+        dataSource = 'Paragrafen_standard';
+      } else if (error) {
+        console.error(`Error fetching from Paragrafen: ${JSON.stringify(error)}`);
+      }
+    }
+    
+    // If still no data, try with string conversion
+    if (paragraphsData.length === 0) {
       const { data: stringData, error: stringError } = await supabase
         .from('Paragrafen')
         .select('*')
         .eq('chapter_id', String(numericChapterId));
       
-      if (stringError || !stringData) {
-        // If all attempts fail, throw error
-        throw new Error(`Error fetching paragraphs: ${error.message}`);
+      if (!stringError && stringData && stringData.length > 0) {
+        console.log(`Successfully fetched ${stringData.length} paragraphs via string query from Paragrafen`);
+        paragraphsData = stringData;
+        dataSource = 'Paragrafen_string';
+      } else if (stringError) {
+        console.error(`Error fetching from Paragrafen with string: ${JSON.stringify(stringError)}`);
       }
-      
-      console.log(`Successfully fetched ${stringData?.length || 0} paragraphs via string query`);
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          paragraphs: stringData || [],
-          count: stringData?.length || 0,
-          method: 'string_query',
-          query: {
-            table: 'Paragrafen',
-            chapterId: String(numericChapterId),
-            chapterIdType: typeof String(numericChapterId),
-            authPresent: !!authHeader
-          }
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
     
-    console.log(`Successfully fetched ${data?.length || 0} paragraphs via standard query`);
+    // If still no data, try the new books table
+    if (paragraphsData.length === 0) {
+      console.log(`Trying to fetch from books table with chapter_number = ${numericChapterId}`);
+      
+      const { data: booksData, error: booksError } = await supabase
+        .from('books')
+        .select('*')
+        .eq('chapter_number', numericChapterId);
+        
+      if (!booksError && booksData && booksData.length > 0) {
+        console.log(`Successfully fetched ${booksData.length} records from books table`);
+        
+        // Convert books data to match Paragrafen format
+        paragraphsData = booksData.map((book) => ({
+          id: book.id,
+          "paragraaf nummer": book.paragraph_number,
+          content: book.content,
+          chapter_id: book.chapter_number
+        }));
+        
+        dataSource = 'books_table';
+      } else if (booksError) {
+        console.error(`Error fetching from books: ${JSON.stringify(booksError)}`);
+      }
+    }
     
+    // Return the combined results
     return new Response(
       JSON.stringify({
         success: true,
-        paragraphs: data || [],
-        count: data?.length || 0,
-        method: 'standard_query',
+        paragraphs: paragraphsData,
+        count: paragraphsData.length,
+        method: dataSource,
         query: {
-          table: 'Paragrafen',
           chapterId: numericChapterId,
           chapterIdType: typeof numericChapterId,
-          status,
-          authPresent: !!authHeader
+          authPresent: !!authHeader,
+          timestamp: new Date().toISOString()
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
