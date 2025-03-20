@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,6 @@ interface QuizProps {
   error: string | null;
   isGenerating: boolean;
   
-  // New props from useQuiz hook
   currentQuestionIndex: number;
   selectedAnswer: number | null;
   isAnswerSubmitted: boolean;
@@ -64,23 +62,16 @@ const Quiz = ({
   }, [open, questions, sheetOpen, isGenerating, error, currentQuestionIndex, isQuizComplete]);
 
   useEffect(() => {
-    if (open) {
-      setSheetOpen(true);
-    }
+    console.log(`Parent open state changed to: ${open}, updating sheetOpen to match`);
+    setSheetOpen(open);
   }, [open]);
   
-  useEffect(() => {
-    if (isGenerating || error || questions.length > 0) {
-      console.log('Quiz should be visible due to content');
-      setSheetOpen(true);
-    }
-  }, [isGenerating, error, questions]);
-
   const handleToggleExplanation = () => {
     setShowExplanation(!showExplanation);
   };
 
   const handleCloseQuiz = () => {
+    console.log('Closing quiz from handleCloseQuiz');
     setSheetOpen(false);
     setShowExplanation(false);
     onClose();
@@ -320,21 +311,25 @@ const Quiz = ({
   
   return (
     <Sheet 
-  open={sheetOpen} 
-  onOpenChange={(isOpen) => {
-    console.log(`Sheet onOpenChange: ${isOpen}`);
-    if (!isOpen) {
-      const confirmClose = window.confirm("Weet je zeker dat je de quiz wilt sluiten?");
-      if (confirmClose) {
-        handleCloseQuiz();
-      } else {
-        setSheetOpen(true); // Houd de Sheet open
-      }
-    } else if (isOpen) {
-      setSheetOpen(true);
-    }
-  }}
->
+      open={sheetOpen} 
+      onOpenChange={(isOpen) => {
+        console.log(`Sheet onOpenChange: ${isOpen} (current sheetOpen: ${sheetOpen})`);
+        if (!isOpen) {
+          if (questions.length > 0 && !isQuizComplete) {
+            const confirmClose = window.confirm("Weet je zeker dat je de quiz wilt sluiten?");
+            if (confirmClose) {
+              handleCloseQuiz();
+            } else {
+              setSheetOpen(true);
+            }
+          } else {
+            handleCloseQuiz();
+          }
+        } else if (isOpen) {
+          setSheetOpen(true);
+        }
+      }}
+    >
       <SheetContent 
         side="right" 
         className="sm:max-w-md w-[95vw] overflow-y-auto"
@@ -365,6 +360,7 @@ const Quiz = ({
               <div>Debug: error: {error ? 'Yes' : 'No'}</div>
               <div>Debug: currentQuestionIndex: {currentQuestionIndex}</div>
               <div>Debug: sheetOpen: {String(sheetOpen)}</div>
+              <div>Debug: open (from parent): {String(open)}</div>
             </div>
           )}
           {renderContent()}
