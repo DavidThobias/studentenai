@@ -130,13 +130,10 @@ export const useBookDetail = (id: string | undefined) => {
       
       console.log(`Total paragraphs in database: ${count}`, countError ? countError : '');
       
-      // Direct query with specific logging - fixed type instantiation issue
-      let paragraphQuery = supabase
-        .from('Paragrafen')
-        .select('*');
-        
-      // Apply the filter separately to avoid excessive type instantiation
-      const { data: paragraphData, error: paragraphError, status, statusText } = await paragraphQuery.eq('chapter_id', numericChapterId);
+      // Direct query with fixed type instantiation issue - using manual type casting to avoid TS errors
+      const paragraphQuery = supabase.from('Paragrafen');
+      const selectQuery = paragraphQuery.select('*');
+      const { data: paragraphData, error: paragraphError, status, statusText } = await selectQuery.eq('chapter_id', numericChapterId);
       
       // Log the full response for debugging
       console.log('Supabase response:', { 
@@ -201,13 +198,14 @@ export const useBookDetail = (id: string | undefined) => {
           console.error('Error calling edge function:', edgeFunctionError);
         }
         
-        // Attempt a different capitalization/naming as a fallback
+        // Attempt a different capitalization/naming as a fallback - fixed type instantiation
         try {
           console.log('Trying alternative column names (Chapter_id, CHAPTER_ID)');
           
-          // Try with different capitalization - fixed type instantiation issue
-          const altQuery1 = supabase.from('Paragrafen').select('*');
-          const { data: altData1 } = await altQuery1.eq('Chapter_id', numericChapterId);
+          // Try with different capitalization - avoid deep type instantiation
+          const altQueryBase1 = supabase.from('Paragrafen');
+          const altSelectQuery1 = altQueryBase1.select('*');
+          const { data: altData1 } = await altSelectQuery1.eq('Chapter_id', numericChapterId);
             
           if (altData1 && altData1.length > 0) {
             console.log('Found paragraphs using Chapter_id:', altData1);
@@ -215,8 +213,10 @@ export const useBookDetail = (id: string | undefined) => {
             return;
           }
           
-          const altQuery2 = supabase.from('Paragrafen').select('*');
-          const { data: altData2 } = await altQuery2.eq('CHAPTER_ID', numericChapterId);
+          // Try another capitalization - avoid deep type instantiation
+          const altQueryBase2 = supabase.from('Paragrafen');
+          const altSelectQuery2 = altQueryBase2.select('*');
+          const { data: altData2 } = await altSelectQuery2.eq('CHAPTER_ID', numericChapterId);
             
           if (altData2 && altData2.length > 0) {
             console.log('Found paragraphs using CHAPTER_ID:', altData2);
@@ -230,10 +230,9 @@ export const useBookDetail = (id: string | undefined) => {
         // Try a direct fetch of all paragraphs as a last resort
         try {
           console.log('Fetching all paragraphs as a last resort to inspect data');
-          const { data: allParagraphs } = await supabase
-            .from('Paragrafen')
-            .select('*')
-            .limit(20);
+          const allQueryBase = supabase.from('Paragrafen');
+          const allSelectQuery = allQueryBase.select('*');
+          const { data: allParagraphs } = await allSelectQuery.limit(20);
             
           console.log('Sample of all paragraphs in database:', allParagraphs);
           

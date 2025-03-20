@@ -57,11 +57,10 @@ serve(async (req) => {
       console.error(`RPC error: ${JSON.stringify(sqlError)}`);
       
       // Fall back to regular query if RPC fails (likely because function doesn't exist)
-      const query = supabase
-        .from('Paragrafen')
-        .select('*');
-        
-      const { data, error, status } = await query.eq('chapter_id', numericChapterId);
+      // Fixed to avoid type instantiation issues
+      const query = supabase.from('Paragrafen');
+      const selectQuery = query.select('*');
+      const { data, error, status } = await selectQuery.eq('chapter_id', numericChapterId);
 
       if (error) {
         console.error(`Error fetching paragraphs: ${JSON.stringify(error)}`);
