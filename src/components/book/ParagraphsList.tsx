@@ -1,5 +1,5 @@
 
-import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw } from 'lucide-react';
+import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -23,6 +23,8 @@ interface ParagraphsListProps {
 const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedChapterId }: ParagraphsListProps) => {
   const [directDbCount, setDirectDbCount] = useState<number | null>(null);
   const [isCheckingDb, setIsCheckingDb] = useState(false);
+  const [edgeFunctionResult, setEdgeFunctionResult] = useState<any>(null);
+  const [isTestingEdgeFunction, setIsTestingEdgeFunction] = useState(false);
   
   // Log whenever paragraphs or loading state changes
   useEffect(() => {
@@ -44,27 +46,91 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         
       console.log('Total paragraphs in database:', totalCount);
       
-      // Try direct SQL query as a more reliable method
-      const { data, error, status, statusText } = await supabase
-        .from('Paragrafen')
-        .select('*')
-        .eq('chapter_id', selectedChapterId);
-        
+      // Try multiple approaches
+      // 1. Standard query with number
+      const baseQuery = supabase.from('Paragrafen');
+      const selectQuery = baseQuery.select('*');
+      const { data: numberData, error: numberError } = await selectQuery.eq('chapter_id', Number(selectedChapterId));
+      
+      // 2. With string conversion
+      const stringBaseQuery = supabase.from('Paragrafen');
+      const stringSelectQuery = stringBaseQuery.select('*');
+      const { data: stringData, error: stringError } = await stringSelectQuery.eq('chapter_id', String(selectedChapterId));
+      
+      // 3. Get a few samples to inspect
+      const limitBaseQuery = supabase.from('Paragrafen');
+      const limitSelectQuery = limitBaseQuery.select('*');
+      const { data: sampleData } = await limitSelectQuery.limit(5);
+      
       console.log('Direct database check results:', {
-        data,
-        error,
-        status,
-        statusText,
-        count: data?.length || 0
+        numberQuery: {
+          data: numberData,
+          error: numberError,
+          count: numberData?.length || 0
+        },
+        stringQuery: {
+          data: stringData,
+          error: stringError,
+          count: stringData?.length || 0
+        },
+        sampleData
       });
       
-      if (data) {
-        setDirectDbCount(data.length);
+      // Set the most successful result
+      if (numberData && numberData.length > 0) {
+        setDirectDbCount(numberData.length);
+      } else if (stringData && stringData.length > 0) {
+        setDirectDbCount(stringData.length);
+      } else {
+        setDirectDbCount(0);
       }
     } catch (err) {
       console.error('Error checking database directly:', err);
+      setDirectDbCount(null);
     } finally {
       setIsCheckingDb(false);
+    }
+  };
+  
+  const testEdgeFunction = async () => {
+    if (!selectedChapterId) return;
+    
+    try {
+      setIsTestingEdgeFunction(true);
+      console.log('Testing edge function with chapter_id =', selectedChapterId);
+      
+      // Test the edge function directly
+      const response = await fetch('https://ncipejuazrewiizxtkcj.supabase.co/functions/v1/get-paragraphs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ chapterId: selectedChapterId }),
+      });
+      
+      console.log('Edge function response status:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Edge function response:', result);
+        setEdgeFunctionResult(result);
+      } else {
+        const errorText = await response.text();
+        console.error('Edge function error:', response.status, errorText);
+        setEdgeFunctionResult({
+          success: false,
+          error: `Status ${response.status}: ${errorText || 'Unknown error'}`,
+          status: response.status
+        });
+      }
+    } catch (err) {
+      console.error('Error testing edge function:', err);
+      setEdgeFunctionResult({
+        success: false,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+    } finally {
+      setIsTestingEdgeFunction(false);
     }
   };
 
@@ -119,22 +185,21 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
             </p>
           </div>
           
-          <Alert className="bg-blue-50 border-blue-200">
+          <Alert className="bg-blue-50 border-blue-200 mb-3">
             <DatabaseIcon className="h-4 w-4" />
             <AlertDescription className="ml-2">
               Debug informatie:
               <ul className="list-disc pl-5 mt-2">
-                <li>Geselecteerde hoofdstuk ID: {selectedChapterId}</li>
+                <li>Geselecteerde hoofdstuk ID: {selectedChapterId} (type: {typeof selectedChapterId})</li>
                 <li>Huidige URL pad: {window.location.pathname}</li>
                 <li>Paragrafen in array: {paragraphs.length}</li>
                 <li>Tabel naam: Paragrafen (correct)</li>
                 <li>Query: SELECT * FROM "Paragrafen" WHERE chapter_id = {selectedChapterId}</li>
-                <li>Type van selectedChapterId: {typeof selectedChapterId}</li>
                 <li>Timestamp: {new Date().toISOString()}</li>
                 <li>Direct DB check result: {directDbCount !== null ? `${directDbCount} paragrafen gevonden` : 'Niet gecontroleerd'}</li>
               </ul>
               
-              <div className="mt-3">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <Button 
                   onClick={checkDatabaseDirectly} 
                   variant="outline" 
@@ -144,9 +209,35 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                   <RefreshCcw className={`mr-2 h-4 w-4 ${isCheckingDb ? 'animate-spin' : ''}`} />
                   {isCheckingDb ? 'Database controleren...' : 'Database direct controleren'}
                 </Button>
+                
+                <Button 
+                  onClick={testEdgeFunction} 
+                  variant="outline" 
+                  size="sm"
+                  disabled={isTestingEdgeFunction || !selectedChapterId}
+                >
+                  <RefreshCcw className={`mr-2 h-4 w-4 ${isTestingEdgeFunction ? 'animate-spin' : ''}`} />
+                  {isTestingEdgeFunction ? 'Edge Function testen...' : 'Edge Function testen'}
+                </Button>
               </div>
             </AlertDescription>
           </Alert>
+          
+          {edgeFunctionResult && (
+            <Alert className={edgeFunctionResult.success ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"}>
+              {edgeFunctionResult.success ? (
+                <DatabaseIcon className="h-4 w-4 text-green-500" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 text-yellow-500" />
+              )}
+              <AlertDescription className="ml-2">
+                <p className="font-medium">Edge Function Test Resultaat:</p>
+                <pre className="mt-2 p-2 bg-gray-50 rounded text-xs overflow-auto max-h-40">
+                  {JSON.stringify(edgeFunctionResult, null, 2)}
+                </pre>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       )}
     </div>

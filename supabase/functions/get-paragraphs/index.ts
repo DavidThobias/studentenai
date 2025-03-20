@@ -34,8 +34,8 @@ serve(async (req) => {
       throw new Error('Chapter ID is required');
     }
 
-    // Ensure chapterId is a number
-    const numericChapterId = typeof chapterId === 'string' ? parseInt(chapterId, 10) : chapterId;
+    // Force conversion to number to ensure type consistency
+    const numericChapterId = Number(chapterId);
     
     // Validate that we have a valid number
     if (isNaN(numericChapterId)) {
@@ -49,69 +49,93 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Try direct SQL approach for more reliable results
-    const { data: sqlData, error: sqlError } = await supabase
-      .rpc('get_paragraphs_by_chapter', { chapter_id_param: numericChapterId });
-    
-    if (sqlError) {
-      console.error(`RPC error: ${JSON.stringify(sqlError)}`);
+    // First, try a direct SQL query with explicit CAST for the chapter_id
+    try {
+      console.log(`Executing SQL query with numeric chapter_id: ${numericChapterId}`);
+      const { data: rawData, error: rawError } = await supabase.rpc(
+        'execute_sql', 
+        { 
+          sql_query: `SELECT * FROM "Paragrafen" WHERE chapter_id = ${numericChapterId}` 
+        }
+      );
       
-      // Fall back to regular query if RPC fails (likely because function doesn't exist)
-      // Fixed to avoid type instantiation issues
-      const query = supabase.from('Paragrafen');
-      const selectQuery = query.select('*');
-      const { data, error, status } = await selectQuery.eq('chapter_id', numericChapterId);
+      if (!rawError && rawData && rawData.length > 0) {
+        console.log(`Successfully fetched ${rawData.length} paragraphs via direct SQL`);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            paragraphs: rawData,
+            count: rawData.length,
+            method: 'direct_sql',
+            query: {
+              sql: `SELECT * FROM "Paragrafen" WHERE chapter_id = ${numericChapterId}`,
+              chapterId: numericChapterId,
+              chapterIdType: typeof numericChapterId
+            }
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (rawError) {
+        console.error(`Direct SQL error: ${JSON.stringify(rawError)}`);
+        // Continue to try other methods
+      }
+    } catch (sqlError) {
+      console.error(`Error executing direct SQL: ${sqlError}`);
+      // Continue to try other methods
+    }
 
-      if (error) {
-        console.error(`Error fetching paragraphs: ${JSON.stringify(error)}`);
+    // Fall back to standard query with proper type handling
+    const query = supabase.from('Paragrafen');
+    const selectQuery = query.select('*');
+    const { data, error, status } = await selectQuery.eq('chapter_id', numericChapterId);
+
+    if (error) {
+      console.error(`Error fetching paragraphs: ${JSON.stringify(error)}`);
+      
+      // One more attempt with string conversion
+      const stringQuery = supabase.from('Paragrafen');
+      const stringSelectQuery = stringQuery.select('*');
+      const { data: stringData, error: stringError } = await stringSelectQuery.eq('chapter_id', String(numericChapterId));
+      
+      if (stringError || !stringData) {
+        // If all attempts fail, throw error
         throw new Error(`Error fetching paragraphs: ${error.message}`);
       }
-
-      console.log(`Successfully fetched ${data?.length || 0} paragraphs via regular query`);
       
-      // Return the paragraphs
+      console.log(`Successfully fetched ${stringData?.length || 0} paragraphs via string query`);
+      
       return new Response(
         JSON.stringify({
           success: true,
-          paragraphs: data || [],
-          count: data?.length || 0,
-          method: 'direct_query',
+          paragraphs: stringData || [],
+          count: stringData?.length || 0,
+          method: 'string_query',
           query: {
             table: 'Paragrafen',
-            chapterId: numericChapterId,
-            chapterIdType: typeof numericChapterId,
-            status
+            chapterId: String(numericChapterId),
+            chapterIdType: typeof String(numericChapterId)
           }
         }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          } 
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    console.log(`Successfully fetched ${sqlData?.length || 0} paragraphs via RPC`);
+    console.log(`Successfully fetched ${data?.length || 0} paragraphs via standard query`);
     
     return new Response(
       JSON.stringify({
         success: true,
-        paragraphs: sqlData || [],
-        count: sqlData?.length || 0,
-        method: 'rpc',
+        paragraphs: data || [],
+        count: data?.length || 0,
+        method: 'standard_query',
         query: {
-          function: 'get_paragraphs_by_chapter',
+          table: 'Paragrafen',
           chapterId: numericChapterId,
-          chapterIdType: typeof numericChapterId
+          chapterIdType: typeof numericChapterId,
+          status
         }
       }),
-      { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        } 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
