@@ -55,7 +55,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       const { data: stringChapterData, error: stringChapterError } = await supabase
         .from('books')
         .select('*')
-        .eq('chapter_number', String(numericChapterId));
+        .eq('chapter_number', numericChapterId);
       
       console.log('Direct database check results:', {
         numberQuery: {
