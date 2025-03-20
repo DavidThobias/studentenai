@@ -48,19 +48,22 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       
       // Try multiple approaches
       // 1. Standard query with number
-      const baseQuery = supabase.from('Paragrafen');
-      const selectQuery = baseQuery.select('*');
-      const { data: numberData, error: numberError } = await selectQuery.eq('chapter_id', selectedChapterId);
+      const { data: numberData, error: numberError } = await supabase
+        .from('Paragrafen')
+        .select('*')
+        .eq('chapter_id', selectedChapterId);
       
       // 2. With string conversion
-      const stringBaseQuery = supabase.from('Paragrafen');
-      const stringSelectQuery = stringBaseQuery.select('*');
-      const { data: stringData, error: stringError } = await stringSelectQuery.eq('chapter_id', String(selectedChapterId));
+      const { data: stringData, error: stringError } = await supabase
+        .from('Paragrafen')
+        .select('*')
+        .eq('chapter_id', String(selectedChapterId));
       
       // 3. Get a few samples to inspect
-      const limitBaseQuery = supabase.from('Paragrafen');
-      const limitSelectQuery = limitBaseQuery.select('*');
-      const { data: sampleData } = await limitSelectQuery.limit(5);
+      const { data: sampleData } = await supabase
+        .from('Paragrafen')
+        .select('*')
+        .limit(5);
       
       console.log('Direct database check results:', {
         numberQuery: {
@@ -113,7 +116,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
           // Only include Authorization header if we have a token
           ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ chapterId: selectedChapterId }),
+        body: JSON.stringify({ chapterId: Number(selectedChapterId) }), // Force to number
       });
       
       console.log('Edge function response status:', response.status);

@@ -44,17 +44,19 @@ serve(async (req) => {
     
     console.log(`Getting paragraphs for chapter ${numericChapterId} (type: ${typeof numericChapterId})`);
 
-    // Create Supabase client - use the authorization header if present, otherwise use the anon key
+    // Create Supabase client - use authorization header if present
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     
     // Get authorization token from the request headers if available
     const authHeader = req.headers.get('Authorization');
-    const supabase = authHeader
-      ? createClient(supabaseUrl, supabaseAnonKey, { 
-          global: { headers: { Authorization: authHeader } }
-        })
-      : createClient(supabaseUrl, supabaseAnonKey);
+    
+    // Create client with either auth header or anon key
+    const supabase = createClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      authHeader ? { global: { headers: { Authorization: authHeader } } } : {}
+    );
 
     // First, try a direct SQL query with explicit CAST for the chapter_id
     try {
