@@ -71,7 +71,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz }: Paragrap
             </p>
           </div>
           
-          <Alert variant="info" className="bg-blue-50 border-blue-200">
+          <Alert className="bg-blue-50 border-blue-200">
             <DatabaseIcon className="h-4 w-4" />
             <AlertDescription className="ml-2">
               Database ID van het huidige hoofdstuk: {JSON.stringify({ chapter_id: window.location.pathname.split('/').pop() })}
