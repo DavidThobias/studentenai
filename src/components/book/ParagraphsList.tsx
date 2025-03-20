@@ -3,6 +3,7 @@ import { ListChecks, FileText, Loader2, DatabaseIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useEffect } from 'react';
 
 interface ParagraphData {
   id: number;
@@ -19,6 +20,12 @@ interface ParagraphsListProps {
 }
 
 const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedChapterId }: ParagraphsListProps) => {
+  // Log whenever paragraphs or loading state changes
+  useEffect(() => {
+    console.log('ParagraphsList: paragraphs array updated:', paragraphs);
+    console.log('ParagraphsList: loadingParagraphs:', loadingParagraphs);
+  }, [paragraphs, loadingParagraphs]);
+
   return (
     <div className="mb-12">
       <h2 className="text-2xl font-semibold mb-6">Paragrafen</h2>
@@ -80,6 +87,8 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                 <li>Paragrafen in array: {paragraphs.length}</li>
                 <li>Tabel naam: Paragrafen (correct)</li>
                 <li>Query: SELECT * FROM "Paragrafen" WHERE chapter_id = {selectedChapterId}</li>
+                <li>Type van selectedChapterId: {typeof selectedChapterId}</li>
+                <li>Timestamp: {new Date().toISOString()}</li>
               </ul>
             </AlertDescription>
           </Alert>

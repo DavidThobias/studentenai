@@ -44,6 +44,9 @@ export const useBookDetail = (id: string | undefined) => {
         const numericBookId = parseInt(id);
         console.log(`Fetching book details for ID: ${numericBookId}`);
         
+        // Log Supabase client to verify it's initialized properly
+        console.log("Supabase client initialized:", !!supabase);
+        
         // Fetch book details - NOTE: Case sensitive table name 'Boeken'
         const { data: bookData, error: bookError } = await supabase
           .from('Boeken')
@@ -112,15 +115,34 @@ export const useBookDetail = (id: string | undefined) => {
       setSelectedChapterId(chapterId);
       console.log(`Fetching paragraphs for chapter ID: ${chapterId}`);
       
-      // FIXED: Using the correct table name "Paragrafen" instead of "Paragraven"
+      // Verify chapter_id is a number
+      console.log(`chapter_id type: ${typeof chapterId}, value: ${chapterId}`);
+      
+      // Try a simple query first to test connection
+      const testQuery = await supabase
+        .from('Paragrafen')
+        .select('count')
+        .single();
+      
+      console.log('Test query result:', testQuery);
+      
+      // Construct the full query explicitly to debug
       const queryString = `from "Paragrafen" where chapter_id = ${chapterId}`;
       console.log(`Executing query: ${queryString}`);
       
       // Try fetching paragraphs for this chapter
-      const { data: paragraphData, error: paragraphError } = await supabase
-        .from('Paragrafen') // FIXED: Corrected table name
+      const { data: paragraphData, error: paragraphError, status, statusText } = await supabase
+        .from('Paragrafen')
         .select('*')
         .eq('chapter_id', chapterId);
+      
+      // Log the full response for debugging
+      console.log('Supabase response:', { 
+        status,
+        statusText,
+        data: paragraphData,
+        error: paragraphError
+      });
       
       if (paragraphError) {
         console.error('Error fetching paragraphs:', paragraphError);
@@ -144,12 +166,21 @@ export const useBookDetail = (id: string | undefined) => {
         console.log(`No paragraphs found for chapter ${chapterId}`);
         setParagraphs([]);
         
-        // Additional debug query to check if any paragraphs exist with this chapter_id
+        // Additional debug query to check if any paragraphs exist
         const { count, error: countError } = await supabase
-          .from('Paragrafen') // FIXED: Corrected table name
+          .from('Paragrafen')
           .select('*', { count: 'exact', head: true });
         
         console.log(`Total paragraphs in database: ${count}`, countError ? countError : '');
+        
+        // Try another query approach without strong typing
+        const rawQuery = await supabase.rpc('get_paragraphs_for_chapter', { chapter_id_param: chapterId })
+          .catch(e => {
+            console.log('RPC method not found, this is expected if not created yet');
+            return { data: null, error: e };
+          });
+        
+        console.log('Raw query result:', rawQuery);
       }
       
     } catch (error) {

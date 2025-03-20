@@ -38,6 +38,7 @@ const BookOverview = ({ book }: BookOverviewProps) => {
   const fetchBookDetails = async (bookId: number) => {
     try {
       setLoading(true);
+      console.log(`BookOverview: Fetching details for book ID: ${bookId}`);
       
       // Get chapter count
       const { data: chapters, error: chaptersError } = await supabase
@@ -50,20 +51,27 @@ const BookOverview = ({ book }: BookOverviewProps) => {
         return;
       }
       
+      console.log(`BookOverview: Found ${chapters?.length || 0} chapters for book ID: ${bookId}`);
+      
       // Get paragraph count for this book
       const chapterIds = chapters?.map(c => c.id) || [];
       let paragraphCount = 0;
       
       if (chapterIds.length > 0) {
+        console.log(`BookOverview: Getting paragraph count for chapter IDs:`, chapterIds);
+        
         const { count, error: paragraphsError } = await supabase
-          .from('Paragrafen') // FIXED: Changed from 'Paragraven' to 'Paragrafen'
+          .from('Paragrafen')
           .select('id', { count: 'exact', head: true })
           .in('chapter_id', chapterIds);
+        
+        console.log(`BookOverview: Paragraph count query result:`, { count, error: paragraphsError });
         
         if (paragraphsError) {
           console.error('Error fetching paragraphs:', paragraphsError);
         } else {
           paragraphCount = count || 0;
+          console.log(`BookOverview: Total paragraph count: ${paragraphCount}`);
         }
       }
       
