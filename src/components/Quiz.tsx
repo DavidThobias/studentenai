@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -119,7 +120,7 @@ const Quiz = ({
 
   const renderResultsContent = () => {
     return (
-      <div className="flex flex-col items-center justify-center space-y-6">
+      <div className="flex flex-col items-center justify-center space-y-6 pointer-events-auto">
         <div className="w-full">
           <Progress 
             value={Math.round((score / questions.length) * 100)} 
@@ -177,7 +178,7 @@ const Quiz = ({
     }
 
     return (
-      <Card className="border-2">
+      <Card className="border-2 pointer-events-auto">
         <CardHeader>
           <div className="flex justify-between items-center mb-2">
             <div className="text-sm font-medium text-muted-foreground">
@@ -330,7 +331,7 @@ const Quiz = ({
     >
       <SheetContent 
         side="right" 
-        className="sm:max-w-md w-[95vw] overflow-y-auto"
+        className="sm:max-w-xl w-full overflow-y-auto opacity-100 pointer-events-auto"
       >
         <SheetHeader className="mb-4">
           <SheetTitle>
@@ -349,7 +350,7 @@ const Quiz = ({
           </SheetDescription>
         </SheetHeader>
         
-        <div className="mt-4">
+        <div className="mt-4 pointer-events-auto">
           {import.meta.env.DEV && (
             <div className="bg-gray-100 p-2 mb-4 text-xs rounded">
               <div>Debug: Questions: {questions?.length || 0}</div>
