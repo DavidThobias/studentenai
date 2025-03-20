@@ -14,9 +14,10 @@ interface ChaptersListProps {
   chapters: ChapterData[];
   onChapterSelect: (chapterId: number) => void;
   onStartQuiz?: (chapterId?: number, paragraphId?: number) => void;
+  selectedChapterId?: number | null;
 }
 
-const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect }: ChaptersListProps) => {
+const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect, selectedChapterId }: ChaptersListProps) => {
   return (
     <div className="mb-12">
       <h2 className="text-2xl font-semibold mb-6">Hoofdstukken</h2>
@@ -24,7 +25,10 @@ const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect }: ChaptersListPr
       {chapters.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {chapters.map((chapter) => (
-            <Card key={chapter.id} className="transition-all hover:shadow-md">
+            <Card 
+              key={chapter.id} 
+              className={`transition-all hover:shadow-md ${selectedChapterId === chapter.id ? 'border-study-500 shadow-md' : ''}`}
+            >
               <CardHeader>
                 <CardTitle className="text-xl">{chapter.Hoofdstuknummer}. {chapter.Titel}</CardTitle>
               </CardHeader>
@@ -45,11 +49,11 @@ const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect }: ChaptersListPr
                   </Button>
                 )}
                 <Button 
-                  variant="ghost" 
+                  variant={selectedChapterId === chapter.id ? "default" : "ghost"}
                   className="w-full sm:w-auto justify-between"
                   onClick={() => onChapterSelect(chapter.id)}
                 >
-                  Bekijk paragrafen
+                  {selectedChapterId === chapter.id ? 'Geselecteerd' : 'Bekijk paragrafen'}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </CardFooter>

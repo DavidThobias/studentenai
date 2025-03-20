@@ -32,6 +32,7 @@ export const useBookDetail = (id: string | undefined) => {
   const [loading, setLoading] = useState(true);
   const [loadingParagraphs, setLoadingParagraphs] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchBookDetails = async () => {
@@ -83,7 +84,9 @@ export const useBookDetail = (id: string | undefined) => {
         
         // Fetch paragraphs for the first chapter
         if (chapterData && chapterData.length > 0) {
-          fetchParagraphs(chapterData[0].id);
+          const firstChapterId = chapterData[0].id;
+          setSelectedChapterId(firstChapterId);
+          await fetchParagraphs(firstChapterId);
         }
       } catch (error) {
         console.error('Error fetching book details:', error);
@@ -100,6 +103,7 @@ export const useBookDetail = (id: string | undefined) => {
     try {
       setLoadingParagraphs(true);
       setError(null);
+      setSelectedChapterId(chapterId);
       console.log(`Fetching paragraphs for chapter ID: ${chapterId}`);
       
       const { data: paragraphData, error: paragraphError } = await supabase
@@ -131,6 +135,7 @@ export const useBookDetail = (id: string | undefined) => {
     loading,
     loadingParagraphs,
     error,
-    fetchParagraphs
+    fetchParagraphs,
+    selectedChapterId
   };
 };

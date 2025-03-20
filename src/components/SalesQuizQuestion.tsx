@@ -31,6 +31,7 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [debugData, setDebugData] = useState<DebugData>({});
+  const [debugAccordion, setDebugAccordion] = useState<string | null>(null);
 
   const generateQuestion = async () => {
     try {
@@ -39,6 +40,7 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
       setSelectedAnswer(null);
       setIsCorrect(null);
       setDebugData({});
+      setDebugAccordion(null);
       
       // Include bookId if available
       const payload = bookId ? { bookId } : {};
@@ -71,6 +73,7 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
         
         // Save debug data if available
         if (showDebug && data.debug) {
+          console.log("Debug data received:", data.debug);
           setDebugData({
             prompt: data.debug.prompt,
             response: data.debug.response
@@ -173,7 +176,13 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
             {/* Debug section */}
             {showDebug && (debugData.prompt || debugData.response) && (
               <div className="mt-6 border border-gray-200 rounded-md overflow-hidden">
-                <Accordion type="single" collapsible className="w-full">
+                <Accordion 
+                  type="single" 
+                  collapsible 
+                  className="w-full"
+                  value={debugAccordion || undefined}
+                  onValueChange={(value) => setDebugAccordion(value)}
+                >
                   <AccordionItem value="prompt">
                     <AccordionTrigger className="px-4 py-2 bg-gray-50 text-sm">
                       OpenAI Prompt

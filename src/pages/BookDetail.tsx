@@ -12,7 +12,6 @@ import { useBookDetail } from '@/hooks/useBookDetail';
 
 const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const [selectedChapterId, setSelectedChapterId] = useState<string | undefined>(undefined);
 
   const { 
     book, 
@@ -21,7 +20,8 @@ const BookDetail = () => {
     loading, 
     loadingParagraphs, 
     error, 
-    fetchParagraphs 
+    fetchParagraphs,
+    selectedChapterId
   } = useBookDetail(id);
 
   const handleChapterSelect = (chapterId: number) => {
@@ -48,6 +48,7 @@ const BookDetail = () => {
         <ChaptersList 
           chapters={chapters}
           onChapterSelect={handleChapterSelect} 
+          selectedChapterId={selectedChapterId}
         />
 
         <ParagraphsList 
