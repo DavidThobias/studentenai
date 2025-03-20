@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -45,12 +44,10 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     firstQuestion: questions[0]?.question || 'No question'
   });
 
-  // Handle open state changes with debounce to avoid animation issues
   useEffect(() => {
     if (open) {
       setLocalOpen(true);
     } else {
-      // Delay closing to avoid animation issues
       const timer = setTimeout(() => {
         setLocalOpen(false);
       }, 100);
@@ -58,7 +55,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     }
   }, [open]);
 
-  // Reset quiz state when new questions are received
   useEffect(() => {
     if (open && questions.length > 0 && !isGenerating) {
       console.log('New valid questions received, initializing quiz state');
@@ -72,7 +68,6 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     }
   }, [open, questions, isGenerating]);
 
-  // Reset initialized state when dialog closes
   useEffect(() => {
     if (!open) {
       const timer = setTimeout(() => {
@@ -329,31 +324,25 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       initialized
     });
     
-    // Show loading state while generating quiz
     if (isGenerating) {
       return renderLoadingContent();
     }
 
-    // Show error state if there's an error
     if (error) {
       return renderErrorContent();
     }
 
-    // If no questions are provided, show a message
     if (!questions || questions.length === 0) {
       return renderEmptyContent();
     }
 
-    // If quiz is complete, show results
     if (isQuizComplete) {
       return renderResultsContent();
     }
 
-    // Otherwise show the current question
     return renderQuestionContent();
   };
 
-  // Additional logging for debugging
   useEffect(() => {
     if (open) {
       console.log("Quiz component opened with", questions.length, "questions:", questions);
@@ -371,8 +360,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
       <SheetContent 
         side="right" 
         className="sm:max-w-md w-[95vw] overflow-y-auto"
-        // Force the sheet to remain mounted even when closed
-        forceMount={isGenerating}
+        forceMount={isGenerating ? true : undefined}
       >
         <SheetHeader className="mb-4">
           <SheetTitle>
