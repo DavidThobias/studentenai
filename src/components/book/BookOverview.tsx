@@ -1,5 +1,5 @@
 
-import { BookOpen, Brain, FileText } from 'lucide-react';
+import { BookOpen, FileText } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -11,10 +11,9 @@ interface BookData {
 
 interface BookOverviewProps {
   book: BookData | null;
-  onStartQuiz: () => void;
 }
 
-const BookOverview = ({ book, onStartQuiz }: BookOverviewProps) => {
+const BookOverview = ({ book }: BookOverviewProps) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
       {/* Book Cover */}
@@ -29,19 +28,11 @@ const BookOverview = ({ book, onStartQuiz }: BookOverviewProps) => {
         <div>
           <h2 className="text-2xl font-semibold mb-4">Over dit boek</h2>
           <p className="text-muted-foreground mb-4">
-            Dit is een samenvatting van het boek "{book?.Titel}". Gebruik deze samenvatting om te studeren en je kennis te testen.
+            Dit is een samenvatting van het boek "{book?.Titel}". Gebruik deze samenvatting om te studeren.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4">
-          <Button 
-            size="lg" 
-            onClick={onStartQuiz} 
-            className="flex-1"
-          >
-            <Brain className="mr-2 h-5 w-5" />
-            Start quiz over hele boek
-          </Button>
           <Button 
             size="lg" 
             variant="outline" 
