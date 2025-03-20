@@ -15,9 +15,10 @@ interface ParagraphsListProps {
   paragraphs: ParagraphData[];
   loadingParagraphs: boolean;
   onStartQuiz?: (chapterId?: number, paragraphId?: number) => void;
+  selectedChapterId?: number | null;
 }
 
-const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz }: ParagraphsListProps) => {
+const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedChapterId }: ParagraphsListProps) => {
   return (
     <div className="mb-12">
       <h2 className="text-2xl font-semibold mb-6">Paragrafen</h2>
@@ -37,11 +38,9 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz }: Paragrap
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground line-clamp-3">
+                <p className="text-muted-foreground">
                   {paragraph.content ? 
-                    (paragraph.content.length > 150 ? 
-                      `${paragraph.content.substring(0, 150)}...` : 
-                      paragraph.content) : 
+                    paragraph.content : 
                     'Geen inhoud beschikbaar'}
                 </p>
               </CardContent>
@@ -74,7 +73,12 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz }: Paragrap
           <Alert className="bg-blue-50 border-blue-200">
             <DatabaseIcon className="h-4 w-4" />
             <AlertDescription className="ml-2">
-              Database ID van het huidige hoofdstuk: {JSON.stringify({ chapter_id: window.location.pathname.split('/').pop() })}
+              Debug informatie:
+              <ul className="list-disc pl-5 mt-2">
+                <li>Geselecteerde hoofdstuk ID: {selectedChapterId}</li>
+                <li>Huidige URL pad: {window.location.pathname}</li>
+                <li>Paragrafen in array: {paragraphs.length}</li>
+              </ul>
             </AlertDescription>
           </Alert>
         </div>

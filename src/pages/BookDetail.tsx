@@ -55,6 +55,7 @@ const BookDetail = () => {
         <ParagraphsList 
           paragraphs={paragraphs} 
           loadingParagraphs={loadingParagraphs}
+          selectedChapterId={selectedChapterId}
         />
 
         {id && book?.id && (

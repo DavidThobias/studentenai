@@ -41,12 +41,14 @@ export const useBookDetail = (id: string | undefined) => {
         setError(null);
         if (!id) return;
 
-        console.log(`Fetching book details for ID: ${id}`);
+        const numericBookId = parseInt(id);
+        console.log(`Fetching book details for ID: ${numericBookId}`);
+        
         // Fetch book details - NOTE: Case sensitive table name 'Boeken'
         const { data: bookData, error: bookError } = await supabase
           .from('Boeken')
           .select('*')
-          .eq('id', parseInt(id))
+          .eq('id', numericBookId)
           .maybeSingle();
 
         if (bookError) {
@@ -66,11 +68,11 @@ export const useBookDetail = (id: string | undefined) => {
         setBook(bookData);
 
         // Fetch chapters for this book
-        console.log(`Fetching chapters for book ID: ${id}`);
+        console.log(`Fetching chapters for book ID: ${numericBookId}`);
         const { data: chapterData, error: chapterError } = await supabase
           .from('Chapters')
           .select('*')
-          .eq('Boek_id', parseInt(id))
+          .eq('Boek_id', numericBookId)
           .order('Hoofdstuknummer', { ascending: true });
 
         if (chapterError) {
@@ -79,7 +81,7 @@ export const useBookDetail = (id: string | undefined) => {
           throw chapterError;
         }
         
-        console.log(`Retrieved ${chapterData?.length || 0} chapters`);
+        console.log(`Retrieved ${chapterData?.length || 0} chapters:`, chapterData);
         setChapters(chapterData || []);
         
         // If there are chapters, select the first one and fetch its paragraphs
@@ -110,18 +112,7 @@ export const useBookDetail = (id: string | undefined) => {
       setSelectedChapterId(chapterId);
       console.log(`Fetching paragraphs for chapter ID: ${chapterId}`);
       
-      // First, print all available paragraphs from the database to debug
-      const { data: allParas, error: allParasError } = await supabase
-        .from('Paragraven')
-        .select('id, chapter_id, "paragraaf nummer"');
-      
-      console.log('All paragraphs in database:', allParas);
-      
-      if (allParasError) {
-        console.error('Error fetching all paragraphs:', allParasError);
-      }
-      
-      // Try fetching paragraphs for this chapter - use double quotes for column names with spaces
+      // Try fetching paragraphs for this chapter
       const { data: paragraphData, error: paragraphError } = await supabase
         .from('Paragraven')
         .select('*')
@@ -136,18 +127,24 @@ export const useBookDetail = (id: string | undefined) => {
       console.log(`Retrieved ${paragraphData?.length || 0} paragraphs for chapter ${chapterId}:`, paragraphData);
       
       if (paragraphData && paragraphData.length > 0) {
-        setParagraphs(paragraphData);
+        // Sort paragraphs by paragraph number if available
+        const sortedParagraphs = [...paragraphData].sort((a, b) => {
+          const aNum = a["paragraaf nummer"] || 0;
+          const bNum = b["paragraaf nummer"] || 0;
+          return aNum - bNum;
+        });
+        
+        setParagraphs(sortedParagraphs);
       } else {
         console.log(`No paragraphs found for chapter ${chapterId}`);
         setParagraphs([]);
         
-        // Additional debug query to check if any paragraphs exist for this chapter
+        // Additional debug query to check if any paragraphs exist with this chapter_id
         const { count, error: countError } = await supabase
           .from('Paragraven')
-          .select('*', { count: 'exact', head: true })
-          .eq('chapter_id', chapterId);
+          .select('*', { count: 'exact', head: true });
         
-        console.log(`Count query for chapter ${chapterId} paragraphs:`, count, countError);
+        console.log(`Total paragraphs in database: ${count}`, countError);
       }
       
     } catch (error) {
