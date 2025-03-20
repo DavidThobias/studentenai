@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import SalesQuizQuestion from '@/components/SalesQuizQuestion';
 
 interface BookData {
   id: number;
@@ -20,6 +21,7 @@ const BooksPage = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [books, setBooks] = useState<BookData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showQuiz, setShowQuiz] = useState(false);
 
   // Fetch books from Supabase
   useEffect(() => {
@@ -96,6 +98,20 @@ const BooksPage = () => {
             Blader door onze collectie van studiemateriaal en kies het boek dat je wilt gebruiken.
           </p>
         </motion.div>
+
+        {/* Sales Quiz Toggle Button */}
+        <div className="mb-8 flex justify-center">
+          <Button 
+            onClick={() => setShowQuiz(!showQuiz)} 
+            variant="outline"
+            className="border-study-200 text-study-700 hover:bg-study-50"
+          >
+            {showQuiz ? 'Verberg quizvraag' : 'Toon quizvraag over sales'}
+          </Button>
+        </div>
+
+        {/* Sales Quiz Question Component */}
+        {showQuiz && <SalesQuizQuestion />}
 
         <div className="mb-8 flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
