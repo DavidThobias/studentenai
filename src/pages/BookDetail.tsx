@@ -44,12 +44,15 @@ const BookDetail = () => {
   const handleStartQuiz = async (chapterId?: number, paragraphId?: number) => {
     console.log(`Starting quiz for ${chapterId ? `chapter ${chapterId}` : 'whole book'}${paragraphId ? `, paragraph ${paragraphId}` : ''}`);
     
-    // Reset quiz state immediately
+    // Reset quiz state and update selections
     setQuizQuestions([]);
     setQuizError(null);
     setIsGeneratingQuiz(true);
     setSelectedChapterId(chapterId?.toString());
     setSelectedParagraphId(paragraphId?.toString());
+    
+    // Open dialog immediately to show loading state
+    setQuizOpen(true);
     
     // Set quiz title based on selection
     if (paragraphId) {
@@ -62,8 +65,6 @@ const BookDetail = () => {
       setQuizTitle(`Quiz over ${book?.Titel || 'het boek'}`);
     }
     
-    // Open dialog immediately to show loading state
-    setQuizOpen(true);
     toast.info('Quiz wordt voorbereid...');
     
     try {
@@ -107,6 +108,12 @@ const BookDetail = () => {
         }));
         
         console.log('Formatted questions:', formattedQuestions);
+        
+        // Make sure dialog is open before setting questions
+        if (!quizOpen) {
+          setQuizOpen(true);
+        }
+        
         setQuizQuestions(formattedQuestions);
         setIsGeneratingQuiz(false);
         toast.success('Quiz is gegenereerd!');
@@ -130,12 +137,12 @@ const BookDetail = () => {
 
   const handleCloseQuiz = () => {
     setQuizOpen(false);
-    // Clear quiz questions only after dialog is closed
+    // Only clear questions when dialog is fully closed
     setTimeout(() => {
       if (!quizOpen) {
         setQuizQuestions([]);
       }
-    }, 500);
+    }, 300);
   };
 
   if (loading) {

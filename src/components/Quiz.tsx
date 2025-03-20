@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+
+import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
 interface QuizQuestion {
   question: string;
@@ -42,6 +43,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     firstQuestion: questions[0]?.question || 'No question'
   });
 
+  // Reset quiz state when new questions are received
   useEffect(() => {
     if (open && questions.length > 0 && !isGenerating) {
       console.log('New valid questions received, initializing quiz state');
@@ -55,6 +57,7 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     }
   }, [open, questions, isGenerating]);
 
+  // Reset initialized state when dialog closes
   useEffect(() => {
     if (!open) {
       setInitialized(false);
@@ -329,45 +332,42 @@ const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }:
     return renderQuestionContent();
   };
 
+  // Additional logging for debugging
   useEffect(() => {
     if (open) {
-      console.log("Quiz component state:", {
-        hasQuestions: questions.length > 0,
-        currentQuestionIndex,
-        isQuizComplete,
-        isGenerating,
-        error,
-        initialized
-      });
+      console.log("Quiz dialog opened with", questions.length, "questions:", questions);
     }
-  }, [open, questions, currentQuestionIndex, isQuizComplete, isGenerating, error, initialized]);
+  }, [open, questions]);
 
   return (
-    <Dialog 
+    <Sheet 
       open={open} 
       onOpenChange={(isOpen) => {
         if (!isOpen) onClose();
       }}
     >
-      <DialogContent className="max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>
+      <SheetContent side="right" className="sm:max-w-md w-[95vw] overflow-y-auto">
+        <SheetHeader className="mb-4">
+          <SheetTitle>
             {isGenerating ? "Quiz voorbereiden" :
              error ? "Quiz Fout" :
              isQuizComplete ? "Quiz voltooid!" :
              title}
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             {isGenerating ? "Even geduld terwijl we je quiz voorbereiden." :
              error ? "Er is een probleem opgetreden bij het genereren van de quiz." :
              isQuizComplete ? "Bekijk hieronder je resultaten" :
              questions.length > 0 ? `Vraag ${currentQuestionIndex + 1} van ${questions.length}` :
              "Quiz informatie"}
-          </DialogDescription>
-        </DialogHeader>
-        {renderContent()}
-      </DialogContent>
-    </Dialog>
+          </SheetDescription>
+        </SheetHeader>
+        
+        <div className="mt-4">
+          {renderContent()}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 };
 
