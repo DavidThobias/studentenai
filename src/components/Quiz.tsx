@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw } from 'lucide-react';
+import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -22,9 +22,11 @@ interface QuizProps {
   onClose: () => void;
   open: boolean;
   title?: string;
+  error: string | null;
+  isGenerating: boolean;
 }
 
-const Quiz = ({ questions, onClose, open, title = "Quiz" }: QuizProps) => {
+const Quiz = ({ questions, onClose, open, title = "Quiz", error, isGenerating }: QuizProps) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
@@ -88,14 +90,56 @@ const Quiz = ({ questions, onClose, open, title = "Quiz" }: QuizProps) => {
   };
 
   const renderContent = () => {
+    // Show loading state while generating quiz
+    if (isGenerating) {
+      return (
+        <div className="flex flex-col space-y-6">
+          <DialogHeader>
+            <DialogTitle>Quiz voorbereiden</DialogTitle>
+            <DialogDescription>Even geduld terwijl we je quiz voorbereiden.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <p className="text-center">Quiz wordt gegenereerd...</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Show error state if there's an error
+    if (error) {
+      return (
+        <div className="flex flex-col space-y-6">
+          <DialogHeader>
+            <DialogTitle>Quiz Fout</DialogTitle>
+            <DialogDescription>
+              Er is een probleem opgetreden bij het genereren van de quiz.
+            </DialogDescription>
+          </DialogHeader>
+          <Alert variant="destructive" className="my-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <div className="flex justify-end mt-4">
+            <Button onClick={onClose}>Sluiten</Button>
+          </div>
+        </div>
+      );
+    }
+
     // If no questions are provided, show a message
     if (!questions || questions.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center space-y-4 p-6">
-          <p className="text-center text-muted-foreground">
-            Geen quizvragen beschikbaar.
-          </p>
-          <Button onClick={onClose}>Sluiten</Button>
+        <div className="flex flex-col space-y-6">
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>Quiz informatie</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center space-y-4 p-6">
+            <p className="text-center text-muted-foreground">
+              Geen quizvragen beschikbaar.
+            </p>
+            <Button onClick={onClose}>Sluiten</Button>
+          </div>
         </div>
       );
     }

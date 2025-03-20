@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import Quiz from '@/components/Quiz';
 import BookHeader from '@/components/book/BookHeader';
@@ -14,7 +13,6 @@ import LoadingBookDetail from '@/components/book/LoadingBookDetail';
 import { useBookDetail } from '@/hooks/useBookDetail';
 import { toast } from "sonner"; 
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from 'lucide-react';
 
 interface QuizQuestion {
   question: string;
@@ -165,48 +163,14 @@ const BookDetail = () => {
         <UpcomingFeatures />
       </div>
 
-      {quizError && quizOpen && (
-        <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Quiz Fout</DialogTitle>
-              <DialogDescription>
-                Er is een probleem opgetreden bij het genereren van de quiz.
-              </DialogDescription>
-            </DialogHeader>
-            <Alert variant="destructive" className="my-4">
-              <AlertDescription>{quizError}</AlertDescription>
-            </Alert>
-            <div className="flex justify-end mt-4">
-              <Button onClick={handleCloseQuiz}>Sluiten</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {isGeneratingQuiz && quizOpen && (
-        <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Quiz voorbereiden</DialogTitle>
-              <DialogDescription>Even geduld terwijl we je quiz voorbereiden.</DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col items-center justify-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-              <p className="text-center">Quiz wordt gegenereerd...</p>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {!isGeneratingQuiz && !quizError && quizQuestions.length > 0 && (
-        <Quiz 
-          questions={quizQuestions}
-          onClose={handleCloseQuiz}
-          open={quizOpen}
-          title={quizTitle}
-        />
-      )}
+      <Quiz 
+        questions={quizQuestions}
+        onClose={handleCloseQuiz}
+        open={quizOpen}
+        title={quizTitle}
+        error={quizError}
+        isGenerating={isGeneratingQuiz}
+      />
     </div>
   );
 };
