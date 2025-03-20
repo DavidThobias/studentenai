@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import Quiz from '@/components/Quiz';
 import BookHeader from '@/components/book/BookHeader';
 import BookOverview from '@/components/book/BookOverview';
@@ -49,7 +49,6 @@ const BookDetail = () => {
     setQuizQuestions([]);
     setQuizError(null);
     
-    // Set appropriate quiz title
     if (paragraphId) {
       const paragraph = paragraphs.find(p => p.id === paragraphId);
       setQuizTitle(`Quiz over paragraaf ${paragraph?.["paragraaf nummer"] || ''}`);
@@ -60,13 +59,10 @@ const BookDetail = () => {
       setQuizTitle(`Quiz over ${book?.Titel || 'het boek'}`);
     }
     
-    // Add a toast to give the user feedback
     toast.info('Quiz wordt voorbereid...');
     
-    // Generate the quiz questions before opening the dialog
     try {
       setIsGeneratingQuiz(true);
-      // Open the dialog immediately to show loading state
       setQuizOpen(true);
       
       console.log(`Calling generate-quiz function for book ${id}, chapter ${chapterId || 'all'}, paragraph ${paragraphId || 'all'}`);
@@ -168,7 +164,6 @@ const BookDetail = () => {
         <UpcomingFeatures />
       </div>
 
-      {/* Display Quiz Error */}
       {quizError && quizOpen && (
         <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
           <DialogContent className="sm:max-w-[600px]">
@@ -188,7 +183,6 @@ const BookDetail = () => {
         </Dialog>
       )}
 
-      {/* Display Loading State */}
       {isGeneratingQuiz && quizOpen && (
         <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
           <DialogContent className="sm:max-w-[600px]">
@@ -200,7 +194,6 @@ const BookDetail = () => {
         </Dialog>
       )}
 
-      {/* Display Quiz Questions */}
       {!isGeneratingQuiz && !quizError && quizQuestions.length > 0 && (
         <Quiz 
           questions={quizQuestions}
