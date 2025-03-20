@@ -320,16 +320,21 @@ const Quiz = ({
   
   return (
     <Sheet 
-      open={sheetOpen} 
-      onOpenChange={(isOpen) => {
-        console.log(`Sheet onOpenChange: ${isOpen}`);
-        if (!isOpen && !isGenerating && questions.length === 0 && !error) {
-          handleCloseQuiz();
-        } else if (isOpen) {
-          setSheetOpen(true);
-        }
-      }}
-    >
+  open={sheetOpen} 
+  onOpenChange={(isOpen) => {
+    console.log(`Sheet onOpenChange: ${isOpen}`);
+    if (!isOpen) {
+      const confirmClose = window.confirm("Weet je zeker dat je de quiz wilt sluiten?");
+      if (confirmClose) {
+        handleCloseQuiz();
+      } else {
+        setSheetOpen(true); // Houd de Sheet open
+      }
+    } else if (isOpen) {
+      setSheetOpen(true);
+    }
+  }}
+>
       <SheetContent 
         side="right" 
         className="sm:max-w-md w-[95vw] overflow-y-auto"
