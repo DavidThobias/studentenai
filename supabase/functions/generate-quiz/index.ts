@@ -165,35 +165,43 @@ serve(async (req) => {
       contentToUse = contentToUse.substring(0, MAX_CONTENT_LENGTH) + "...";
     }
 
+    // Updated OpenAI prompt based on user's improved version
     const openAIPrompt = `
-    Je taak is om ${numberOfQuestions} multiple-choice vragen te genereren over de volgende tekst. 
-    De vragen moeten in het Nederlands zijn.
+    Je bent een AI gespecialiseerd in het genereren van educatieve meerkeuzevragen om gebruikers volledig inzicht te geven in een specifieke paragraaf uit een boek.
     
-    Boek: ${book.book_title}
+    Invoer:
+    Boektitel: ${book.book_title}
     ${contentSource}
     
     Inhoud: ${contentToUse}
     
-    Belangrijke regels:
-    1. Maak elke vraag ALLEEN op basis van de gegeven inhoud
-    2. Elke vraag moet precies 4 antwoordopties hebben
-    3. Slechts één antwoord mag correct zijn
-    4. Gebruik index 0, 1, 2, of 3 om het juiste antwoord aan te geven
-    5. Geef een korte uitleg waarom het antwoord correct is
-    6. Zorg dat de vragen verschillend zijn en verschillende aspecten van de tekst testen
-    7. Maak de vragen uitdagend maar fair
+    Vereisten voor de vragen:
+    Dynamisch aantal vragen: Op basis van de lengte en inhoud van de paragraaf. Kortere paragrafen krijgen minder vragen, langere paragrafen meer. Genereer maximaal ${numberOfQuestions} vragen.
+    Diepgang: De vragen moeten zowel feitelijke kennis als begrip testen (bijv. onderscheid tussen concepten, praktische toepassingen).
+    Scenario-gebaseerde vragen: Minstens een paar vragen moeten de stof in een realistische context plaatsen.
+    Geen letterlijke kopie: De vragen moeten de stof testen zonder exacte zinnen uit de tekst over te nemen.
+    Uitgebreide uitleg: Naast het juiste antwoord moet ook worden uitgelegd waarom dit correct is en waarom de andere opties fout zijn.
     
-    Retourneer je antwoord als een JSON array met deze structuur:
+    Correct geformatteerde JSON-uitvoer, met de volgende structuur:
     [
       {
-        "question": "De vraag in het Nederlands",
-        "options": ["Optie 1", "Optie 2", "Optie 3", "Optie 4"],
-        "correctAnswer": 0,
-        "explanation": "Uitleg waarom dit antwoord correct is"
+        "question": "Wat is een belangrijk kenmerk van een salesgerichte organisatie?",
+        "options": [
+          "A. Er wordt nauwelijks met sales targets gewerkt.",
+          "B. Het verkoopresultaat staat centraal.",
+          "C. Verkopers worden niet afgerekend op prestaties.",
+          "D. Het product verkoopt zichzelf."
+        ],
+        "correct": "B",
+        "explanation": "Salesgerichte organisaties werken met duidelijke targets en resultaatgerichte verkopers. Optie A en C zijn onjuist omdat salesgerichte bedrijven juist sterk sturen op prestaties. Optie D past meer bij een productgerichte organisatie."
       }
     ]
     
-    Retourneer ALLEEN de JSON array, zonder andere tekst of opmaak.`;
+    Belangrijk:
+    Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
+    Bepaal het aantal vragen dynamisch op basis van de paragraaflengte en complexiteit.
+    De uitleg moet helder en bondig zijn, en aangeven waarom het juiste antwoord correct is en waarom de andere opties fout zijn.
+    Scenario's en denkvragen toevoegen voor een diepgaand begrip.`;
 
     // Call OpenAI API with timeout handling
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -280,21 +288,36 @@ serve(async (req) => {
       throw new Error('OpenAI did not return an array of questions');
     }
 
-    // Validate each question's structure
+    // Validate each question's structure and convert from letter format to index format
     quizQuestions = quizQuestions.filter(question => {
       const isValid = question &&
         typeof question.question === 'string' &&
         Array.isArray(question.options) &&
         question.options.length === 4 &&
-        typeof question.correctAnswer === 'number' &&
-        question.correctAnswer >= 0 &&
-        question.correctAnswer <= 3 &&
+        typeof question.correct === 'string' &&
+        ["A", "B", "C", "D"].includes(question.correct) &&
         typeof question.explanation === 'string';
 
       if (!isValid) {
         console.warn('Filtered out invalid question:', JSON.stringify(question));
       }
       return isValid;
+    }).map(question => {
+      // Convert from letter format (A, B, C, D) to index format (0, 1, 2, 3)
+      const correctIndex = question.correct.charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
+      
+      // Convert option format from "A. Option text" to just "Option text"
+      const cleanedOptions = question.options.map(option => {
+        // If option starts with a letter and dot (e.g., "A. "), remove it
+        return option.replace(/^[A-D]\.\s*/, '');
+      });
+      
+      return {
+        question: question.question,
+        options: cleanedOptions,
+        correctAnswer: correctIndex,
+        explanation: question.explanation
+      };
     });
 
     if (quizQuestions.length === 0) {

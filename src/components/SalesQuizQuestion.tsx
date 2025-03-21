@@ -223,11 +223,19 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
       if (data && data.success && data.questions && data.questions.length > 0) {
         // Format the first question from the response
         const questionData = data.questions[0];
+        
+        // Format options to include A, B, C, D prefixes if not already included
+        const formattedOptions = questionData.options.map((opt: string, index: number) => {
+          if (opt.match(/^[A-D]\. /)) {
+            return opt; // Already has prefix
+          } else {
+            return `${String.fromCharCode(65 + index)}: ${opt}`;
+          }
+        });
+        
         const formattedQuestion: QuestionData = {
           question: questionData.question,
-          options: questionData.options.map((opt: string, index: number) => 
-            `${String.fromCharCode(65 + index)}: ${opt}`
-          ),
+          options: formattedOptions,
           correctAnswer: questionData.correctAnswer,
           explanation: questionData.explanation
         };
