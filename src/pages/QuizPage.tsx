@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle, Bug, Eye, EyeOff, ArrowLeft } from 'lucide-react';
@@ -135,6 +136,11 @@ const QuizPage = () => {
   const addLog = (message: string) => {
     console.log(`[QUIZ DEBUG] ${message}`);
     setStateLog(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
+  };
+  
+  // Add the missing handleBackToHome function
+  const handleBackToHome = () => {
+    navigate('/');
   };
   
   // Modified to handle both direct calls and click events
