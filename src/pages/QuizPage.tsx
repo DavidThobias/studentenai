@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle, Bug, Eye, EyeOff, ArrowLeft } from 'lucide-react';
@@ -91,7 +90,16 @@ const QuizPage = () => {
     setStateLog(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
   };
   
-  const generateQuiz = async (questionCount: number = 5) => {
+  // Modified to handle both direct calls and click events
+  const generateQuiz = async (questionCountOrEvent?: number | React.MouseEvent<HTMLButtonElement>) => {
+    // Default question count
+    let questionCount = 5;
+    
+    // If the argument is a number, use it as question count
+    if (typeof questionCountOrEvent === 'number') {
+      questionCount = questionCountOrEvent;
+    }
+    
     try {
       setIsGenerating(true);
       setQuizError(null);
@@ -149,7 +157,7 @@ const QuizPage = () => {
       setIsGenerating(false);
     }
   };
-  
+
   const handleAnswerSelect = (index: number) => {
     if (!isAnswerSubmitted) {
       addLog(`Selected answer: ${index}`);
