@@ -3,8 +3,8 @@ import { BookOpen, FileText, Brain, Bug } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useState, useEffect } from 'react';
-import SalesQuizQuestion from '@/components/SalesQuizQuestion';
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from 'react-router-dom';
 
 interface BookData {
   id: number;
@@ -21,7 +21,7 @@ interface ChapterInfo {
 }
 
 const BookOverview = ({ book }: BookOverviewProps) => {
-  const [showQuiz, setShowQuiz] = useState(false);
+  const navigate = useNavigate();
   const [showDebug, setShowDebug] = useState(false);
   const [bookDetails, setBookDetails] = useState<ChapterInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -83,6 +83,16 @@ const BookOverview = ({ book }: BookOverviewProps) => {
     }
   };
 
+  const handleNavigateToQuiz = () => {
+    // Store book ID in localStorage for quiz page to use
+    if (book?.id) {
+      localStorage.setItem('quizBookId', book.id.toString());
+    }
+    
+    // Navigate to the quiz page
+    navigate('/quiz');
+  };
+
   return (
     <div className="space-y-8 mb-12">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -122,34 +132,16 @@ const BookOverview = ({ book }: BookOverviewProps) => {
             {isSalesBook && (
               <Button 
                 size="lg" 
-                onClick={() => setShowQuiz(!showQuiz)} 
+                onClick={handleNavigateToQuiz} 
                 className="flex-1 bg-study-600 hover:bg-study-700 text-white"
               >
                 <Brain className="mr-2 h-5 w-5" />
-                {showQuiz ? 'Verberg quiz' : 'Genereer quiz met vragen'}
+                Genereer quiz met vragen
               </Button>
             )}
           </div>
         </div>
       </div>
-      
-      {/* Quiz Section */}
-      {showQuiz && isSalesBook && (
-        <div className="mt-8">
-          <div className="flex justify-end mb-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setShowDebug(!showDebug)}
-              className="text-xs"
-            >
-              <Bug className="mr-1 h-3 w-3" />
-              {showDebug ? 'Verberg debug' : 'Debug info'}
-            </Button>
-          </div>
-          <SalesQuizQuestion showDebug={showDebug} bookId={book?.id} />
-        </div>
-      )}
     </div>
   );
 };

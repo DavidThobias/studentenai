@@ -23,7 +23,7 @@ serve(async (req) => {
 
     // Parse request body
     const requestData = await req.json();
-    const { count = 5, bookId } = requestData; // Default to 5 questions if not specified
+    const { count = 5, bookId, debug = false } = requestData; // Default to 5 questions if not specified
     console.log(`Calling OpenAI API to generate ${count} sales questions for book ID: ${bookId || 'not specified'}`);
     
     // Fetch book content if bookId is provided
@@ -181,11 +181,22 @@ serve(async (req) => {
     
     console.log(`Returning ${questions.length} questions`);
 
+    // Create response object, include debug info if requested
+    const responseObj: any = {
+      success: true,
+      questions: questions
+    };
+    
+    // Add debug information if requested
+    if (debug) {
+      responseObj.debug = {
+        prompt: userPrompt,
+        response: data.choices[0].message
+      };
+    }
+
     return new Response(
-      JSON.stringify({
-        success: true,
-        questions: questions
-      }),
+      JSON.stringify(responseObj),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
