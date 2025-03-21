@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle, Bug, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,7 @@ export interface QuizQuestion {
 
 const QuizPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
   // Quiz state
   const [questions, setQuestions] = useState<Array<QuizQuestion>>([]);
@@ -31,7 +32,12 @@ const QuizPage = () => {
   const [score, setScore] = useState(0);
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  
+  // Quiz context params
   const [bookId, setBookId] = useState<number | null>(null);
+  const [chapterId, setChapterId] = useState<number | null>(null);
+  const [paragraphId, setParagraphId] = useState<number | null>(null);
+  const [quizTitle, setQuizTitle] = useState<string>("Quiz");
   
   // Debug state
   const [showDebug, setShowDebug] = useState(false);
@@ -42,10 +48,44 @@ const QuizPage = () => {
   });
   const [stateLog, setStateLog] = useState<string[]>([]);
   
-  // Load saved quiz state from localStorage on initial render
+  // Load params from URL on initial render
   useEffect(() => {
+    // Extract params from URL
+    const bookIdParam = searchParams.get('bookId');
+    const chapterIdParam = searchParams.get('chapterId');
+    const paragraphIdParam = searchParams.get('paragraphId');
+    
+    // Set state from URL params
+    if (bookIdParam) {
+      const numericBookId = parseInt(bookIdParam);
+      setBookId(numericBookId);
+      addLog(`Setting bookId from URL: ${numericBookId}`);
+    }
+    
+    if (chapterIdParam) {
+      const numericChapterId = parseInt(chapterIdParam);
+      setChapterId(numericChapterId);
+      addLog(`Setting chapterId from URL: ${numericChapterId}`);
+    }
+    
+    if (paragraphIdParam) {
+      const numericParagraphId = parseInt(paragraphIdParam);
+      setParagraphId(numericParagraphId);
+      addLog(`Setting paragraphId from URL: ${numericParagraphId}`);
+    }
+    
+    // Set quiz title based on context
+    if (paragraphIdParam) {
+      setQuizTitle(`Quiz over paragraaf ${paragraphIdParam}`);
+    } else if (chapterIdParam) {
+      setQuizTitle(`Quiz over hoofdstuk ${chapterIdParam}`);
+    } else {
+      setQuizTitle("Quiz over Sales");
+    }
+    
+    // Try to load saved quiz state only if no URL params provided
     const savedQuiz = localStorage.getItem('quizState');
-    if (savedQuiz) {
+    if (savedQuiz && !bookIdParam && !chapterIdParam && !paragraphIdParam) {
       try {
         const quizState = JSON.parse(savedQuiz);
         setQuestions(quizState.questions || []);
@@ -55,17 +95,22 @@ const QuizPage = () => {
         setScore(quizState.score || 0);
         setIsQuizComplete(quizState.isQuizComplete || false);
         setBookId(quizState.bookId || null);
+        setChapterId(quizState.chapterId || null);
+        setParagraphId(quizState.paragraphId || null);
         
         addLog('Loaded saved quiz state from localStorage');
       } catch (error) {
         console.error('Error loading saved quiz:', error);
         addLog(`Error loading saved quiz: ${error instanceof Error ? error.message : String(error)}`);
+        
+        // Automatically start generation if we can't load saved state
+        generateQuiz();
       }
     } else {
-      // If no saved quiz, automatically start generation
+      // If we have URL params or no saved quiz, automatically start generation
       generateQuiz();
     }
-  }, []);
+  }, [searchParams]);
   
   // Save quiz state to localStorage whenever it changes
   useEffect(() => {
@@ -77,12 +122,14 @@ const QuizPage = () => {
         isAnswerSubmitted,
         score,
         isQuizComplete,
-        bookId
+        bookId,
+        chapterId,
+        paragraphId
       };
       localStorage.setItem('quizState', JSON.stringify(quizState));
       addLog('Saved quiz state to localStorage');
     }
-  }, [questions, currentQuestionIndex, selectedAnswer, isAnswerSubmitted, score, isQuizComplete]);
+  }, [questions, currentQuestionIndex, selectedAnswer, isAnswerSubmitted, score, isQuizComplete, bookId, chapterId, paragraphId]);
   
   // Add debug log function
   const addLog = (message: string) => {
@@ -110,10 +157,21 @@ const QuizPage = () => {
       setScore(0);
       setIsQuizComplete(false);
       
-      addLog(`Generating ${questionCount} quiz questions for book ID: ${bookId || 'not specified'}`);
+      addLog(`Generating ${questionCount} quiz questions for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}`);
+      
+      // Construct payload with all available context
+      const payload: any = { 
+        count: questionCount, 
+        debug: true 
+      };
+      
+      // Add context parameters if available
+      if (bookId) payload.bookId = bookId;
+      if (chapterId) payload.chapterId = chapterId;
+      if (paragraphId) payload.paragraphId = paragraphId;
       
       const { data, error } = await supabase.functions.invoke('generate-sales-question', {
-        body: { count: questionCount, bookId, debug: true }
+        body: payload
       });
       
       if (error) {
@@ -208,8 +266,12 @@ const QuizPage = () => {
     generateQuiz();
   };
   
-  const handleBackToHome = () => {
-    navigate('/');
+  const handleBackToBook = () => {
+    if (bookId) {
+      navigate(`/books/${bookId}`);
+    } else {
+      navigate('/books');
+    }
   };
   
   const forceNextQuestion = () => {
@@ -290,10 +352,17 @@ const QuizPage = () => {
             Opnieuw proberen
           </Button>
           
-          <Button onClick={handleBackToHome} className="flex-1">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Terug naar home
-          </Button>
+          {bookId ? (
+            <Button onClick={handleBackToBook} className="flex-1">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Terug naar boek
+            </Button>
+          ) : (
+            <Button onClick={handleBackToHome} className="flex-1">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Terug naar home
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -430,7 +499,7 @@ const QuizPage = () => {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Quiz</h1>
+        <h1 className="text-2xl font-bold">{quizTitle}</h1>
         <div className="flex gap-2">
           <Button 
             variant="outline" 
@@ -449,14 +518,25 @@ const QuizPage = () => {
               </>
             )}
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleBackToHome}
-          >
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Terug
-          </Button>
+          {bookId ? (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleBackToBook}
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Terug naar boek
+            </Button>
+          ) : (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleBackToHome}
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Terug
+            </Button>
+          )}
         </div>
       </div>
       

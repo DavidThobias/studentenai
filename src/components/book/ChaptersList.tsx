@@ -13,7 +13,7 @@ interface ChapterData {
 interface ChaptersListProps {
   chapters: ChapterData[];
   onChapterSelect: (chapterId: number) => void;
-  onStartQuiz?: (chapterId?: number, paragraphId?: number) => void;
+  onStartQuiz?: (chapterId: number) => void;
   selectedChapterId?: number | null;
 }
 

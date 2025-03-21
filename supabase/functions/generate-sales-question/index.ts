@@ -1,4 +1,3 @@
-
 // @deno-types="https://deno.land/x/xhr@0.1.0/deno.d.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -23,12 +22,24 @@ serve(async (req) => {
 
     // Parse request body
     const requestData = await req.json();
-    const { count = 5, bookId, debug = false } = requestData; // Default to 5 questions if not specified
-    console.log(`Calling OpenAI API to generate ${count} sales questions for book ID: ${bookId || 'not specified'}`);
+    const { 
+      count = 5,
+      bookId,
+      chapterId,
+      paragraphId,
+      debug = false 
+    } = requestData;
+    
+    console.log(`Generating ${count} sales questions with context:`, {
+      bookId: bookId || 'not specified',
+      chapterId: chapterId || 'not specified',
+      paragraphId: paragraphId || 'not specified'
+    });
     
     // Fetch book content if bookId is provided
     let bookContent = "";
     let bookTitle = "";
+    let contextDescription = "";
     
     if (bookId) {
       // Create Supabase client to fetch book content
@@ -60,24 +71,57 @@ serve(async (req) => {
       }
       
       bookTitle = book.book_title;
+      contextDescription = `boek "${bookTitle}"`;
       
-      // Get content from this book (multiple paragraphs)
-      const { data: paragraphs, error: paragraphsError } = await supabase
+      // Build query for content based on provided context
+      let query = supabase
         .from('books')
-        .select('content, chapter_number, paragraph_number')
-        .eq('book_title', bookTitle)
+        .select('content, chapter_number, paragraph_number, chapter_title')
+        .eq('book_title', bookTitle);
+      
+      // Add chapter filter if specified
+      if (chapterId) {
+        query = query.eq('chapter_number', chapterId);
+        contextDescription = `hoofdstuk ${chapterId} van ${contextDescription}`;
+      }
+      
+      // Add paragraph filter if specified
+      if (paragraphId && chapterId) {
+        query = query.eq('paragraph_number', paragraphId);
+        contextDescription = `paragraaf ${paragraphId} van ${contextDescription}`;
+      }
+      
+      // Limit and order results
+      const { data: paragraphs, error: paragraphsError } = await query
         .order('chapter_number', { ascending: true })
-        .order('paragraph_number', { ascending: true })
-        .limit(20); // Limit to prevent token overflow
+        .order('paragraph_number', { ascending: true });
       
       if (!paragraphsError && paragraphs && paragraphs.length > 0) {
-        bookContent = paragraphs.map(p => 
-          `Hoofdstuk ${p.chapter_number}, Paragraaf ${p.paragraph_number}: ${p.content}`
-        ).join('\n\n');
-        
-        console.log(`Fetched ${paragraphs.length} paragraphs for book: ${bookTitle}`);
+        // If there's paragraph-specific content, use it
+        if (paragraphId && paragraphs.length === 1) {
+          const paragraph = paragraphs[0];
+          bookContent = `Hoofdstuk ${paragraph.chapter_number} (${paragraph.chapter_title}), Paragraaf ${paragraph.paragraph_number}:\n\n${paragraph.content}`;
+          console.log(`Fetched specific paragraph ${paragraphId} from chapter ${chapterId}`);
+        } 
+        // If there's chapter-specific content, use all paragraphs from that chapter
+        else if (chapterId) {
+          bookContent = paragraphs.map(p => 
+            `Paragraaf ${p.paragraph_number}: ${p.content}`
+          ).join('\n\n');
+          console.log(`Fetched ${paragraphs.length} paragraphs from chapter ${chapterId}`);
+        }
+        // Otherwise use a sample of paragraphs from the book
+        else {
+          bookContent = paragraphs.map(p => 
+            `Hoofdstuk ${p.chapter_number}, Paragraaf ${p.paragraph_number}: ${p.content}`
+          ).join('\n\n');
+          
+          console.log(`Fetched ${paragraphs.length} paragraphs for book: ${bookTitle}`);
+        }
+      } else if (paragraphsError) {
+        console.error(`Error fetching paragraphs: ${JSON.stringify(paragraphsError)}`);
       } else {
-        console.warn(`No paragraphs found for book ID: ${bookId}`);
+        console.warn(`No paragraphs found for the specified context`);
         bookContent = `Boek: ${bookTitle}`;
       }
     }
@@ -93,7 +137,7 @@ serve(async (req) => {
     ${bookContent ? `Boektitel: ${bookTitle}\n\nInhoud:\n${bookContent}\n\n` : ''}
     
     Elke vraag moet:
-    1. Relevant zijn voor het onderwerp sales
+    1. Relevant zijn voor het onderwerp sales${bookContent ? ` en specifiek gaan over de inhoud van ${contextDescription}` : ''}
     2. Vier antwoordopties hebben (A, B, C, D), waarvan er precies één correct is
     3. Een duidelijk correcte optie hebben
     
@@ -184,7 +228,14 @@ serve(async (req) => {
     // Create response object, include debug info if requested
     const responseObj: any = {
       success: true,
-      questions: questions
+      questions: questions,
+      context: {
+        bookId,
+        chapterId,
+        paragraphId,
+        bookTitle,
+        contextDescription
+      }
     };
     
     // Add debug information if requested

@@ -1,3 +1,4 @@
+
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +16,7 @@ interface ParagraphData {
 interface ParagraphsListProps {
   paragraphs: ParagraphData[];
   loadingParagraphs: boolean;
-  onStartQuiz?: (chapterId?: number, paragraphId?: number) => void;
+  onStartQuiz?: (chapterId: number, paragraphId?: number) => void;
   selectedChapterId?: number | null;
 }
 
@@ -166,9 +167,9 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                 </p>
               </CardContent>
               <CardFooter className="flex flex-row gap-2">
-                {onStartQuiz && (
+                {onStartQuiz && selectedChapterId && (
                   <Button 
-                    onClick={() => onStartQuiz(paragraph.chapter_number, paragraph.id)}
+                    onClick={() => onStartQuiz(selectedChapterId, paragraph.id)}
                     variant="outline"
                     size="sm"
                     className="w-full sm:w-auto"

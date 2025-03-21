@@ -1,5 +1,5 @@
 
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import BookHeader from '@/components/book/BookHeader';
 import BookOverview from '@/components/book/BookOverview';
@@ -8,9 +8,11 @@ import ParagraphsList from '@/components/book/ParagraphsList';
 import UpcomingFeatures from '@/components/book/UpcomingFeatures';
 import LoadingBookDetail from '@/components/book/LoadingBookDetail';
 import { useBookDetail } from '@/hooks/useBookDetail';
+import { toast } from "sonner";
 
 const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   const { 
     book, 
@@ -26,6 +28,26 @@ const BookDetail = () => {
   const handleChapterSelect = (chapterId: number) => {
     console.log(`Selected chapter ID: ${chapterId}`);
     fetchParagraphs(chapterId);
+  };
+
+  const handleStartQuiz = (chapterId: number, paragraphId?: number) => {
+    console.log(`Starting quiz for chapter ID: ${chapterId}${paragraphId ? `, paragraph ID: ${paragraphId}` : ''}`);
+    
+    if (!book?.id) {
+      toast.error('Boek informatie ontbreekt');
+      return;
+    }
+    
+    // Navigate to quiz page with parameters
+    const params = new URLSearchParams();
+    params.append('bookId', book.id.toString());
+    params.append('chapterId', chapterId.toString());
+    
+    if (paragraphId) {
+      params.append('paragraphId', paragraphId.toString());
+    }
+    
+    navigate(`/quiz?${params.toString()}`);
   };
 
   if (loading) {
@@ -49,12 +71,14 @@ const BookDetail = () => {
           chapters={chapters}
           onChapterSelect={handleChapterSelect} 
           selectedChapterId={selectedChapterId}
+          onStartQuiz={handleStartQuiz}
         />
 
         <ParagraphsList 
           paragraphs={paragraphs} 
           loadingParagraphs={loadingParagraphs}
           selectedChapterId={selectedChapterId}
+          onStartQuiz={handleStartQuiz}
         />
 
         <UpcomingFeatures />
