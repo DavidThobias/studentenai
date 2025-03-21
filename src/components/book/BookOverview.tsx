@@ -84,13 +84,19 @@ const BookOverview = ({ book }: BookOverviewProps) => {
   };
 
   const handleNavigateToQuiz = () => {
-    // Store book ID in localStorage for quiz page to use
+    // Instead of using localStorage, pass parameters in the URL
     if (book?.id) {
-      localStorage.setItem('quizBookId', book.id.toString());
+      console.log(`Navigating to quiz with bookId: ${book.id}`);
+      
+      // Build the URL with query parameters
+      const params = new URLSearchParams();
+      params.append('bookId', book.id.toString());
+      
+      // Navigate to the quiz page with parameters
+      navigate(`/quiz?${params.toString()}`);
+    } else {
+      toast.error('Boek informatie ontbreekt. Kan geen quiz genereren.');
     }
-    
-    // Navigate to the quiz page
-    navigate('/quiz');
   };
 
   return (

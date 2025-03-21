@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle, Bug, Eye, EyeOff, ArrowLeft } from 'lucide-react';
@@ -45,7 +44,8 @@ const QuizPage = () => {
   const [debugAccordion, setDebugAccordion] = useState<string | null>(null);
   const [debugData, setDebugData] = useState<any>({
     prompt: null,
-    response: null
+    response: null,
+    apiResponse: null
   });
   const [stateLog, setStateLog] = useState<string[]>([]);
   
@@ -56,11 +56,23 @@ const QuizPage = () => {
     const chapterIdParam = searchParams.get('chapterId');
     const paragraphIdParam = searchParams.get('paragraphId');
     
+    addLog(`URL parameters: bookId=${bookIdParam}, chapterId=${chapterIdParam}, paragraphId=${paragraphIdParam}`);
+    
     // Set state from URL params
     if (bookIdParam) {
       const numericBookId = parseInt(bookIdParam);
       setBookId(numericBookId);
       addLog(`Setting bookId from URL: ${numericBookId}`);
+    } else {
+      // Try to get from localStorage as fallback
+      const savedBookId = localStorage.getItem('quizBookId');
+      if (savedBookId) {
+        const numericBookId = parseInt(savedBookId);
+        setBookId(numericBookId);
+        addLog(`Setting bookId from localStorage fallback: ${numericBookId}`);
+      } else {
+        addLog('No bookId found in URL or localStorage');
+      }
     }
     
     if (chapterIdParam) {
@@ -80,6 +92,8 @@ const QuizPage = () => {
       setQuizTitle(`Quiz over paragraaf ${paragraphIdParam}`);
     } else if (chapterIdParam) {
       setQuizTitle(`Quiz over hoofdstuk ${chapterIdParam}`);
+    } else if (bookIdParam) {
+      setQuizTitle("Quiz over het boek");
     } else {
       setQuizTitle("Quiz over Sales");
     }
@@ -95,21 +109,34 @@ const QuizPage = () => {
         setIsAnswerSubmitted(quizState.isAnswerSubmitted || false);
         setScore(quizState.score || 0);
         setIsQuizComplete(quizState.isQuizComplete || false);
-        setBookId(quizState.bookId || null);
-        setChapterId(quizState.chapterId || null);
-        setParagraphId(quizState.paragraphId || null);
+        
+        if (!bookIdParam && quizState.bookId) {
+          setBookId(quizState.bookId);
+        }
+        if (!chapterIdParam && quizState.chapterId) {
+          setChapterId(quizState.chapterId);
+        }
+        if (!paragraphIdParam && quizState.paragraphId) {
+          setParagraphId(quizState.paragraphId);
+        }
         
         addLog('Loaded saved quiz state from localStorage');
       } catch (error) {
         console.error('Error loading saved quiz:', error);
         addLog(`Error loading saved quiz: ${error instanceof Error ? error.message : String(error)}`);
-        
-        // Automatically start generation if we can't load saved state
-        generateQuiz();
       }
-    } else {
-      // If we have URL params or no saved quiz, automatically start generation
+    }
+    
+    // If we have valid context, automatically start generation if we have no questions
+    const hasValidContext = bookIdParam || (savedQuiz && JSON.parse(savedQuiz).bookId);
+    const hasQuestions = savedQuiz && JSON.parse(savedQuiz).questions && JSON.parse(savedQuiz).questions.length > 0;
+    
+    if (hasValidContext && !hasQuestions) {
+      addLog('Auto-starting quiz generation with context');
       generateQuiz();
+    } else if (!hasValidContext) {
+      addLog('Missing required context (bookId) for auto-generation');
+      setQuizError('Geen boek geselecteerd. Ga terug naar een boek en start de quiz daar.');
     }
   }, [searchParams]);
   
@@ -141,6 +168,15 @@ const QuizPage = () => {
   // Add the missing handleBackToHome function
   const handleBackToHome = () => {
     navigate('/');
+  };
+  
+  // Navigate back to book detail page
+  const handleBackToBook = () => {
+    if (bookId) {
+      navigate(`/books/${bookId}`);
+    } else {
+      navigate('/books');
+    }
   };
   
   // Modified to handle both direct calls and click events
@@ -176,9 +212,19 @@ const QuizPage = () => {
       if (chapterId) payload.chapterId = chapterId;
       if (paragraphId) payload.paragraphId = paragraphId;
       
+      addLog(`Sending payload to generate-sales-question: ${JSON.stringify(payload)}`);
+      
       const { data, error } = await supabase.functions.invoke('generate-sales-question', {
         body: payload
       });
+      
+      // Save the raw API response for debugging
+      if (data) {
+        debugData.apiResponse = data;
+        setDebugData({...debugData, apiResponse: data});
+        addLog(`Full API response received: ${JSON.stringify(data).substring(0, 100)}...`);
+        console.log('Full API response:', data);
+      }
       
       if (error) {
         console.error('Error generating quiz:', error);
@@ -190,11 +236,28 @@ const QuizPage = () => {
       if (data && data.success && data.questions && Array.isArray(data.questions)) {
         // Format the questions from the API
         const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
+          // Check the correct answer format and convert appropriately
+          let correctAnswerIndex;
+          
+          if (typeof q.correct === 'string' && q.correct.length === 1) {
+            // If it's a single letter like 'A', 'B', 'C', 'D'
+            correctAnswerIndex = q.correct.charCodeAt(0) - 65; // Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
+            addLog(`Converting letter correct answer '${q.correct}' to index ${correctAnswerIndex}`);
+          } else if (typeof q.correct === 'number') {
+            // If it's already a number
+            correctAnswerIndex = q.correct;
+            addLog(`Using numeric correct answer: ${correctAnswerIndex}`);
+          } else {
+            // Default to first option if unknown format
+            correctAnswerIndex = 0;
+            addLog(`Unknown correct answer format: ${typeof q.correct}, value: ${q.correct}. Defaulting to index 0.`);
+          }
+          
           return {
             question: q.question,
             options: q.options,
-            correctAnswer: q.correct.charCodeAt(0) - 65, // Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
-            explanation: "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
+            correctAnswer: correctAnswerIndex,
+            explanation: q.explanation || "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
           };
         });
         
@@ -204,18 +267,20 @@ const QuizPage = () => {
         // Save debug data
         if (data.debug) {
           setDebugData({
+            ...debugData,
             prompt: data.debug.prompt,
             response: data.debug.response
           });
+          addLog('Debug data saved from API response');
         }
       } else {
-        setQuizError('Geen vragen konden worden gegenereerd');
-        addLog(`Failed to generate questions: Invalid response format`);
-        console.error('Invalid response format:', data);
+        setQuizError('Geen vragen konden worden gegenereerd. Controleer of er content beschikbaar is voor dit boek/hoofdstuk.');
+        addLog(`Failed to generate questions: Invalid response format or no questions returned`);
+        console.error('Invalid response format or no questions:', data);
       }
     } catch (err) {
       console.error('Error in generateQuiz:', err);
-      setQuizError(`Er is een onverwachte fout opgetreden`);
+      setQuizError(`Er is een onverwachte fout opgetreden: ${err instanceof Error ? err.message : 'Onbekende fout'}`);
       addLog(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsGenerating(false);
@@ -272,14 +337,6 @@ const QuizPage = () => {
     generateQuiz();
   };
   
-  const handleBackToBook = () => {
-    if (bookId) {
-      navigate(`/books/${bookId}`);
-    } else {
-      navigate('/books');
-    }
-  };
-  
   const forceNextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
       addLog(`FORCE: Moving to next question (${currentQuestionIndex + 1})`);
@@ -312,8 +369,12 @@ const QuizPage = () => {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{quizError}</AlertDescription>
         </Alert>
-        <div className="flex justify-end mt-4">
-          <Button onClick={handleBackToHome}>Sluiten</Button>
+        <div className="flex justify-between mt-4">
+          <Button variant="outline" onClick={handleBackToBook}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Terug naar boek
+          </Button>
+          <Button onClick={generateQuiz}>Probeer opnieuw</Button>
         </div>
       </>
     );
@@ -322,11 +383,26 @@ const QuizPage = () => {
   const renderEmptyContent = () => {
     return (
       <div className="flex flex-col items-center justify-center space-y-4 p-6">
-        <p className="text-center text-muted-foreground">
-          Geen quizvragen beschikbaar.
-        </p>
-        <Button onClick={generateQuiz}>Genereer quiz</Button>
-        <Button variant="outline" onClick={handleBackToHome}>Terug naar home</Button>
+        <Alert variant="warning" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Voor het genereren van een quiz is een boek, hoofdstuk of paragraaf nodig.
+            Ga naar een boekdetailpagina om een quiz te starten.
+          </AlertDescription>
+        </Alert>
+        
+        {bookId ? (
+          <div className="space-y-4 w-full max-w-md">
+            <p className="text-center text-muted-foreground">
+              {bookId && !chapterId && 'Genereer een quiz over het hele boek:'}
+              {chapterId && !paragraphId && `Genereer een quiz over hoofdstuk ${chapterId}:`}
+              {paragraphId && `Genereer een quiz over paragraaf ${paragraphId}:`}
+            </p>
+            <Button onClick={generateQuiz} className="w-full">Genereer quiz</Button>
+          </div>
+        ) : (
+          <Button variant="outline" onClick={handleBackToHome} className="mt-4">Terug naar home</Button>
+        )}
       </div>
     );
   };
@@ -576,6 +652,15 @@ const QuizPage = () => {
               <AccordionContent className="p-4 bg-gray-50 text-xs">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-gray-100 p-1 rounded">
+                    <span className="font-bold">Book ID:</span> {bookId || 'None'}
+                  </div>
+                  <div className="bg-gray-100 p-1 rounded">
+                    <span className="font-bold">Chapter ID:</span> {chapterId || 'None'}
+                  </div>
+                  <div className="bg-gray-100 p-1 rounded">
+                    <span className="font-bold">Paragraph ID:</span> {paragraphId || 'None'}
+                  </div>
+                  <div className="bg-gray-100 p-1 rounded">
                     <span className="font-bold">Questions:</span> {questions.length}
                   </div>
                   <div className="bg-gray-100 p-1 rounded">
@@ -604,6 +689,19 @@ const QuizPage = () => {
                     <Bug className="mr-1 h-3 w-3" />
                     Force Next Question
                   </Button>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="api">
+              <AccordionTrigger className="px-4 py-2">
+                API Response
+              </AccordionTrigger>
+              <AccordionContent className="p-4 bg-gray-50">
+                <div className="text-xs font-mono whitespace-pre-wrap bg-gray-100 p-2 rounded border border-gray-200 overflow-x-auto max-h-80 overflow-y-auto">
+                  {debugData.apiResponse ? 
+                    JSON.stringify(debugData.apiResponse, null, 2) : 
+                    'Geen API response beschikbaar'}
                 </div>
               </AccordionContent>
             </AccordionItem>
