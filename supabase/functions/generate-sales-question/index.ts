@@ -1,3 +1,4 @@
+
 // @deno-types="https://deno.land/x/xhr@0.1.0/deno.d.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -126,27 +127,34 @@ serve(async (req) => {
       }
     }
     
-    // Create a prompt that requests multiple questions
+    // Create a prompt that uses the improved structure with explanations and dynamic question generation
     const systemPrompt = `Je bent een ervaren Nederlandse docent die gespecialiseerd is in sales en marketing. 
     Je taak is om uitstekende quizvragen te maken over het Basisboek Sales.
     
-    Elke vraag moet uniek en informatief zijn, gericht op verschillende aspecten van sales en marketing.`;
+    Elke vraag moet uniek en informatief zijn, gericht op verschillende aspecten van sales en marketing.
+    Vraag moeten diepgaand inzicht toetsen in de concepten en hun praktische toepassing.`;
     
+    // User prompt rewritten based on the improved version from generate-quiz
     const userPrompt = `Genereer ${count} verschillende meerkeuzevragen over sales${bookContent ? ' gebaseerd op de volgende inhoud' : ''}.
     
     ${bookContent ? `Boektitel: ${bookTitle}\n\nInhoud:\n${bookContent}\n\n` : ''}
     
-    Elke vraag moet:
-    1. Relevant zijn voor het onderwerp sales${bookContent ? ` en specifiek gaan over de inhoud van ${contextDescription}` : ''}
-    2. Vier antwoordopties hebben (A, B, C, D), waarvan er precies één correct is
-    3. Een duidelijk correcte optie hebben
+    Vereisten voor de vragen:
+    1. Dynamisch aantal vragen: Op basis van de lengte en inhoud van de paragraaf. Kortere paragrafen krijgen minder vragen, langere paragrafen meer. Genereer maximaal ${count} vragen.
+    2. Relevantie: De vragen moeten relevant zijn voor het onderwerp sales${bookContent ? ` en specifiek gaan over de inhoud van ${contextDescription}` : ''}
+    3. Diepgang: De vragen moeten zowel feitelijke kennis als begrip testen (bijv. onderscheid tussen concepten, praktische toepassingen).
+    4. Scenario-gebaseerde vragen: Enkele vragen moeten de stof in een realistische context plaatsen.
+    5. Geen letterlijke kopie: De vragen moeten de stof testen zonder exacte zinnen uit de tekst over te nemen.
+    6. Opties: Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
+    7. Uitgebreide uitleg: Naast het juiste antwoord moet ook worden uitgelegd waarom dit correct is en waarom de andere opties fout zijn.
     
     Retourneer de vragen in een JSON array met de volgende structuur:
     [
       {
         "question": "De vraag in het Nederlands",
-        "options": ["Optie 1", "Optie 2", "Optie 3", "Optie 4"],
-        "correct": "A" (of B, C, D afhankelijk van welk antwoord correct is)
+        "options": ["A. Optie 1", "B. Optie 2", "C. Optie 3", "D. Optie 4"],
+        "correct": "A" (of B, C, D afhankelijk van welk antwoord correct is),
+        "explanation": "Uitleg waarom dit antwoord correct is en waarom de andere opties incorrect zijn."
       },
       ...meer vragen...
     ]
@@ -172,7 +180,7 @@ serve(async (req) => {
           }
         ],
         temperature: 0.7,
-        max_tokens: 2000, // Increased to allow for more questions
+        max_tokens: 2000, // Increased to allow for more questions and explanations
       }),
     });
 
@@ -222,6 +230,22 @@ serve(async (req) => {
     if (questions.length === 0) {
       throw new Error('No questions were generated');
     }
+    
+    // Validate and format each question
+    questions = questions.filter(q => {
+      const isValid = q && 
+        typeof q.question === 'string' && 
+        Array.isArray(q.options) && 
+        q.options.length === 4 && 
+        typeof q.correct === 'string' && 
+        ["A", "B", "C", "D"].includes(q.correct) &&
+        typeof q.explanation === 'string';
+      
+      if (!isValid) {
+        console.warn('Filtered out invalid question:', JSON.stringify(q));
+      }
+      return isValid;
+    });
     
     console.log(`Returning ${questions.length} questions`);
 
