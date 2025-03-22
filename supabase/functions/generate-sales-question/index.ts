@@ -31,7 +31,7 @@ serve(async (req) => {
       debug = false 
     } = requestData;
     
-    console.log(`Generating ${count} sales questions with context:`, {
+    console.log(`Generating sales questions with context:`, {
       bookId: bookId || 'not specified',
       chapterId: chapterId || 'not specified',
       paragraphId: paragraphId || 'not specified'
@@ -132,7 +132,7 @@ serve(async (req) => {
     Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen.
     Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.`;
     
-    // Updated user prompt based on the improved version from generate-quiz
+    // Updated user prompt to emphasize comprehensive coverage without specific numbers
     const userPrompt = `
     Invoer:
     ${bookTitle ? `Boektitel: ${bookTitle}\n` : ''}
@@ -141,7 +141,7 @@ serve(async (req) => {
     Inhoud: ${bookContent}
     
     Vereisten voor de vragen:
-    1. Dynamisch aantal vragen: Op basis van de lengte en inhoud van de paragraaf. Kortere paragrafen krijgen minder vragen, langere paragrafen meer. Genereer ${count} vragen, of zoveel als nodig is om de stof volledig te dekken.
+    1. Uitgebreide dekking: Zorg ervoor dat ALLE concepten, subconcepten en details uit de tekst worden behandeld. Genereer zoveel vragen als nodig om de stof volledig te dekken, zonder limiet. Maak veel vragen die samen alle aspecten van de stof behandelen.
     2. Relevantie: De vragen moeten relevant zijn voor het onderwerp sales${bookContent ? ` en specifiek gaan over de inhoud van ${contextDescription}` : ''}
     3. Diepgang: De vragen moeten zowel feitelijke kennis als begrip testen (bijv. onderscheid tussen concepten, praktische toepassingen).
     4. Scenario-gebaseerde vragen: Enkele vragen moeten de stof in een realistische context plaatsen.
@@ -162,7 +162,7 @@ serve(async (req) => {
     
     Belangrijk:
     - Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
-    - Bepaal het aantal vragen dynamisch op basis van de paragraaflengte en complexiteit.
+    - Behandel elk concept, elke term en elk detail uit de tekst in de vragen.
     - De uitleg moet helder en bondig zijn, en aangeven waarom het juiste antwoord correct is en waarom de andere opties fout zijn.
     - Scenario's en denkvragen toevoegen voor een diepgaand begrip.`;
     
