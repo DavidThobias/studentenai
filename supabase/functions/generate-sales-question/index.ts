@@ -141,7 +141,7 @@ serve(async (req) => {
     Inhoud: ${bookContent}
     
     Vereisten voor de vragen:
-    1. Dynamisch aantal vragen: Op basis van de lengte en inhoud van de paragraaf. Kortere paragrafen krijgen minder vragen, langere paragrafen meer. Genereer maximaal ${count} vragen.
+    1. Dynamisch aantal vragen: Op basis van de lengte en inhoud van de paragraaf. Kortere paragrafen krijgen minder vragen, langere paragrafen meer. Genereer ${count} vragen, of zoveel als nodig is om de stof volledig te dekken.
     2. Relevantie: De vragen moeten relevant zijn voor het onderwerp sales${bookContent ? ` en specifiek gaan over de inhoud van ${contextDescription}` : ''}
     3. Diepgang: De vragen moeten zowel feitelijke kennis als begrip testen (bijv. onderscheid tussen concepten, praktische toepassingen).
     4. Scenario-gebaseerde vragen: Enkele vragen moeten de stof in een realistische context plaatsen.
