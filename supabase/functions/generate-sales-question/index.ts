@@ -127,17 +127,18 @@ serve(async (req) => {
       }
     }
     
-    // Create a prompt that uses the improved structure with explanations and dynamic question generation
-    const systemPrompt = `Je bent een ervaren Nederlandse docent die gespecialiseerd is in sales en marketing. 
-    Je taak is om uitstekende quizvragen te maken over het Basisboek Sales.
+    // Updated system prompt with more educational focus
+    const systemPrompt = `Je bent een AI gespecialiseerd in het genereren van educatieve meerkeuzevragen om gebruikers volledig inzicht te geven in sales en marketing concepten. 
+    Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen.
+    Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.`;
     
-    Elke vraag moet uniek en informatief zijn, gericht op verschillende aspecten van sales en marketing.
-    Vraag moeten diepgaand inzicht toetsen in de concepten en hun praktische toepassing.`;
+    // Updated user prompt based on the improved version from generate-quiz
+    const userPrompt = `
+    Invoer:
+    ${bookTitle ? `Boektitel: ${bookTitle}\n` : ''}
+    ${contextDescription ? `Context: ${contextDescription}\n` : ''}
     
-    // User prompt rewritten based on the improved version from generate-quiz
-    const userPrompt = `Genereer ${count} verschillende meerkeuzevragen over sales${bookContent ? ' gebaseerd op de volgende inhoud' : ''}.
-    
-    ${bookContent ? `Boektitel: ${bookTitle}\n\nInhoud:\n${bookContent}\n\n` : ''}
+    Inhoud: ${bookContent}
     
     Vereisten voor de vragen:
     1. Dynamisch aantal vragen: Op basis van de lengte en inhoud van de paragraaf. Kortere paragrafen krijgen minder vragen, langere paragrafen meer. Genereer maximaal ${count} vragen.
@@ -159,7 +160,11 @@ serve(async (req) => {
       ...meer vragen...
     ]
     
-    Zorg ervoor dat de vragen niet te lang zijn en dat ze verschillende onderwerpen binnen sales behandelen.`;
+    Belangrijk:
+    - Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
+    - Bepaal het aantal vragen dynamisch op basis van de paragraaflengte en complexiteit.
+    - De uitleg moet helder en bondig zijn, en aangeven waarom het juiste antwoord correct is en waarom de andere opties fout zijn.
+    - Scenario's en denkvragen toevoegen voor een diepgaand begrip.`;
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
