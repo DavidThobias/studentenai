@@ -34,6 +34,7 @@ const QuizPage = () => {
   const [quizTitle, setQuizTitle] = useState<string>("Quiz");
   const [isStructuredLearning, setIsStructuredLearning] = useState(false);
   const [questionCount, setQuestionCount] = useState(5);
+  const [hasSelectedChapter, setHasSelectedChapter] = useState(false);
 
   // Initialize hooks
   const {
@@ -123,6 +124,7 @@ const QuizPage = () => {
       setQuizTitle(`Quiz over paragraaf ${paragraphIdParam}`);
     } else if (chapterIdParam) {
       setQuizTitle(`Quiz over hoofdstuk ${chapterIdParam}`);
+      setHasSelectedChapter(true);
     } else if (bookIdParam) {
       setQuizTitle("Quiz over het boek");
     } else {
@@ -130,18 +132,22 @@ const QuizPage = () => {
     }
     
     // Handle structured learning mode
-    if (structuredMode && chapterIdParam) {
-      fetchAllParagraphsForChapter(parseInt(chapterIdParam));
-      
-      // If paragraph ID specified, start quiz for that paragraph
-      if (paragraphIdParam) {
-        const numericParagraphId = parseInt(paragraphIdParam);
-        setParagraphId(numericParagraphId);
-        generateQuizForParagraph(numericParagraphId);
+    if (structuredMode) {
+      if (chapterIdParam) {
+        setHasSelectedChapter(true);
+        fetchAllParagraphsForChapter(parseInt(chapterIdParam));
+        
+        // If paragraph ID specified, start quiz for that paragraph
+        if (paragraphIdParam) {
+          const numericParagraphId = parseInt(paragraphIdParam);
+          setParagraphId(numericParagraphId);
+          generateQuizForParagraph(numericParagraphId);
+        }
+      } else if (bookIdParam) {
+        // If structured learning but no chapter selected, show chapter selection
+        addLog('Structured learning mode without chapter - showing chapter selection');
+        setHasSelectedChapter(false);
       }
-    } else if (structuredMode && bookIdParam && !chapterIdParam) {
-      // If structured learning but no chapter selected, just show chapter selection
-      addLog('Structured learning mode without chapter - showing chapter selection');
     } else {
       // Regular quiz mode - load saved state or generate new quiz
       const { hasValidContext, hasQuestions } = loadSavedQuizState(bookIdParam, chapterIdParam, paragraphIdParam);
@@ -169,6 +175,7 @@ const QuizPage = () => {
   const handleChapterSelect = (selectedChapterId: string) => {
     const numericChapterId = parseInt(selectedChapterId);
     setChapterId(numericChapterId);
+    setHasSelectedChapter(true);
     setQuizTitle(`Quiz over hoofdstuk ${numericChapterId}`);
     addLog(`Selected chapter: ${numericChapterId}`);
     
@@ -185,8 +192,8 @@ const QuizPage = () => {
   };
 
   const handleGenerateQuiz = () => {
-    if (isStructuredLearning && paragraphs.length > 0) {
-      // In structured mode, start with first paragraph if none selected
+    if (isStructuredLearning && hasSelectedChapter && paragraphs.length > 0) {
+      // In structured mode with selected chapter, start with first paragraph if none selected
       if (!paragraphId && paragraphs.length > 0) {
         const firstParagraph = paragraphs[0];
         handleSelectParagraph(firstParagraph.id);
@@ -238,7 +245,7 @@ const QuizPage = () => {
       <div className="max-w-5xl mx-auto">
         <h1 className="text-3xl font-bold tracking-tight mb-6">{quizTitle}</h1>
         
-        {isStructuredLearning && progressData.length > 0 && (
+        {isStructuredLearning && hasSelectedChapter && progressData.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-xl font-semibold">Voortgang hoofdstuk</h2>
@@ -251,7 +258,7 @@ const QuizPage = () => {
         )}
         
         <div className="flex flex-col lg:flex-row gap-6">
-          {isStructuredLearning && paragraphs.length > 0 && (
+          {isStructuredLearning && hasSelectedChapter && paragraphs.length > 0 && (
             <QuizSidebar 
               paragraphs={paragraphs} 
               progressData={progressData}
@@ -261,7 +268,7 @@ const QuizPage = () => {
           )}
           
           <div className="flex-1 bg-card p-6 rounded-lg shadow-sm border">
-            {isStructuredLearning && !paragraphId && paragraphs.length > 0 && !isGenerating && (
+            {isStructuredLearning && hasSelectedChapter && !paragraphId && paragraphs.length > 0 && !isGenerating && (
               <div className="text-center py-8">
                 <h3 className="text-xl font-medium mb-4">Selecteer een paragraaf om te beginnen</h3>
                 <p className="text-muted-foreground mb-6">
@@ -288,7 +295,8 @@ const QuizPage = () => {
               />
             )}
             
-            {!isGenerating && !quizError && questions.length === 0 && !(isStructuredLearning && paragraphs.length > 0 && !paragraphId) && (
+            {!isGenerating && !quizError && questions.length === 0 && 
+             !(isStructuredLearning && hasSelectedChapter && paragraphs.length > 0 && !paragraphId) && (
               <QuizEmpty 
                 bookId={bookId}
                 chapterId={chapterId}

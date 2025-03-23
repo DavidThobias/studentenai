@@ -55,10 +55,13 @@ const QuizEmpty = ({
         </>
       ) : (
         <div className="space-y-6 w-full max-w-md">
-          {bookId && !chapterId && availableChapters.length > 0 && (
+          {bookId && availableChapters.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-lg font-medium">Selecteer een hoofdstuk</h3>
-              <Select onValueChange={onChapterSelect}>
+              <Select 
+                value={chapterId?.toString()} 
+                onValueChange={onChapterSelect}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Kies een hoofdstuk" />
                 </SelectTrigger>
@@ -99,11 +102,13 @@ const QuizEmpty = ({
           <Button 
             onClick={onGenerateQuiz} 
             className="w-full"
-            disabled={!bookId || (availableChapters.length > 0 && !chapterId)}
+            disabled={!bookId || (isStructuredLearning && availableChapters.length > 0 && !chapterId)}
           >
             <BookCheck className="mr-2 h-4 w-4" />
             {isStructuredLearning 
-              ? 'Start gestructureerd leren' 
+              ? chapterId 
+                ? 'Start gestructureerd leren' 
+                : 'Selecteer een hoofdstuk om door te gaan'
               : bookId && !chapterId 
                 ? 'Genereer quiz over het boek'
                 : chapterId && !paragraphId 
