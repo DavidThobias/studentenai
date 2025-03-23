@@ -1,5 +1,5 @@
 
-// @deno-types="https://deno.land/x/xhr@0.1.0/deno.d.ts"
+// @deno-types="https://deno.land/x/xhr@0.1.0/mod.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -86,23 +86,46 @@ serve(async (req) => {
         contextDescription = `hoofdstuk ${chapterId} van ${contextDescription}`;
       }
       
-      // Add paragraph filter if specified
-      if (paragraphId && chapterId) {
-        query = query.eq('paragraph_number', paragraphId);
-        contextDescription = `paragraaf ${paragraphId} van ${contextDescription}`;
-      }
+      // IMPORTANT FIX: If paragraphId is specified, we need to query by ID, not by paragraph_number
+      let paragraphs;
+      let paragraphsError;
       
-      // Limit and order results
-      const { data: paragraphs, error: paragraphsError } = await query
-        .order('chapter_number', { ascending: true })
-        .order('paragraph_number', { ascending: true });
+      if (paragraphId && chapterId) {
+        // First get the specific paragraph by its ID
+        console.log(`Fetching specific paragraph with ID: ${paragraphId}`);
+        const { data: specificParagraph, error: specificError } = await supabase
+          .from('books')
+          .select('content, chapter_number, paragraph_number, chapter_title')
+          .eq('id', paragraphId)
+          .maybeSingle();
+        
+        if (specificError) {
+          console.error(`Error fetching specific paragraph: ${JSON.stringify(specificError)}`);
+          paragraphsError = specificError;
+        } else if (!specificParagraph) {
+          console.error(`No paragraph found with ID: ${paragraphId}`);
+          paragraphsError = new Error(`No paragraph found with ID: ${paragraphId}`);
+        } else {
+          paragraphs = [specificParagraph];
+          contextDescription = `paragraaf ${specificParagraph.paragraph_number} van ${contextDescription}`;
+          console.log(`Found paragraph ${specificParagraph.paragraph_number} with ID ${paragraphId}`);
+        }
+      } else {
+        // Get all paragraphs for the chapter
+        const result = await query
+          .order('chapter_number', { ascending: true })
+          .order('paragraph_number', { ascending: true });
+        
+        paragraphs = result.data;
+        paragraphsError = result.error;
+      }
       
       if (!paragraphsError && paragraphs && paragraphs.length > 0) {
         // If there's paragraph-specific content, use it
         if (paragraphId && paragraphs.length === 1) {
           const paragraph = paragraphs[0];
           bookContent = `Hoofdstuk ${paragraph.chapter_number} (${paragraph.chapter_title}), Paragraaf ${paragraph.paragraph_number}:\n\n${paragraph.content}`;
-          console.log(`Fetched specific paragraph ${paragraphId} from chapter ${chapterId}`);
+          console.log(`Using content from paragraph ${paragraph.paragraph_number} (ID: ${paragraphId})`);
         } 
         // If there's chapter-specific content, use all paragraphs from that chapter
         else if (chapterId) {

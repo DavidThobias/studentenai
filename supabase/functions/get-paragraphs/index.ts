@@ -11,6 +11,7 @@ const corsHeaders = {
 
 interface RequestBody {
   chapterId: number;
+  paragraphId?: number; // Add paragraphId as an optional parameter
 }
 
 interface TableInfoArgs {
@@ -26,13 +27,13 @@ serve(async (req) => {
   try {
     // Explicitly type the request body
     const body = await req.json() as RequestBody;
-    const { chapterId } = body;
+    const { chapterId, paragraphId } = body;
     
     if (!chapterId) {
       throw new Error('Chapter ID is required');
     }
 
-    console.log(`Fetching paragraphs for chapter ${chapterId}`);
+    console.log(`Fetching paragraphs for chapter ${chapterId}${paragraphId ? ` and paragraph ${paragraphId}` : ''}`);
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -53,10 +54,18 @@ serve(async (req) => {
     }
     
     // Get all paragraphs for this chapter
-    const { data: paragraphs, error: paragraphsError } = await supabase
+    let query = supabase
       .from('books')
       .select('id, paragraph_number, content, chapter_number')
-      .eq('chapter_number', chapterId)
+      .eq('chapter_number', chapterId);
+    
+    // If a specific paragraph ID is provided, filter by that as well
+    if (paragraphId) {
+      console.log(`Filtering by specific paragraph ID: ${paragraphId}`);
+      query = query.eq('id', paragraphId);
+    }
+    
+    const { data: paragraphs, error: paragraphsError } = await query
       .order('paragraph_number', { ascending: true });
       
     if (paragraphsError) {
