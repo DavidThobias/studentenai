@@ -13,7 +13,8 @@ import {
   EyeOff, 
   ArrowLeft, 
   BookOpen,
-  ChevronRight
+  ChevronRight,
+  BookCheck
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +26,13 @@ import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export interface QuizQuestion {
   question: string;
@@ -48,6 +56,12 @@ interface ParagraphData {
   paragraph_number?: number;
   content?: string;
   chapter_number: number;
+}
+
+interface ChapterData {
+  id: number;
+  chapter_number: number;
+  chapter_title?: string;
 }
 
 const QuizPage = () => {
@@ -86,6 +100,11 @@ const QuizPage = () => {
   });
   const [stateLog, setStateLog] = useState<string[]>([]);
   
+  // Added state for available chapters
+  const [availableChapters, setAvailableChapters] = useState<ChapterData[]>([]);
+  const [questionCount, setQuestionCount] = useState<number>(5);
+  const [isLoadingChapters, setIsLoadingChapters] = useState(false);
+  
   useEffect(() => {
     const bookIdParam = searchParams.get('bookId');
     const chapterIdParam = searchParams.get('chapterId');
@@ -100,12 +119,18 @@ const QuizPage = () => {
       const numericBookId = parseInt(bookIdParam);
       setBookId(numericBookId);
       addLog(`Setting bookId from URL: ${numericBookId}`);
+      
+      // Fetch available chapters for this book
+      fetchChaptersForBook(numericBookId);
     } else {
       const savedBookId = localStorage.getItem('quizBookId');
       if (savedBookId) {
         const numericBookId = parseInt(savedBookId);
         setBookId(numericBookId);
         addLog(`Setting bookId from localStorage fallback: ${numericBookId}`);
+        
+        // Fetch available chapters for this book
+        fetchChaptersForBook(numericBookId);
       } else {
         addLog('No bookId found in URL or localStorage');
       }
@@ -201,6 +226,44 @@ const QuizPage = () => {
     } else if (!hasValidContext) {
       addLog('Missing required context (bookId) for auto-generation');
       setQuizError('Geen boek geselecteerd. Ga terug naar een boek en start de quiz daar.');
+    }
+  };
+
+  // New function to fetch chapters for a book
+  const fetchChaptersForBook = async (bookId: number) => {
+    try {
+      setIsLoadingChapters(true);
+      addLog(`Fetching chapters for book ${bookId}`);
+      
+      const { data, error } = await supabase
+        .from('books')
+        .select('id, chapter_number, chapter_title')
+        .eq('book_id', bookId)
+        .order('chapter_number', { ascending: true })
+        .distinct('chapter_number');
+      
+      if (error) {
+        console.error('Error fetching chapters:', error);
+        addLog(`Error fetching chapters: ${error.message}`);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        // Process the chapters to make sure we have unique chapter numbers
+        const uniqueChapters = data.filter((chapter, index, self) => 
+          index === self.findIndex(c => c.chapter_number === chapter.chapter_number)
+        );
+        
+        setAvailableChapters(uniqueChapters);
+        addLog(`Fetched ${uniqueChapters.length} chapters for book ${bookId}`);
+      } else {
+        addLog(`No chapters found for book ${bookId}`);
+      }
+    } catch (err) {
+      console.error('Error in fetchChaptersForBook:', err);
+      addLog(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsLoadingChapters(false);
     }
   };
   
@@ -362,38 +425,40 @@ const QuizPage = () => {
     }
   };
   
-  const generateQuiz = async (questionCountOrEvent?: number | React.MouseEvent<HTMLButtonElement>) => {
+  // Updated generateQuiz function to use questionCount parameter properly
+  const generateQuiz = async (customQuestionCount?: number) => {
+    // Use either the provided custom count or the state value, with default fallback to 5
+    const count = customQuestionCount || questionCount || 5;
+    
     if (!isStructuredLearning) {
-      if (typeof questionCountOrEvent === 'number') {
-        const questionCount = questionCountOrEvent;
-        setIsGenerating(true);
-        setQuizError(null);
-        setQuestions([]);
-        setCurrentQuestionIndex(0);
-        setSelectedAnswer(null);
-        setIsAnswerSubmitted(false);
-        setScore(0);
-        setIsQuizComplete(false);
-        
-        addLog(`Generating ${questionCount} quiz questions for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}`);
-        
-        const payload: any = { 
-          count: questionCount, 
-          debug: true 
-        };
-        
-        if (bookId) payload.bookId = bookId;
-        if (chapterId) payload.chapterId = chapterId;
-        if (paragraphId) payload.paragraphId = paragraphId;
-        
-        addLog(`Sending payload to generate-sales-question: ${JSON.stringify(payload)}`);
-        
+      setIsGenerating(true);
+      setQuizError(null);
+      setQuestions([]);
+      setCurrentQuestionIndex(0);
+      setSelectedAnswer(null);
+      setIsAnswerSubmitted(false);
+      setScore(0);
+      setIsQuizComplete(false);
+      
+      addLog(`Generating ${count} quiz questions for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}`);
+      
+      const payload: any = { 
+        count: count, 
+        debug: true 
+      };
+      
+      if (bookId) payload.bookId = bookId;
+      if (chapterId) payload.chapterId = chapterId;
+      if (paragraphId) payload.paragraphId = paragraphId;
+      
+      addLog(`Sending payload to generate-sales-question: ${JSON.stringify(payload)}`);
+      
+      try {
         const { data, error } = await supabase.functions.invoke('generate-sales-question', {
           body: payload
         });
         
         if (data) {
-          debugData.apiResponse = data;
           setDebugData({...debugData, apiResponse: data});
           addLog(`Full API response received: ${JSON.stringify(data).substring(0, 100)}...`);
           console.log('Full API response:', data);
@@ -442,6 +507,11 @@ const QuizPage = () => {
           addLog(`Failed to generate questions: Invalid response format or no questions returned`);
           console.error('Invalid response format or no questions:', data);
         }
+      } catch (err) {
+        console.error('Error in generateQuiz:', err);
+        setQuizError(`Er is een onverwachte fout opgetreden: ${err instanceof Error ? err.message : 'Onbekende fout'}`);
+      } finally {
+        setIsGenerating(false);
       }
     } else if (paragraphId) {
       generateQuizForParagraph(paragraphId);
@@ -453,6 +523,31 @@ const QuizPage = () => {
       } else {
         setQuizError('Geen hoofdstuk geselecteerd om quiz te genereren');
       }
+    }
+  };
+
+  // New function to handle chapter selection
+  const handleChapterSelect = (selectedChapterId: string) => {
+    const numericChapterId = parseInt(selectedChapterId);
+    setChapterId(numericChapterId);
+    setQuizTitle(`Quiz over hoofdstuk ${numericChapterId}`);
+    addLog(`Selected chapter: ${numericChapterId}`);
+    
+    // Reset paragraph-specific state
+    setParagraphId(null);
+    setParagraphs([]);
+    setProgressData([]);
+    
+    if (isStructuredLearning) {
+      fetchAllParagraphsForChapter(numericChapterId);
+    } else {
+      // Clear current quiz for non-structured learning
+      setQuestions([]);
+      setCurrentQuestionIndex(0);
+      setSelectedAnswer(null);
+      setIsAnswerSubmitted(false);
+      setScore(0);
+      setIsQuizComplete(false);
     }
   };
 
@@ -614,28 +709,82 @@ const QuizPage = () => {
     );
   };
 
+  // Updated empty state with chapter selector
   const renderEmptyContent = () => {
     return (
       <div className="flex flex-col items-center justify-center space-y-4 p-6">
-        <Alert variant="warning" className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Voor het genereren van een quiz is een boek, hoofdstuk of paragraaf nodig.
-            Ga naar een boekdetailpagina om een quiz te starten.
-          </AlertDescription>
-        </Alert>
-        
-        {bookId ? (
-          <div className="space-y-4 w-full max-w-md">
-            <p className="text-center text-muted-foreground">
-              {bookId && !chapterId && 'Genereer een quiz over het hele boek:'}
-              {chapterId && !paragraphId && `Genereer een quiz over hoofdstuk ${chapterId}:`}
-              {paragraphId && `Genereer een quiz over paragraaf ${paragraphId}:`}
-            </p>
-            <Button onClick={generateQuiz} className="w-full">Genereer quiz</Button>
-          </div>
+        {!bookId ? (
+          <>
+            <Alert variant="warning" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Voor het genereren van een quiz is een boek, hoofdstuk of paragraaf nodig.
+                Ga naar een boekdetailpagina om een quiz te starten.
+              </AlertDescription>
+            </Alert>
+            <Button variant="outline" onClick={handleBackToHome} className="mt-4">
+              Terug naar home
+            </Button>
+          </>
         ) : (
-          <Button variant="outline" onClick={handleBackToHome} className="mt-4">Terug naar home</Button>
+          <div className="space-y-6 w-full max-w-md">
+            {bookId && !chapterId && availableChapters.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">Selecteer een hoofdstuk</h3>
+                <Select onValueChange={handleChapterSelect}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Kies een hoofdstuk" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableChapters.map((chapter) => (
+                      <SelectItem 
+                        key={chapter.id} 
+                        value={chapter.chapter_number.toString()}
+                      >
+                        Hoofdstuk {chapter.chapter_number}: {chapter.chapter_title || ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <h3 className="text-lg font-medium">Aantal vragen</h3>
+              <Select 
+                defaultValue={questionCount.toString()} 
+                onValueChange={(value) => setQuestionCount(parseInt(value))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Aantal vragen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3 vragen</SelectItem>
+                  <SelectItem value="5">5 vragen</SelectItem>
+                  <SelectItem value="10">10 vragen</SelectItem>
+                  <SelectItem value="15">15 vragen</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Button 
+              onClick={() => generateQuiz()} 
+              className="w-full"
+              disabled={!bookId || (availableChapters.length > 0 && !chapterId)}
+            >
+              <BookCheck className="mr-2 h-4 w-4" />
+              {bookId && !chapterId && 'Genereer quiz over het boek'}
+              {chapterId && !paragraphId && `Genereer quiz over hoofdstuk ${chapterId}`}
+              {paragraphId && `Genereer quiz over paragraaf ${paragraphId}`}
+            </Button>
+            
+            {isLoadingChapters && (
+              <div className="flex items-center justify-center">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <span className="text-sm text-muted-foreground">Hoofdstukken laden...</span>
+              </div>
+            )}
+          </div>
         )}
       </div>
     );
@@ -735,344 +884,4 @@ const QuizPage = () => {
               <h3 className="font-medium mb-2">Paragraaf inhoud:</h3>
               <p className="text-sm whitespace-pre-line">{currentParagraphContent}</p>
               <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={toggleParagraphContent}
-                className="mt-2"
-              >
-                Verberg inhoud
-              </Button>
-            </div>
-          )}
-          
-          <RadioGroup
-            value={selectedAnswer?.toString()}
-            onValueChange={(value) => handleAnswerSelect(parseInt(value))}
-            className="space-y-3"
-            disabled={isAnswerSubmitted}
-          >
-            {currentQuestion.options.map((option, index) => (
-              <div
-                key={index}
-                className={`flex items-center space-x-2 rounded-lg border p-4 ${
-                  isAnswerSubmitted
-                    ? index === currentQuestion.correctAnswer
-                      ? 'border-green-500 bg-green-50'
-                      : index === selectedAnswer
-                      ? 'border-red-500 bg-red-50'
-                      : ''
-                    : 'hover:border-primary'
-                }`}
-              >
-                <RadioGroupItem value={index.toString()} id={`option-${index}`} />
-                <Label htmlFor={`option-${index}`} className="flex-grow cursor-pointer">
-                  {option}
-                </Label>
-                {isAnswerSubmitted && (
-                  <div className="ml-2">
-                    {index === currentQuestion.correctAnswer ? (
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                    ) : index === selectedAnswer ? (
-                      <XCircle className="h-5 w-5 text-red-500" />
-                    ) : null}
-                  </div>
-                )}
-              </div>
-            ))}
-          </RadioGroup>
-
-          {isAnswerSubmitted && showExplanation && (
-            <Alert className="mt-4">
-              <HelpCircle className="h-4 w-4" />
-              <AlertTitle>Uitleg</AlertTitle>
-              <AlertDescription>
-                {currentQuestion.explanation}
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-        <CardFooter className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0">
-          <div className="flex items-center space-x-2">
-            {isStructuredLearning && (
-              <Button
                 variant="outline"
-                size="sm"
-                onClick={toggleParagraphContent}
-              >
-                {showParagraphContent ? 'Verberg inhoud' : 'Toon inhoud'}
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleToggleExplanation}
-              disabled={!isAnswerSubmitted}
-            >
-              {showExplanation ? 'Verberg uitleg' : 'Toon uitleg'}
-            </Button>
-          </div>
-          <div className="flex items-center space-x-2">
-            {!isAnswerSubmitted ? (
-              <Button
-                onClick={handleSubmitAnswer}
-                disabled={selectedAnswer === null}
-              >
-                Controleer antwoord
-              </Button>
-            ) : (
-              <Button onClick={handleNextQuestion} className="animate-pulse">
-                {currentQuestionIndex < questions.length - 1 ? (
-                  <>
-                    Volgende vraag
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                ) : (
-                  'Bekijk resultaten'
-                )}
-              </Button>
-            )}
-          </div>
-        </CardFooter>
-      </Card>
-    );
-  };
-
-  const renderStructuredLearningNavigation = () => {
-    if (!isStructuredLearning || isFetchingParagraphs) return null;
-    
-    return (
-      <div className="w-full md:w-64 lg:w-72 flex-shrink-0 mb-6 md:mb-0 md:mr-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Hoofdstuk voortgang
-              <Badge className="ml-2" variant="outline">{calculateChapterProgress()}%</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Progress value={calculateChapterProgress()} className="h-3 mb-4" />
-            
-            {paragraphs.length > 0 ? (
-              <div className="space-y-2">
-                {paragraphs.map((paragraph, index) => {
-                  const progress = progressData.find(p => p.id === paragraph.id);
-                  const isActive = paragraphId === paragraph.id;
-                  const paragraphNumber = paragraph.paragraph_number || index + 1;
-                  
-                  return (
-                    <div 
-                      key={paragraph.id} 
-                      className={`p-2 rounded-md border cursor-pointer transition-colors ${
-                        isActive ? 'border-primary bg-primary/5' : 'border-gray-200 hover:bg-gray-50'
-                      }`}
-                      onClick={() => !isGenerating && generateQuizForParagraph(paragraph.id)}
-                    >
-                      <div className="flex items-center">
-                        {progress?.completed ? (
-                          <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                        ) : (
-                          <span className="h-5 w-5 flex items-center justify-center text-xs rounded-full bg-gray-200 text-gray-700 mr-2 flex-shrink-0">
-                            {paragraphNumber}
-                          </span>
-                        )}
-                        <span className="text-sm">Paragraaf {paragraphNumber}</span>
-                      </div>
-                      
-                      {progress?.score !== undefined && progress.totalQuestions !== undefined && (
-                        <div className="ml-6 mt-1 text-xs text-gray-500">
-                          Score: {progress.score}/{progress.totalQuestions}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Geen paragrafen gevonden
-              </p>
-            )}
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" size="sm" onClick={handleBackToBook} className="w-full">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Terug naar boek
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  };
-
-  return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">{quizTitle}</h1>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setShowDebug(!showDebug)}
-          >
-            {showDebug ? (
-              <>
-                <EyeOff className="mr-1 h-4 w-4" />
-                Verberg debug
-              </>
-            ) : (
-              <>
-                <Bug className="mr-1 h-4 w-4" />
-                Debug info
-              </>
-            )}
-          </Button>
-          {!isStructuredLearning && bookId && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleBackToBook}
-            >
-              <ArrowLeft className="mr-1 h-4 w-4" />
-              Terug naar boek
-            </Button>
-          )}
-        </div>
-      </div>
-      
-      <div className="flex flex-col md:flex-row">
-        {renderStructuredLearningNavigation()}
-        
-        <div className="flex-grow">
-          {isGenerating ? (
-            renderLoadingContent()
-          ) : quizError ? (
-            renderErrorContent()
-          ) : questions.length === 0 ? (
-            renderEmptyContent()
-          ) : isQuizComplete ? (
-            renderResultsContent()
-          ) : (
-            renderQuestionContent()
-          )}
-        </div>
-      </div>
-      
-      {showDebug && (
-        <div className="mt-8 border border-gray-200 rounded-md overflow-hidden bg-gray-50 max-w-4xl mx-auto">
-          <h2 className="font-semibold p-4 bg-gray-100 border-b border-gray-200">
-            Debug Informatie
-          </h2>
-          
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="state">
-              <AccordionTrigger className="px-4 py-2">
-                Quiz State
-              </AccordionTrigger>
-              <AccordionContent className="p-4 bg-gray-50 text-xs">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-gray-100 p-1 rounded">
-                    <span className="font-bold">Book ID:</span> {bookId || 'None'}
-                  </div>
-                  <div className="bg-gray-100 p-1 rounded">
-                    <span className="font-bold">Chapter ID:</span> {chapterId || 'None'}
-                  </div>
-                  <div className="bg-gray-100 p-1 rounded">
-                    <span className="font-bold">Paragraph ID:</span> {paragraphId || 'None'}
-                  </div>
-                  <div className="bg-gray-100 p-1 rounded">
-                    <span className="font-bold">Questions:</span> {questions.length}
-                  </div>
-                  <div className="bg-gray-100 p-1 rounded">
-                    <span className="font-bold">Current Index:</span> {currentQuestionIndex}
-                  </div>
-                  <div className="bg-gray-100 p-1 rounded">
-                    <span className="font-bold">Answer Submitted:</span> {isAnswerSubmitted ? 'Yes' : 'No'}
-                  </div>
-                  <div className="bg-gray-100 p-1 rounded">
-                    <span className="font-bold">Score:</span> {score}
-                  </div>
-                  <div className="bg-gray-100 p-1 rounded">
-                    <span className="font-bold">Complete:</span> {isQuizComplete ? 'Yes' : 'No'}
-                  </div>
-                  <div className="bg-gray-100 p-1 rounded">
-                    <span className="font-bold">Selected Answer:</span> {selectedAnswer !== null ? selectedAnswer : 'None'}
-                  </div>
-                  <div className="bg-gray-100 p-1 rounded">
-                    <span className="font-bold">Structured Learning:</span> {isStructuredLearning ? 'Yes' : 'No'}
-                  </div>
-                  <div className="bg-gray-100 p-1 rounded">
-                    <span className="font-bold">Paragraphs:</span> {paragraphs.length}
-                  </div>
-                </div>
-                <div className="mt-2 flex justify-end">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={forceNextQuestion}
-                    className="bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-200"
-                  >
-                    <Bug className="mr-1 h-3 w-3" />
-                    Force Next Question
-                  </Button>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-            
-            <AccordionItem value="api">
-              <AccordionTrigger className="px-4 py-2">
-                API Response
-              </AccordionTrigger>
-              <AccordionContent className="p-4 bg-gray-50">
-                <div className="text-xs font-mono whitespace-pre-wrap bg-gray-100 p-2 rounded border border-gray-200 overflow-x-auto max-h-80 overflow-y-auto">
-                  {debugData.apiResponse ? 
-                    JSON.stringify(debugData.apiResponse, null, 2) : 
-                    'Geen API response beschikbaar'}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-            
-            <AccordionItem value="prompt">
-              <AccordionTrigger className="px-4 py-2">
-                OpenAI Prompt
-              </AccordionTrigger>
-              <AccordionContent className="p-4 bg-gray-50">
-                <div className="text-xs font-mono whitespace-pre-wrap bg-gray-100 p-2 rounded border border-gray-200 overflow-x-auto">
-                  {debugData.prompt || 'Geen prompt beschikbaar'}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-            
-            <AccordionItem value="response">
-              <AccordionTrigger className="px-4 py-2">
-                OpenAI Response
-              </AccordionTrigger>
-              <AccordionContent className="p-4 bg-gray-50">
-                <div className="text-xs font-mono whitespace-pre-wrap bg-gray-100 p-2 rounded border border-gray-200 overflow-x-auto">
-                  {debugData.response ? 
-                    JSON.stringify(debugData.response, null, 2) : 
-                    'Geen response beschikbaar'}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-            
-            <AccordionItem value="logs">
-              <AccordionTrigger className="px-4 py-2">
-                Event Logs
-              </AccordionTrigger>
-              <AccordionContent className="p-0">
-                <div className="text-xs font-mono h-40 overflow-y-auto p-2 bg-gray-100 border-t border-gray-200">
-                  {stateLog.map((log, i) => (
-                    <div key={i} className="border-b border-gray-200 py-1">{log}</div>
-                  ))}
-                  {stateLog.length === 0 && <div className="text-gray-500">No logs yet</div>}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default QuizPage;
