@@ -100,7 +100,6 @@ const QuizPage = () => {
   });
   const [stateLog, setStateLog] = useState<string[]>([]);
   
-  // Added state for available chapters
   const [availableChapters, setAvailableChapters] = useState<ChapterData[]>([]);
   const [questionCount, setQuestionCount] = useState<number>(5);
   const [isLoadingChapters, setIsLoadingChapters] = useState(false);
@@ -120,7 +119,6 @@ const QuizPage = () => {
       setBookId(numericBookId);
       addLog(`Setting bookId from URL: ${numericBookId}`);
       
-      // Fetch available chapters for this book
       fetchChaptersForBook(numericBookId);
     } else {
       const savedBookId = localStorage.getItem('quizBookId');
@@ -129,7 +127,6 @@ const QuizPage = () => {
         setBookId(numericBookId);
         addLog(`Setting bookId from localStorage fallback: ${numericBookId}`);
         
-        // Fetch available chapters for this book
         fetchChaptersForBook(numericBookId);
       } else {
         addLog('No bookId found in URL or localStorage');
@@ -229,7 +226,6 @@ const QuizPage = () => {
     }
   };
 
-  // New function to fetch chapters for a book
   const fetchChaptersForBook = async (bookId: number) => {
     try {
       setIsLoadingChapters(true);
@@ -249,7 +245,6 @@ const QuizPage = () => {
       }
       
       if (data && data.length > 0) {
-        // Process the chapters to make sure we have unique chapter numbers
         const uniqueChapters = data.filter((chapter, index, self) => 
           index === self.findIndex(c => c.chapter_number === chapter.chapter_number)
         );
@@ -425,9 +420,7 @@ const QuizPage = () => {
     }
   };
   
-  // Updated generateQuiz function to use questionCount parameter properly
   const generateQuiz = async (customQuestionCount?: number) => {
-    // Use either the provided custom count or the state value, with default fallback to 5
     const count = customQuestionCount || questionCount || 5;
     
     if (!isStructuredLearning) {
@@ -526,14 +519,12 @@ const QuizPage = () => {
     }
   };
 
-  // New function to handle chapter selection
   const handleChapterSelect = (selectedChapterId: string) => {
     const numericChapterId = parseInt(selectedChapterId);
     setChapterId(numericChapterId);
     setQuizTitle(`Quiz over hoofdstuk ${numericChapterId}`);
     addLog(`Selected chapter: ${numericChapterId}`);
     
-    // Reset paragraph-specific state
     setParagraphId(null);
     setParagraphs([]);
     setProgressData([]);
@@ -541,7 +532,6 @@ const QuizPage = () => {
     if (isStructuredLearning) {
       fetchAllParagraphsForChapter(numericChapterId);
     } else {
-      // Clear current quiz for non-structured learning
       setQuestions([]);
       setCurrentQuestionIndex(0);
       setSelectedAnswer(null);
@@ -709,7 +699,6 @@ const QuizPage = () => {
     );
   };
 
-  // Updated empty state with chapter selector
   const renderEmptyContent = () => {
     return (
       <div className="flex flex-col items-center justify-center space-y-4 p-6">
@@ -885,3 +874,233 @@ const QuizPage = () => {
               <p className="text-sm whitespace-pre-line">{currentParagraphContent}</p>
               <Button 
                 variant="outline"
+                size="sm"
+                onClick={toggleParagraphContent}
+                className="mt-2"
+              >
+                Verberg inhoud
+              </Button>
+            </div>
+          )}
+          
+          <RadioGroup
+            value={selectedAnswer?.toString()}
+            onValueChange={(value) => handleAnswerSelect(parseInt(value))}
+            className="space-y-3"
+            disabled={isAnswerSubmitted}
+          >
+            {currentQuestion.options.map((option, index) => (
+              <div
+                key={index}
+                className={`flex items-center space-x-2 rounded-lg border p-4 ${
+                  isAnswerSubmitted
+                    ? index === currentQuestion.correctAnswer
+                      ? 'border-green-500 bg-green-50'
+                      : index === selectedAnswer
+                      ? 'border-red-500 bg-red-50'
+                      : ''
+                    : 'hover:border-primary'
+                }`}
+              >
+                <RadioGroupItem value={index.toString()} id={`option-${index}`} />
+                <Label htmlFor={`option-${index}`} className="flex-grow cursor-pointer">
+                  {option}
+                </Label>
+                {isAnswerSubmitted && (
+                  <div className="ml-2">
+                    {index === currentQuestion.correctAnswer ? (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    ) : index === selectedAnswer ? (
+                      <XCircle className="h-5 w-5 text-red-500" />
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            ))}
+          </RadioGroup>
+
+          {isAnswerSubmitted && showExplanation && (
+            <Alert className="mt-4">
+              <HelpCircle className="h-4 w-4" />
+              <AlertTitle>Uitleg</AlertTitle>
+              <AlertDescription>
+                {currentQuestion.explanation}
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+        <CardFooter className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0">
+          <div className="flex items-center space-x-2">
+            {isStructuredLearning && !showParagraphContent && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleParagraphContent}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Toon paragraaf
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleToggleExplanation}
+              disabled={!isAnswerSubmitted}
+            >
+              {showExplanation ? 'Verberg uitleg' : 'Toon uitleg'}
+            </Button>
+          </div>
+          <div className="flex items-center space-x-2">
+            {!isAnswerSubmitted ? (
+              <Button
+                onClick={handleSubmitAnswer}
+                disabled={selectedAnswer === null}
+              >
+                Controleer antwoord
+              </Button>
+            ) : (
+              <Button onClick={handleNextQuestion} className="animate-pulse">
+                {currentQuestionIndex < questions.length - 1 ? (
+                  <>
+                    Volgende vraag
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                ) : (
+                  'Bekijk resultaten'
+                )}
+              </Button>
+            )}
+          </div>
+        </CardFooter>
+      </Card>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-background pt-28 pb-20 px-6">
+      <div className="max-w-5xl mx-auto">
+        <h1 className="text-3xl font-bold tracking-tight mb-6">{quizTitle}</h1>
+        
+        {isStructuredLearning && progressData.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-semibold">Voortgang hoofdstuk</h2>
+              <Badge variant="outline">{calculateChapterProgress()}%</Badge>
+            </div>
+            <Progress value={calculateChapterProgress()} className="h-2" />
+          </div>
+        )}
+        
+        <div className="flex flex-col lg:flex-row gap-6">
+          {isStructuredLearning && paragraphs.length > 0 && (
+            <div className="lg:w-64 w-full shrink-0">
+              <div className="sticky top-28 border rounded-lg overflow-hidden">
+                <div className="bg-muted p-3 font-medium">
+                  Paragrafen
+                </div>
+                <div className="p-1">
+                  {paragraphs.map((p) => {
+                    const progress = progressData.find(pr => pr.id === p.id);
+                    return (
+                      <div 
+                        key={p.id}
+                        className={`flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-muted transition-colors ${
+                          paragraphId === p.id ? 'bg-muted font-medium' : ''
+                        }`}
+                        onClick={() => {
+                          if (paragraphId !== p.id) {
+                            generateQuizForParagraph(p.id);
+                          }
+                        }}
+                      >
+                        <span className="truncate">
+                          {p.paragraph_number}. {p.content?.substring(0, 30)}{p.content && p.content.length > 30 ? '...' : ''}
+                        </span>
+                        {progress?.completed && (
+                          <CheckCircle className="h-4 w-4 text-green-500 shrink-0 ml-1" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex-1">
+            {isGenerating && renderLoadingContent()}
+            {quizError && renderErrorContent()}
+            {!isGenerating && !quizError && questions.length === 0 && renderEmptyContent()}
+            {!isGenerating && !quizError && questions.length > 0 && !isQuizComplete && renderQuestionContent()}
+            {!isGenerating && !quizError && questions.length > 0 && isQuizComplete && renderResultsContent()}
+          </div>
+        </div>
+        
+        {showDebug && (
+          <Accordion 
+            type="single" 
+            collapsible
+            value={debugAccordion}
+            onValueChange={setDebugAccordion}
+            className="mt-10 border"
+          >
+            <AccordionItem value="debug-state">
+              <AccordionTrigger className="px-4">Debug Status</AccordionTrigger>
+              <AccordionContent className="px-4 pb-4 text-xs space-y-2 bg-gray-50 font-mono">
+                <div>bookId: {bookId}</div>
+                <div>chapterId: {chapterId}</div>
+                <div>paragraphId: {paragraphId}</div>
+                <div>isStructuredLearning: {String(isStructuredLearning)}</div>
+                <div>questions: {questions.length}</div>
+                <div>currentQuestionIndex: {currentQuestionIndex}</div>
+                <div>isGenerating: {String(isGenerating)}</div>
+                <div>quizError: {quizError ? quizError : 'null'}</div>
+                <div>score: {score}</div>
+                <div>paragraphs: {paragraphs.length}</div>
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="debug-log">
+              <AccordionTrigger className="px-4">Debug Log</AccordionTrigger>
+              <AccordionContent className="p-4 text-xs bg-gray-50 font-mono">
+                <div className="h-40 overflow-y-auto space-y-1">
+                  {stateLog.map((log, i) => (
+                    <div key={i} className="text-xs">{log}</div>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+            {debugData.prompt && (
+              <AccordionItem value="debug-prompt">
+                <AccordionTrigger className="px-4">AI Prompt</AccordionTrigger>
+                <AccordionContent className="p-4 text-xs bg-gray-50 font-mono whitespace-pre-line">
+                  {debugData.prompt}
+                </AccordionContent>
+              </AccordionItem>
+            )}
+            {debugData.response && (
+              <AccordionItem value="debug-response">
+                <AccordionTrigger className="px-4">AI Response</AccordionTrigger>
+                <AccordionContent className="p-4 text-xs bg-gray-50 font-mono whitespace-pre-line">
+                  {debugData.response}
+                </AccordionContent>
+              </AccordionItem>
+            )}
+          </Accordion>
+        )}
+        
+        <div className="fixed bottom-4 right-4 z-10">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={() => setShowDebug(!showDebug)}
+            className="rounded-full"
+          >
+            <Bug className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default QuizPage;
