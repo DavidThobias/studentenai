@@ -9,6 +9,8 @@ import UpcomingFeatures from '@/components/book/UpcomingFeatures';
 import LoadingBookDetail from '@/components/book/LoadingBookDetail';
 import { useBookDetail } from '@/hooks/useBookDetail';
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { BookOpen, ListChecks } from "lucide-react";
 
 const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -49,6 +51,15 @@ const BookDetail = () => {
     
     navigate(`/quiz?${params.toString()}`);
   };
+  
+  const handleStartStructuredLearning = () => {
+    if (!id) {
+      toast.error('Boek ID ontbreekt');
+      return;
+    }
+    
+    navigate(`/structured-learning/${id}`);
+  };
 
   if (loading) {
     return <LoadingBookDetail />;
@@ -66,6 +77,18 @@ const BookDetail = () => {
         )}
 
         <BookOverview book={book} />
+        
+        {/* Add structured learning button */}
+        <div className="flex justify-center my-6">
+          <Button 
+            onClick={handleStartStructuredLearning} 
+            className="bg-study-600 hover:bg-study-700 text-white"
+            size="lg"
+          >
+            <BookOpen className="mr-2 h-5 w-5" />
+            Start gestructureerd leren
+          </Button>
+        </div>
 
         <ChaptersList 
           chapters={chapters}
