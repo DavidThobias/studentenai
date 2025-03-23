@@ -33,6 +33,7 @@ const QuizPage = () => {
   // State for quiz configuration
   const [quizTitle, setQuizTitle] = useState<string>("Quiz");
   const [isStructuredLearning, setIsStructuredLearning] = useState(false);
+  const [questionCount, setQuestionCount] = useState(5);
 
   // Initialize hooks
   const {
@@ -138,11 +139,14 @@ const QuizPage = () => {
         setParagraphId(numericParagraphId);
         generateQuizForParagraph(numericParagraphId);
       }
+    } else if (structuredMode && bookIdParam && !chapterIdParam) {
+      // If structured learning but no chapter selected, just show chapter selection
+      addLog('Structured learning mode without chapter - showing chapter selection');
     } else {
       // Regular quiz mode - load saved state or generate new quiz
       const { hasValidContext, hasQuestions } = loadSavedQuizState(bookIdParam, chapterIdParam, paragraphIdParam);
       
-      if (hasValidContext && !hasQuestions) {
+      if (hasValidContext && !hasQuestions && !structuredMode) {
         addLog('Auto-starting quiz generation with context');
         generateQuiz();
       }
@@ -176,6 +180,10 @@ const QuizPage = () => {
     }
   };
 
+  const handleQuestionCountChange = (count: number) => {
+    setQuestionCount(count);
+  };
+
   const handleGenerateQuiz = () => {
     if (isStructuredLearning && paragraphs.length > 0) {
       // In structured mode, start with first paragraph if none selected
@@ -187,7 +195,7 @@ const QuizPage = () => {
       }
     } else {
       // Regular quiz mode
-      generateQuiz();
+      generateQuiz(questionCount);
     }
   };
 
@@ -287,9 +295,9 @@ const QuizPage = () => {
                 paragraphId={paragraphId}
                 availableChapters={availableChapters}
                 isLoadingChapters={isLoadingChapters}
-                questionCount={5}
+                questionCount={questionCount}
                 onChapterSelect={handleChapterSelect}
-                onQuestionCountChange={() => {}}
+                onQuestionCountChange={handleQuestionCountChange}
                 onGenerateQuiz={handleGenerateQuiz}
                 onBackToHome={handleBackToHome}
                 isStructuredLearning={isStructuredLearning}

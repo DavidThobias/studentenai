@@ -84,13 +84,13 @@ const BookOverview = ({ book }: BookOverviewProps) => {
   };
 
   const handleNavigateToQuiz = () => {
-    // Instead of using localStorage, pass parameters in the URL
     if (book?.id) {
       console.log(`Navigating to quiz with bookId: ${book.id}`);
       
-      // Build the URL with query parameters
+      // Build the URL with query parameters, including structured=true
       const params = new URLSearchParams();
       params.append('bookId', book.id.toString());
+      params.append('structured', 'true'); // Add structured learning parameter
       
       // Navigate to the quiz page with parameters
       navigate(`/quiz?${params.toString()}`);
