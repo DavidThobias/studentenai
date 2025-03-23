@@ -140,7 +140,7 @@ export const useChaptersAndParagraphs = (
       
       const { data, error } = await supabase
         .from('books')
-        .select('*')
+        .select<'*', ParagraphData>('*')
         .eq('chapter_number', chapterId)
         .order('paragraph_number', { ascending: true });
       

@@ -55,7 +55,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       
       // Check table schema - explicitly typing the rpc call parameter to fix the error
       const { data: schemaData } = await supabase
-        .rpc('get_table_info', { table_name: 'books' } as TableInfoParams);
+        .rpc<any>('get_table_info', { table_name: 'books' } as TableInfoParams);
       
       console.log('Table schema:', schemaData);
       
@@ -161,7 +161,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
               <CardFooter className="flex flex-row gap-2">
                 {onStartQuiz && selectedChapterId && (
                   <Button 
-                    onClick={() => onStartQuiz(selectedChapterId, paragraph.id)}
+                    onClick={() => onStartQuiz(Number(selectedChapterId), paragraph.id)}
                     variant="outline"
                     size="sm"
                     className="w-full sm:w-auto"
