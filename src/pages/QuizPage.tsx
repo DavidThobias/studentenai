@@ -64,6 +64,12 @@ interface ChapterData {
   chapter_title?: string;
 }
 
+interface BookChapterRow {
+  id: number;
+  chapter_number: number;
+  chapter_title: string | null;
+}
+
 const QuizPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -248,7 +254,7 @@ const QuizPage = () => {
           index === self.findIndex(c => c.chapter_number === chapter.chapter_number)
         );
         
-        setAvailableChapters(uniqueChapters);
+        setAvailableChapters(uniqueChapters as ChapterData[]);
         addLog(`Fetched ${uniqueChapters.length} chapters for book ${bookId}`);
       } else {
         addLog(`No chapters found for book ${bookId}`);
