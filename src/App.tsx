@@ -14,6 +14,7 @@ import QuizPage from "./pages/QuizPage";
 
 const queryClient = new QueryClient();
 
+// Proxy API requests to Supabase edge functions
 if (window.location.pathname.startsWith('/api/')) {
   const originalFetch = window.fetch;
   window.fetch = async (url, options) => {
