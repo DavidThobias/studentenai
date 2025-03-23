@@ -235,8 +235,7 @@ const QuizPage = () => {
         .from('books')
         .select('id, chapter_number, chapter_title')
         .eq('book_id', bookId)
-        .order('chapter_number', { ascending: true })
-        .distinct('chapter_number');
+        .order('chapter_number', { ascending: true });
       
       if (error) {
         console.error('Error fetching chapters:', error);
@@ -693,7 +692,7 @@ const QuizPage = () => {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Terug naar boek
           </Button>
-          <Button onClick={generateQuiz}>Probeer opnieuw</Button>
+          <Button onClick={() => generateQuiz()}>Probeer opnieuw</Button>
         </div>
       </>
     );
