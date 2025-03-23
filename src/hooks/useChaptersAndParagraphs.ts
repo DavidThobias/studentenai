@@ -27,6 +27,11 @@ export interface ParagraphProgress {
   lastAttemptDate?: Date;
 }
 
+// Define a more specific type for RPC calls to avoid excessive type instantiation
+interface TableInfoParams {
+  table_name: string;
+}
+
 export const useChaptersAndParagraphs = (
   initialBookId: number | null, 
   initialChapterId: number | null,
