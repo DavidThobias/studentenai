@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Badge } from "@/components/ui/badge";
@@ -192,14 +191,11 @@ const QuizPage = () => {
   };
 
   const handleGenerateQuiz = () => {
-    if (isStructuredLearning && hasSelectedChapter && paragraphs.length > 0) {
-      // In structured mode with selected chapter, start with first paragraph if none selected
-      if (!paragraphId && paragraphs.length > 0) {
-        const firstParagraph = paragraphs[0];
-        handleSelectParagraph(firstParagraph.id);
-      } else if (paragraphId) {
-        generateQuizForParagraph(paragraphId);
-      }
+    if (isStructuredLearning && hasSelectedChapter) {
+      // In structured mode with selected chapter, DON'T automatically start with first paragraph
+      // Just fetch the paragraphs and let the user select one
+      addLog('In structured learning mode, showing paragraphs without auto-generating quiz');
+      // No quiz generation happens here - user needs to select a paragraph from sidebar
     } else {
       // Regular quiz mode
       generateQuiz(questionCount);

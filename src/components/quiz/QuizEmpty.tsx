@@ -107,7 +107,7 @@ const QuizEmpty = ({
             <BookCheck className="mr-2 h-4 w-4" />
             {isStructuredLearning 
               ? chapterId 
-                ? 'Start gestructureerd leren' 
+                ? 'Toon paragrafen voor gestructureerd leren' 
                 : 'Selecteer een hoofdstuk om door te gaan'
               : bookId && !chapterId 
                 ? 'Genereer quiz over het boek'

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +44,7 @@ export const useChaptersAndParagraphs = (
       setIsLoadingChapters(true);
       addLog(`Fetching chapters for book ${bookId}`);
       
+      // Query using book_id instead of book_id
       const { data, error } = await supabase
         .from('books')
         .select('id, chapter_number, chapter_title')
@@ -52,6 +54,39 @@ export const useChaptersAndParagraphs = (
       if (error) {
         console.error('Error fetching chapters:', error);
         addLog(`Error fetching chapters: ${error.message}`);
+        
+        // Fallback: try fetching by id instead of book_id if that's the issue
+        if (error.message.includes('book_id does not exist')) {
+          addLog(`Trying fallback query with id instead of book_id`);
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('books')
+            .select('id, chapter_number, chapter_title')
+            .eq('id', bookId) // Try using 'id' if that's appropriate
+            .order('chapter_number', { ascending: true });
+          
+          if (fallbackError) {
+            console.error('Fallback query also failed:', fallbackError);
+            addLog(`Fallback query also failed: ${fallbackError.message}`);
+            return;
+          }
+          
+          if (fallbackData && fallbackData.length > 0) {
+            // Process the fallback data
+            const uniqueChapters = fallbackData.filter((chapter, index, self) => 
+              index === self.findIndex(c => c.chapter_number === chapter.chapter_number)
+            );
+            
+            const chaptersData: ChapterData[] = uniqueChapters.map(chapter => ({
+              id: chapter.id,
+              chapter_number: chapter.chapter_number,
+              chapter_title: chapter.chapter_title
+            }));
+            
+            setAvailableChapters(chaptersData);
+            addLog(`Fallback query successful: Fetched ${chaptersData.length} chapters for book ${bookId}`);
+            return;
+          }
+        }
         return;
       }
       
