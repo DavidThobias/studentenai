@@ -97,13 +97,17 @@ export const useChaptersAndParagraphs = (
         console.error('Error fetching paragraphs:', error);
         addLog(`Error fetching paragraphs: ${error.message}`);
         toast.error(`Fout bij ophalen paragrafen: ${error.message}`);
-        return;
+        return [];
       }
       
-      const paragraphsData = data || [];
+      if (!data) {
+        addLog('No paragraphs found for this chapter - empty data response');
+        toast.warning('Geen paragrafen gevonden voor dit hoofdstuk');
+        return [];
+      }
       
       // Explicitly map to ParagraphData type to avoid deep type instantiation
-      const typedParagraphs: ParagraphData[] = paragraphsData.map(p => ({
+      const typedParagraphs: ParagraphData[] = data.map(p => ({
         id: p.id,
         paragraph_number: p.paragraph_number,
         content: p.content,
@@ -113,6 +117,7 @@ export const useChaptersAndParagraphs = (
       setParagraphs(typedParagraphs);
       addLog(`Fetched ${typedParagraphs.length} paragraphs for chapter ${chapterId}`);
       
+      // Create initial progress data
       const initialProgressData = typedParagraphs.map(p => ({
         id: p.id,
         paragraphNumber: p.paragraph_number || 0,
@@ -125,7 +130,7 @@ export const useChaptersAndParagraphs = (
       if (typedParagraphs.length > 0) {
         return typedParagraphs;
       } else {
-        addLog('No paragraphs found for this chapter');
+        addLog('No paragraphs found for this chapter - empty array');
         toast.warning('Geen paragrafen gevonden voor dit hoofdstuk');
         return [];
       }
