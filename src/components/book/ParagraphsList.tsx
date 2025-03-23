@@ -12,7 +12,7 @@ interface ParagraphData {
   chapter_number: number;
 }
 
-// Define a explicit type for RPC calls to fix type error
+// Define a more specific type for RPC calls
 interface TableInfoParams {
   table_name: string;
 }
@@ -52,9 +52,9 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         
       console.log('Total books/paragraphs in database:', totalCount);
       
-      // Check table schema - explicitly typing the rpc call parameter with both type parameters
+      // Fix: Use the generic type parameter that doesn't conflict with constraints
       const { data: schemaData } = await supabase
-        .rpc<any, any>('get_table_info', { table_name: 'books' } as TableInfoParams);
+        .rpc('get_table_info', { table_name: 'books' } as TableInfoParams);
       
       console.log('Table schema:', schemaData);
       

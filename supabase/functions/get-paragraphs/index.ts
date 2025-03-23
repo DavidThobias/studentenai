@@ -73,9 +73,9 @@ serve(async (req) => {
       throw new Error(`Error fetching paragraphs: ${paragraphsError.message}`);
     }
 
-    // Get diagnostic information about database with explicit typing
+    // Get diagnostic information about database (updated to not use generics)
     const { data: tableInfo, error: tableInfoError } = await supabase
-      .rpc<any, any>('get_table_info', { table_name: 'books' } as TableInfoArgs)
+      .rpc('get_table_info', { table_name: 'books' } as TableInfoArgs)
       .catch(() => ({ data: null, error: { message: 'get_table_info function not available' } }));
 
     return new Response(

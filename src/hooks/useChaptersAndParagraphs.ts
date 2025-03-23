@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -137,10 +138,10 @@ export const useChaptersAndParagraphs = (
       setIsFetchingParagraphs(true);
       addLog(`Fetching all paragraphs for chapter ${chapterId}`);
       
-      // Fix: Use explicit generic types to avoid deep type instantiation
+      // Fix: Remove generic type parameters completely and use type assertion instead
       const { data, error } = await supabase
         .from('books')
-        .select<string, ParagraphData>('id, paragraph_number, content, chapter_number')
+        .select('id, paragraph_number, content, chapter_number')
         .eq('chapter_number', chapterId)
         .order('paragraph_number', { ascending: true });
       
@@ -157,13 +158,13 @@ export const useChaptersAndParagraphs = (
         return [];
       }
       
-      // Use explicit typing to avoid deep instantiation
-      const typedParagraphs: ParagraphData[] = data.map(p => ({
+      // Use type assertion with our explicit ParagraphData interface
+      const typedParagraphs = data.map(p => ({
         id: p.id,
         paragraph_number: p.paragraph_number,
         content: p.content,
         chapter_number: p.chapter_number
-      }));
+      })) as ParagraphData[];
       
       setParagraphs(typedParagraphs);
       addLog(`Fetched ${typedParagraphs.length} paragraphs for chapter ${chapterId}`);
