@@ -132,64 +132,91 @@ export const useQuiz = (
     addLog(`Sending payload to generate-sales-question: ${JSON.stringify(payload)}`);
     
     try {
+      // First try using the generate-sales-question function
       const { data, error } = await supabase.functions.invoke('generate-sales-question', {
         body: payload
       });
       
-      if (data) {
-        setDebugData({...debugData, apiResponse: data});
-        addLog(`Full API response received: ${JSON.stringify(data).substring(0, 100)}...`);
-        console.log('Full API response:', data);
-      }
-      
       if (error) {
-        console.error('Error generating quiz:', error);
+        console.error('Error calling generate-sales-question:', error);
+        addLog(`Error with generate-sales-question: ${error.message}`);
+        
+        // Fallback to generate-quiz function
+        addLog('Trying fallback to generate-quiz function');
+        const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke('generate-quiz', {
+          body: payload
+        });
+        
+        if (fallbackError) {
+          console.error('Error with fallback generate-quiz:', fallbackError);
+          setQuizError(`Er is een fout opgetreden: ${fallbackError.message}`);
+          addLog(`Fallback error: ${fallbackError.message}`);
+          return;
+        }
+        
+        if (fallbackData) {
+          processQuizResponse(fallbackData);
+          return;
+        }
+        
         setQuizError(`Er is een fout opgetreden: ${error.message}`);
         addLog(`Error: ${error.message}`);
         return;
       }
       
-      if (data && data.success && data.questions && Array.isArray(data.questions)) {
-        const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
-          let correctAnswerIndex;
-          
-          if (typeof q.correct === 'string' && q.correct.length === 1) {
-            correctAnswerIndex = q.correct.charCodeAt(0) - 65;
-          } else if (typeof q.correct === 'number') {
-            correctAnswerIndex = q.correct;
-          } else {
-            correctAnswerIndex = 0;
-          }
-          
-          return {
-            question: q.question,
-            options: q.options,
-            correctAnswer: correctAnswerIndex,
-            explanation: q.explanation || "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
-          };
-        });
-        
-        setQuestions(formattedQuestions);
-        addLog(`Created ${formattedQuestions.length} questions from the API response`);
-        
-        if (data.debug) {
-          setDebugData({
-            ...debugData,
-            prompt: data.debug.prompt,
-            response: data.debug.response
-          });
-          addLog('Debug data saved from API response');
-        }
-      } else {
-        setQuizError('Geen vragen konden worden gegenereerd. Controleer of er content beschikbaar is voor dit boek/hoofdstuk.');
-        addLog(`Failed to generate questions: Invalid response format or no questions returned`);
-        console.error('Invalid response format or no questions:', data);
+      if (data) {
+        processQuizResponse(data);
       }
     } catch (err) {
       console.error('Error in generateQuiz:', err);
       setQuizError(`Er is een onverwachte fout opgetreden: ${err instanceof Error ? err.message : 'Onbekende fout'}`);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const processQuizResponse = (data: any) => {
+    setDebugData({...debugData, apiResponse: data});
+    addLog(`Full API response received: ${JSON.stringify(data).substring(0, 100)}...`);
+    console.log('Full API response:', data);
+    
+    if (data.success && data.questions && Array.isArray(data.questions)) {
+      const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
+        let correctAnswerIndex;
+        
+        if (typeof q.correct === 'string' && q.correct.length === 1) {
+          correctAnswerIndex = q.correct.charCodeAt(0) - 65;
+        } else if (typeof q.correct === 'number') {
+          correctAnswerIndex = q.correct;
+        } else if (q.correctAnswer !== undefined) {
+          correctAnswerIndex = q.correctAnswer;  
+        } else {
+          correctAnswerIndex = 0;
+        }
+        
+        return {
+          question: q.question,
+          options: q.options,
+          correctAnswer: correctAnswerIndex,
+          explanation: q.explanation || "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
+        };
+      });
+      
+      setQuestions(formattedQuestions);
+      addLog(`Created ${formattedQuestions.length} questions from the API response`);
+      
+      if (data.debug) {
+        setDebugData({
+          ...debugData,
+          prompt: data.debug.prompt,
+          response: data.debug.response
+        });
+        addLog('Debug data saved from API response');
+      }
+    } else {
+      setQuizError('Geen vragen konden worden gegenereerd. Controleer of er content beschikbaar is voor dit boek/hoofdstuk.');
+      addLog(`Failed to generate questions: Invalid response format or no questions returned`);
+      console.error('Invalid response format or no questions:', data);
     }
   };
 
@@ -213,57 +240,52 @@ export const useQuiz = (
       
       addLog(`Generating quiz questions for paragraph ${paragraphId}`);
       
+      // Pass all relevant IDs
+      const payload = { 
+        bookId: bookId,
+        chapterId: chapterId,
+        paragraphId: paragraphId,
+        count: 5,
+        debug: true 
+      };
+      
+      // Log the payload to help debug
+      console.log('Generate quiz payload:', payload);
+      addLog(`Paragraph quiz payload: ${JSON.stringify(payload)}`);
+      
+      // First try using the generate-sales-question function
       const { data, error } = await supabase.functions.invoke('generate-sales-question', {
-        body: { 
-          bookId: bookId,
-          chapterId: chapterId,
-          paragraphId: paragraphId,
-          count: 5,
-          debug: true 
-        }
+        body: payload
       });
       
       if (error) {
-        console.error('Error generating quiz:', error);
+        console.error('Error calling generate-sales-question for paragraph:', error);
+        addLog(`Error with generate-sales-question for paragraph: ${error.message}`);
+        
+        // Fallback to generate-quiz function
+        addLog('Trying fallback to generate-quiz function for paragraph');
+        const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke('generate-quiz', {
+          body: payload
+        });
+        
+        if (fallbackError) {
+          console.error('Error with fallback generate-quiz for paragraph:', fallbackError);
+          setQuizError(`Er is een fout opgetreden: ${fallbackError.message}`);
+          addLog(`Fallback error for paragraph: ${fallbackError.message}`);
+          return;
+        }
+        
+        if (fallbackData) {
+          processQuizResponse(fallbackData);
+          return;
+        }
+        
         setQuizError(`Er is een fout opgetreden: ${error.message}`);
         return;
       }
       
-      if (data && data.success && data.questions && Array.isArray(data.questions)) {
-        const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
-          let correctAnswerIndex;
-          
-          if (typeof q.correct === 'string' && q.correct.length === 1) {
-            correctAnswerIndex = q.correct.charCodeAt(0) - 65;
-          } else if (typeof q.correct === 'number') {
-            correctAnswerIndex = q.correct;
-          } else {
-            correctAnswerIndex = 0;
-          }
-          
-          return {
-            question: q.question,
-            options: q.options,
-            correctAnswer: correctAnswerIndex,
-            explanation: q.explanation || "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
-          };
-        });
-        
-        setQuestions(formattedQuestions);
-        addLog(`Created ${formattedQuestions.length} questions from the API response`);
-        
-        if (data.debug) {
-          setDebugData({
-            ...debugData,
-            prompt: data.debug.prompt,
-            response: data.debug.response,
-            apiResponse: data
-          });
-          addLog('Debug data saved from API response');
-        }
-      } else {
-        setQuizError('Geen vragen konden worden gegenereerd. Controleer of er content beschikbaar is voor deze paragraaf.');
-        addLog(`Failed to generate questions: Invalid response format or no questions returned`);
+      if (data) {
+        processQuizResponse(data);
       }
     } catch (err) {
       console.error('Error in generateQuizForParagraph:', err);

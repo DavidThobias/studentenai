@@ -44,7 +44,7 @@ export const useChaptersAndParagraphs = (
       setIsLoadingChapters(true);
       addLog(`Fetching chapters for book ${bookId}`);
       
-      // Query using book_id instead of book_id
+      // First try to fetch by book_id
       const { data, error } = await supabase
         .from('books')
         .select('id, chapter_number, chapter_title')
@@ -55,24 +55,34 @@ export const useChaptersAndParagraphs = (
         console.error('Error fetching chapters:', error);
         addLog(`Error fetching chapters: ${error.message}`);
         
-        // Fallback: try fetching by id instead of book_id if that's the issue
-        if (error.message.includes('book_id does not exist')) {
-          addLog(`Trying fallback query with id instead of book_id`);
-          const { data: fallbackData, error: fallbackError } = await supabase
+        // Fallback: try fetching by filtering on book_title instead
+        addLog(`Trying fallback query by filtering unique chapters`);
+        const { data: allData, error: allError } = await supabase
+          .from('books')
+          .select('id, chapter_number, chapter_title, book_title')
+          .order('chapter_number', { ascending: true });
+          
+        if (allError) {
+          console.error('Fallback query also failed:', allError);
+          addLog(`Fallback query also failed: ${allError.message}`);
+          return;
+        }
+        
+        if (allData && allData.length > 0) {
+          // Get book title first using the book ID
+          const { data: bookData } = await supabase
             .from('books')
-            .select('id, chapter_number, chapter_title')
-            .eq('id', bookId) // Try using 'id' if that's appropriate
-            .order('chapter_number', { ascending: true });
-          
-          if (fallbackError) {
-            console.error('Fallback query also failed:', fallbackError);
-            addLog(`Fallback query also failed: ${fallbackError.message}`);
-            return;
-          }
-          
-          if (fallbackData && fallbackData.length > 0) {
-            // Process the fallback data
-            const uniqueChapters = fallbackData.filter((chapter, index, self) => 
+            .select('book_title')
+            .eq('id', bookId)
+            .limit(1)
+            .maybeSingle();
+            
+          if (bookData?.book_title) {
+            // Filter by book title instead
+            const filteredChapters = allData.filter(item => item.book_title === bookData.book_title);
+            
+            // Process the fallback data - ensure unique chapters by chapter_number
+            const uniqueChapters = filteredChapters.filter((chapter, index, self) => 
               index === self.findIndex(c => c.chapter_number === chapter.chapter_number)
             );
             
@@ -83,7 +93,7 @@ export const useChaptersAndParagraphs = (
             }));
             
             setAvailableChapters(chaptersData);
-            addLog(`Fallback query successful: Fetched ${chaptersData.length} chapters for book ${bookId}`);
+            addLog(`Fallback query successful: Fetched ${chaptersData.length} chapters for book "${bookData.book_title}"`);
             return;
           }
         }

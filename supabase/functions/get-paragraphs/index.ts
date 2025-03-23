@@ -1,14 +1,8 @@
 
-// @deno-types="https://deno.land/x/types/deno.d.ts"
+// @deno-types="https://deno.land/x/xhr@0.1.0/mod.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-declare const Deno: {
-  env: {
-    get(key: string): string | undefined;
-  };
-};
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,135 +16,58 @@ serve(async (req) => {
   }
 
   try {
-    // Parse the request body
-    const reqBody = await req.json().catch(err => {
-      console.error('Error parsing request body:', err);
-      throw new Error('Invalid JSON in request body');
-    });
+    const { chapterId } = await req.json();
     
-    const { chapterId } = reqBody;
-    
-    if (chapterId === undefined || chapterId === null) {
+    if (!chapterId) {
       throw new Error('Chapter ID is required');
     }
 
-    // Force conversion to number to ensure type consistency
-    const numericChapterId = Number(chapterId);
-    
-    // Validate that we have a valid number
-    if (isNaN(numericChapterId)) {
-      throw new Error(`Invalid chapter ID: ${chapterId} (cannot be converted to a number)`);
-    }
-    
-    console.log(`Getting paragraphs for chapter ${numericChapterId} (type: ${typeof numericChapterId})`);
+    console.log(`Fetching paragraphs for chapter ${chapterId}`);
 
-    // Create Supabase client - use authorization header if present
+    // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-    
-    // Get authorization token from the request headers if available
-    const authHeader = req.headers.get('Authorization');
-    
-    // Create client with either auth header or anon key
-    const supabase = createClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      authHeader ? { global: { headers: { Authorization: authHeader } } } : {}
-    );
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    let paragraphsData = [];
-    let dataSource = '';
+    // Get chapter info from books table
+    const { data: chapterInfo, error: chapterError } = await supabase
+      .from('books')
+      .select('chapter_title')
+      .eq('chapter_number', chapterId)
+      .limit(1)
+      .maybeSingle();
     
-    // First try the original Paragrafen table with direct SQL
-    try {
-      console.log(`Executing SQL query with numeric chapter_id: ${numericChapterId}`);
-      const { data: rawData, error: rawError } = await supabase.rpc(
-        'execute_sql', 
-        { 
-          sql_query: `SELECT * FROM "Paragrafen" WHERE chapter_id = ${numericChapterId}` 
-        }
-      );
+    if (chapterError) {
+      console.error(`Error fetching chapter: ${JSON.stringify(chapterError)}`);
+      throw new Error(`Error fetching chapter: ${chapterError.message}`);
+    }
+    
+    // Get all paragraphs for this chapter
+    const { data: paragraphs, error: paragraphsError } = await supabase
+      .from('books')
+      .select('id, paragraph_number, content, chapter_number')
+      .eq('chapter_number', chapterId)
+      .order('paragraph_number', { ascending: true });
       
-      if (!rawError && rawData && rawData.length > 0) {
-        console.log(`Successfully fetched ${rawData.length} paragraphs via direct SQL from Paragrafen`);
-        paragraphsData = rawData;
-        dataSource = 'Paragrafen_direct_sql';
-      } else if (rawError) {
-        console.error(`Direct SQL error: ${JSON.stringify(rawError)}`);
-      }
-    } catch (sqlError) {
-      console.error(`Error executing direct SQL: ${sqlError}`);
+    if (paragraphsError) {
+      console.error(`Error fetching paragraphs: ${JSON.stringify(paragraphsError)}`);
+      throw new Error(`Error fetching paragraphs: ${paragraphsError.message}`);
     }
-    
-    // If no data yet, try normal Paragrafen query
-    if (paragraphsData.length === 0) {
-      const { data, error } = await supabase
-        .from('Paragrafen')
-        .select('*')
-        .eq('chapter_id', numericChapterId);
-        
-      if (!error && data && data.length > 0) {
-        console.log(`Successfully fetched ${data.length} paragraphs via standard query from Paragrafen`);
-        paragraphsData = data;
-        dataSource = 'Paragrafen_standard';
-      } else if (error) {
-        console.error(`Error fetching from Paragrafen: ${JSON.stringify(error)}`);
-      }
-    }
-    
-    // If still no data, try with string conversion
-    if (paragraphsData.length === 0) {
-      const { data: stringData, error: stringError } = await supabase
-        .from('Paragrafen')
-        .select('*')
-        .eq('chapter_id', String(numericChapterId));
-      
-      if (!stringError && stringData && stringData.length > 0) {
-        console.log(`Successfully fetched ${stringData.length} paragraphs via string query from Paragrafen`);
-        paragraphsData = stringData;
-        dataSource = 'Paragrafen_string';
-      } else if (stringError) {
-        console.error(`Error fetching from Paragrafen with string: ${JSON.stringify(stringError)}`);
-      }
-    }
-    
-    // If still no data, try the new books table
-    if (paragraphsData.length === 0) {
-      console.log(`Trying to fetch from books table with chapter_number = ${numericChapterId}`);
-      
-      const { data: booksData, error: booksError } = await supabase
-        .from('books')
-        .select('*')
-        .eq('chapter_number', numericChapterId);
-        
-      if (!booksError && booksData && booksData.length > 0) {
-        console.log(`Successfully fetched ${booksData.length} records from books table`);
-        
-        // Convert books data to match Paragrafen format
-        paragraphsData = booksData.map((book) => ({
-          id: book.id,
-          "paragraaf nummer": book.paragraph_number,
-          content: book.content,
-          chapter_id: book.chapter_number
-        }));
-        
-        dataSource = 'books_table';
-      } else if (booksError) {
-        console.error(`Error fetching from books: ${JSON.stringify(booksError)}`);
-      }
-    }
-    
-    // Return the combined results
+
+    // Get diagnostic information about database
+    const { data: tableInfo, error: tableInfoError } = await supabase
+      .rpc('get_table_info', { table_name: 'books' })
+      .catch(() => ({ data: null, error: { message: 'get_table_info function not available' } }));
+
     return new Response(
       JSON.stringify({
         success: true,
-        paragraphs: paragraphsData,
-        count: paragraphsData.length,
-        method: dataSource,
-        query: {
-          chapterId: numericChapterId,
-          chapterIdType: typeof numericChapterId,
-          authPresent: !!authHeader,
+        chapterInfo: chapterInfo,
+        paragraphs: paragraphs,
+        count: paragraphs?.length || 0,
+        diagnostics: {
+          tableInfo: tableInfo || 'Not available',
+          tableInfoError: tableInfoError,
           timestamp: new Date().toISOString()
         }
       }),
@@ -162,12 +79,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : 'An unknown error occurred',
-        query: {
-          requestMethod: req.method,
-          contentType: req.headers.get('Content-Type'),
-          hasAuth: !!req.headers.get('Authorization')
-        }
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

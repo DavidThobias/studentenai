@@ -29,7 +29,8 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
   useEffect(() => {
     console.log('ParagraphsList: paragraphs array updated:', paragraphs);
     console.log('ParagraphsList: loadingParagraphs:', loadingParagraphs);
-  }, [paragraphs, loadingParagraphs]);
+    console.log('ParagraphsList: selectedChapterId:', selectedChapterId);
+  }, [paragraphs, loadingParagraphs, selectedChapterId]);
 
   const checkDatabaseDirectly = async () => {
     if (!selectedChapterId) return;
@@ -40,11 +41,18 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       const numericChapterId = Number(selectedChapterId);
       console.log('Checking database directly for paragraphs with chapter_number =', numericChapterId);
       
+      // Get total count of records in books table
       const { count: totalCount } = await supabase
         .from('books')
         .select('*', { count: 'exact', head: true });
         
-      console.log('Total paragraphs in database:', totalCount);
+      console.log('Total books/paragraphs in database:', totalCount);
+      
+      // Check table schema
+      const { data: schemaData } = await supabase
+        .rpc('get_table_info', { table_name: 'books' });
+      
+      console.log('Table schema:', schemaData);
       
       // Query books table by chapter_number
       const { data: chapterData, error: chapterError } = await supabase
@@ -52,36 +60,14 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         .select('*')
         .eq('chapter_number', numericChapterId);
       
-      // Check for string based chapter number as fallback
-      const { data: stringChapterData, error: stringChapterError } = await supabase
-        .from('books')
-        .select('*')
-        .eq('chapter_number', numericChapterId);
-      
       console.log('Direct database check results:', {
-        numberQuery: {
-          data: chapterData,
-          error: chapterError,
-          count: chapterData?.length || 0
-        },
-        stringQuery: {
-          data: stringChapterData,
-          error: stringChapterError,
-          count: stringChapterData?.length || 0
-        }
+        data: chapterData,
+        error: chapterError,
+        count: chapterData?.length || 0
       });
       
       // Count total paragraphs
-      let totalParagraphCount = 0;
-      
-      if (chapterData && chapterData.length > 0) {
-        totalParagraphCount += chapterData.length;
-      }
-      
-      if (stringChapterData && stringChapterData.length > 0 && 
-          !chapterData?.some(n => stringChapterData.some(s => s.id === n.id))) {
-        totalParagraphCount += stringChapterData.length;
-      }
+      let totalParagraphCount = chapterData?.length || 0;
       
       setDirectDbCount(totalParagraphCount);
     } catch (err) {
@@ -106,6 +92,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       
       console.log('Access token available for edge function test:', !!accessToken);
       
+      // Test the get-paragraphs function explicitly (need to create or point to existing function)
       const response = await fetch('https://ncipejuazrewiizxtkcj.supabase.co/functions/v1/get-paragraphs', {
         method: 'POST',
         headers: {
@@ -162,7 +149,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
               <CardContent>
                 <p className="text-muted-foreground whitespace-pre-line">
                   {paragraph.content ? 
-                    paragraph.content : 
+                    paragraph.content.substring(0, 150) + (paragraph.content.length > 150 ? "..." : "") : 
                     'Geen inhoud beschikbaar'}
                 </p>
               </CardContent>
