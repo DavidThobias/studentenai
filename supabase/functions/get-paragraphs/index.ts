@@ -75,7 +75,7 @@ serve(async (req) => {
 
     // Get diagnostic information about database with explicit typing
     const { data: tableInfo, error: tableInfoError } = await supabase
-      .rpc('get_table_info', { table_name: 'books' } as TableInfoArgs)
+      .rpc<any, any>('get_table_info', { table_name: 'books' } as TableInfoArgs)
       .catch(() => ({ data: null, error: { message: 'get_table_info function not available' } }));
 
     return new Response(

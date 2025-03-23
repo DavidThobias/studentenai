@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -138,9 +137,10 @@ export const useChaptersAndParagraphs = (
       setIsFetchingParagraphs(true);
       addLog(`Fetching all paragraphs for chapter ${chapterId}`);
       
+      // Fix: Use explicit generic types to avoid deep type instantiation
       const { data, error } = await supabase
         .from('books')
-        .select<'*', ParagraphData>('*')
+        .select<string, ParagraphData>('id, paragraph_number, content, chapter_number')
         .eq('chapter_number', chapterId)
         .order('paragraph_number', { ascending: true });
       

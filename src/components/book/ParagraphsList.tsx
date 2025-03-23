@@ -1,4 +1,3 @@
-
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,9 +52,9 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         
       console.log('Total books/paragraphs in database:', totalCount);
       
-      // Check table schema - explicitly typing the rpc call parameter to fix the error
+      // Check table schema - explicitly typing the rpc call parameter with both type parameters
       const { data: schemaData } = await supabase
-        .rpc<any>('get_table_info', { table_name: 'books' } as TableInfoParams);
+        .rpc<any, any>('get_table_info', { table_name: 'books' } as TableInfoParams);
       
       console.log('Table schema:', schemaData);
       
