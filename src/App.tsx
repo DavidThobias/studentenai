@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,7 +11,6 @@ import Learn from "./pages/Learn";
 import Books from "./pages/Books";
 import BookDetail from "./pages/BookDetail";
 import QuizPage from "./pages/QuizPage";
-import StructuredLearningPage from './pages/StructuredLearningPage';
 
 const queryClient = new QueryClient();
 
@@ -39,7 +39,6 @@ function App() {
               <Route path="/books/:id" element={<BookDetail />} />
               <Route path="/learn" element={<Learn />} />
               <Route path="/quiz" element={<QuizPage />} />
-              <Route path="/structured-learning/:id" element={<StructuredLearningPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AnimatePresence>

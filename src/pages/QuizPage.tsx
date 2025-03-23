@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle, Bug, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { 
+  CheckCircle, 
+  XCircle, 
+  HelpCircle, 
+  ArrowRight, 
+  RotateCcw, 
+  Loader2, 
+  AlertCircle, 
+  Bug, 
+  Eye, 
+  EyeOff, 
+  ArrowLeft, 
+  BookOpen,
+  ChevronRight
+} from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -10,6 +24,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
 
 export interface QuizQuestion {
   question: string;
@@ -18,11 +33,27 @@ export interface QuizQuestion {
   explanation: string;
 }
 
+interface ParagraphProgress {
+  id: number;
+  paragraphNumber: number;
+  chapterId: number;
+  completed: boolean;
+  score?: number;
+  totalQuestions?: number;
+  lastAttemptDate?: Date;
+}
+
+interface ParagraphData {
+  id: number;
+  paragraph_number?: number;
+  content?: string;
+  chapter_number: number;
+}
+
 const QuizPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
-  // Quiz state
   const [questions, setQuestions] = useState<Array<QuizQuestion>>([]);
   const [quizError, setQuizError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -33,13 +64,19 @@ const QuizPage = () => {
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   
-  // Quiz context params
   const [bookId, setBookId] = useState<number | null>(null);
   const [chapterId, setChapterId] = useState<number | null>(null);
   const [paragraphId, setParagraphId] = useState<number | null>(null);
   const [quizTitle, setQuizTitle] = useState<string>("Quiz");
   
-  // Debug state
+  const [isStructuredLearning, setIsStructuredLearning] = useState(false);
+  const [paragraphs, setParagraphs] = useState<ParagraphData[]>([]);
+  const [progressData, setProgressData] = useState<ParagraphProgress[]>([]);
+  const [currentParagraphContent, setCurrentParagraphContent] = useState<string>('');
+  const [showParagraphContent, setShowParagraphContent] = useState(false);
+  const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
+  const [isFetchingParagraphs, setIsFetchingParagraphs] = useState(false);
+  
   const [showDebug, setShowDebug] = useState(false);
   const [debugAccordion, setDebugAccordion] = useState<string | null>(null);
   const [debugData, setDebugData] = useState<any>({
@@ -49,22 +86,21 @@ const QuizPage = () => {
   });
   const [stateLog, setStateLog] = useState<string[]>([]);
   
-  // Load params from URL on initial render
   useEffect(() => {
-    // Extract params from URL
     const bookIdParam = searchParams.get('bookId');
     const chapterIdParam = searchParams.get('chapterId');
     const paragraphIdParam = searchParams.get('paragraphId');
+    const structuredParam = searchParams.get('structured');
     
-    addLog(`URL parameters: bookId=${bookIdParam}, chapterId=${chapterIdParam}, paragraphId=${paragraphIdParam}`);
+    addLog(`URL parameters: bookId=${bookIdParam}, chapterId=${chapterIdParam}, paragraphId=${paragraphIdParam}, structured=${structuredParam}`);
     
-    // Set state from URL params
+    setIsStructuredLearning(structuredParam === 'true');
+    
     if (bookIdParam) {
       const numericBookId = parseInt(bookIdParam);
       setBookId(numericBookId);
       addLog(`Setting bookId from URL: ${numericBookId}`);
     } else {
-      // Try to get from localStorage as fallback
       const savedBookId = localStorage.getItem('quizBookId');
       if (savedBookId) {
         const numericBookId = parseInt(savedBookId);
@@ -87,7 +123,6 @@ const QuizPage = () => {
       addLog(`Setting paragraphId from URL: ${numericParagraphId}`);
     }
     
-    // Set quiz title based on context
     if (paragraphIdParam) {
       setQuizTitle(`Quiz over paragraaf ${paragraphIdParam}`);
     } else if (chapterIdParam) {
@@ -98,7 +133,37 @@ const QuizPage = () => {
       setQuizTitle("Quiz over Sales");
     }
     
-    // Try to load saved quiz state only if no URL params provided
+    if (structuredParam === 'true' && chapterIdParam && bookIdParam) {
+      fetchAllParagraphsForChapter(parseInt(chapterIdParam));
+    } else {
+      loadSavedQuizState(bookIdParam, chapterIdParam, paragraphIdParam);
+    }
+  }, [searchParams]);
+  
+  useEffect(() => {
+    if (questions.length > 0) {
+      const quizState = {
+        questions,
+        currentQuestionIndex,
+        selectedAnswer,
+        isAnswerSubmitted,
+        score,
+        isQuizComplete,
+        bookId,
+        chapterId,
+        paragraphId
+      };
+      localStorage.setItem('quizState', JSON.stringify(quizState));
+      addLog('Saved quiz state to localStorage');
+    }
+  }, [questions, currentQuestionIndex, selectedAnswer, isAnswerSubmitted, score, isQuizComplete, bookId, chapterId, paragraphId]);
+  
+  const addLog = (message: string) => {
+    console.log(`[QUIZ DEBUG] ${message}`);
+    setStateLog(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
+  };
+  
+  const loadSavedQuizState = (bookIdParam: string | null, chapterIdParam: string | null, paragraphIdParam: string | null) => {
     const savedQuiz = localStorage.getItem('quizState');
     if (savedQuiz && !bookIdParam && !chapterIdParam && !paragraphIdParam) {
       try {
@@ -127,7 +192,6 @@ const QuizPage = () => {
       }
     }
     
-    // If we have valid context, automatically start generation if we have no questions
     const hasValidContext = bookIdParam || (savedQuiz && JSON.parse(savedQuiz).bookId);
     const hasQuestions = savedQuiz && JSON.parse(savedQuiz).questions && JSON.parse(savedQuiz).questions.length > 0;
     
@@ -138,39 +202,67 @@ const QuizPage = () => {
       addLog('Missing required context (bookId) for auto-generation');
       setQuizError('Geen boek geselecteerd. Ga terug naar een boek en start de quiz daar.');
     }
-  }, [searchParams]);
+  };
   
-  // Save quiz state to localStorage whenever it changes
-  useEffect(() => {
-    if (questions.length > 0) {
-      const quizState = {
-        questions,
-        currentQuestionIndex,
-        selectedAnswer,
-        isAnswerSubmitted,
-        score,
-        isQuizComplete,
-        bookId,
-        chapterId,
-        paragraphId
-      };
-      localStorage.setItem('quizState', JSON.stringify(quizState));
-      addLog('Saved quiz state to localStorage');
+  const fetchAllParagraphsForChapter = async (chapterId: number) => {
+    try {
+      setIsFetchingParagraphs(true);
+      addLog(`Fetching all paragraphs for chapter ${chapterId}`);
+      
+      const { data, error } = await supabase
+        .from('books')
+        .select('*')
+        .eq('chapter_number', chapterId)
+        .order('paragraph_number', { ascending: true });
+      
+      if (error) {
+        console.error('Error fetching paragraphs:', error);
+        addLog(`Error fetching paragraphs: ${error.message}`);
+        toast.error(`Fout bij ophalen paragrafen: ${error.message}`);
+        return;
+      }
+      
+      const paragraphsData = data || [];
+      setParagraphs(paragraphsData);
+      addLog(`Fetched ${paragraphsData.length} paragraphs for chapter ${chapterId}`);
+      
+      const initialProgressData = paragraphsData.map(p => ({
+        id: p.id,
+        paragraphNumber: p.paragraph_number || 0,
+        chapterId: p.chapter_number,
+        completed: false,
+      }));
+      
+      setProgressData(initialProgressData);
+      
+      if (paragraphsData.length > 0) {
+        if (paragraphId) {
+          const selectedParagraph = paragraphsData.find(p => p.id === paragraphId);
+          if (selectedParagraph) {
+            setCurrentParagraphContent(selectedParagraph.content || 'No content available');
+          }
+        } else {
+          setParagraphId(paragraphsData[0].id);
+          setCurrentParagraphContent(paragraphsData[0].content || 'No content available');
+          setQuizTitle(`Quiz over paragraaf ${paragraphsData[0].paragraph_number || 1}`);
+        }
+        
+        if (isStructuredLearning) {
+          const targetParagraphId = paragraphId || paragraphsData[0].id;
+          generateQuizForParagraph(targetParagraphId);
+        }
+      } else {
+        addLog('No paragraphs found for this chapter');
+        toast.warning('Geen paragrafen gevonden voor dit hoofdstuk');
+      }
+    } catch (err) {
+      console.error('Error in fetchAllParagraphsForChapter:', err);
+      addLog(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsFetchingParagraphs(false);
     }
-  }, [questions, currentQuestionIndex, selectedAnswer, isAnswerSubmitted, score, isQuizComplete, bookId, chapterId, paragraphId]);
-  
-  // Add debug log function
-  const addLog = (message: string) => {
-    console.log(`[QUIZ DEBUG] ${message}`);
-    setStateLog(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
   };
   
-  // Add the missing handleBackToHome function
-  const handleBackToHome = () => {
-    navigate('/');
-  };
-  
-  // Navigate back to book detail page
   const handleBackToBook = () => {
     if (bookId) {
       navigate(`/books/${bookId}`);
@@ -179,16 +271,11 @@ const QuizPage = () => {
     }
   };
   
-  // Modified to handle both direct calls and click events
-  const generateQuiz = async (questionCountOrEvent?: number | React.MouseEvent<HTMLButtonElement>) => {
-    // Default question count
-    let questionCount = 5;
-    
-    // If the argument is a number, use it as question count
-    if (typeof questionCountOrEvent === 'number') {
-      questionCount = questionCountOrEvent;
-    }
-    
+  const handleBackToHome = () => {
+    navigate('/');
+  };
+  
+  const generateQuizForParagraph = async (paragraphId: number) => {
     try {
       setIsGenerating(true);
       setQuizError(null);
@@ -198,59 +285,49 @@ const QuizPage = () => {
       setIsAnswerSubmitted(false);
       setScore(0);
       setIsQuizComplete(false);
+      setShowParagraphContent(false);
       
-      addLog(`Generating ${questionCount} quiz questions for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}`);
+      setParagraphId(paragraphId);
       
-      // Construct payload with all available context
-      const payload: any = { 
-        count: questionCount, 
-        debug: true 
-      };
+      const paragraph = paragraphs.find(p => p.id === paragraphId);
+      if (paragraph) {
+        setCurrentParagraphContent(paragraph.content || 'No content available');
+        setQuizTitle(`Quiz over paragraaf ${paragraph.paragraph_number || '?'}`);
+      }
       
-      // Add context parameters if available
-      if (bookId) payload.bookId = bookId;
-      if (chapterId) payload.chapterId = chapterId;
-      if (paragraphId) payload.paragraphId = paragraphId;
+      addLog(`Generating quiz questions for paragraph ${paragraphId}`);
       
-      addLog(`Sending payload to generate-sales-question: ${JSON.stringify(payload)}`);
+      if (!bookId || !chapterId) {
+        setQuizError('Boek of hoofdstuk informatie ontbreekt');
+        return;
+      }
       
       const { data, error } = await supabase.functions.invoke('generate-sales-question', {
-        body: payload
+        body: { 
+          bookId: bookId,
+          chapterId: chapterId,
+          paragraphId: paragraphId,
+          count: 5,
+          debug: true 
+        }
       });
-      
-      // Save the raw API response for debugging
-      if (data) {
-        debugData.apiResponse = data;
-        setDebugData({...debugData, apiResponse: data});
-        addLog(`Full API response received: ${JSON.stringify(data).substring(0, 100)}...`);
-        console.log('Full API response:', data);
-      }
       
       if (error) {
         console.error('Error generating quiz:', error);
         setQuizError(`Er is een fout opgetreden: ${error.message}`);
-        addLog(`Error: ${error.message}`);
         return;
       }
       
       if (data && data.success && data.questions && Array.isArray(data.questions)) {
-        // Format the questions from the API
         const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
-          // Check the correct answer format and convert appropriately
           let correctAnswerIndex;
           
           if (typeof q.correct === 'string' && q.correct.length === 1) {
-            // If it's a single letter like 'A', 'B', 'C', 'D'
-            correctAnswerIndex = q.correct.charCodeAt(0) - 65; // Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
-            addLog(`Converting letter correct answer '${q.correct}' to index ${correctAnswerIndex}`);
+            correctAnswerIndex = q.correct.charCodeAt(0) - 65;
           } else if (typeof q.correct === 'number') {
-            // If it's already a number
             correctAnswerIndex = q.correct;
-            addLog(`Using numeric correct answer: ${correctAnswerIndex}`);
           } else {
-            // Default to first option if unknown format
             correctAnswerIndex = 0;
-            addLog(`Unknown correct answer format: ${typeof q.correct}, value: ${q.correct}. Defaulting to index 0.`);
           }
           
           return {
@@ -264,27 +341,144 @@ const QuizPage = () => {
         setQuestions(formattedQuestions);
         addLog(`Created ${formattedQuestions.length} questions from the API response`);
         
-        // Save debug data
         if (data.debug) {
           setDebugData({
             ...debugData,
             prompt: data.debug.prompt,
-            response: data.debug.response
+            response: data.debug.response,
+            apiResponse: data
           });
           addLog('Debug data saved from API response');
         }
       } else {
-        setQuizError('Geen vragen konden worden gegenereerd. Controleer of er content beschikbaar is voor dit boek/hoofdstuk.');
+        setQuizError('Geen vragen konden worden gegenereerd. Controleer of er content beschikbaar is voor deze paragraaf.');
         addLog(`Failed to generate questions: Invalid response format or no questions returned`);
-        console.error('Invalid response format or no questions:', data);
       }
     } catch (err) {
-      console.error('Error in generateQuiz:', err);
+      console.error('Error in generateQuizForParagraph:', err);
       setQuizError(`Er is een onverwachte fout opgetreden: ${err instanceof Error ? err.message : 'Onbekende fout'}`);
-      addLog(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsGenerating(false);
     }
+  };
+  
+  const generateQuiz = async (questionCountOrEvent?: number | React.MouseEvent<HTMLButtonElement>) => {
+    if (!isStructuredLearning) {
+      if (typeof questionCountOrEvent === 'number') {
+        const questionCount = questionCountOrEvent;
+        setIsGenerating(true);
+        setQuizError(null);
+        setQuestions([]);
+        setCurrentQuestionIndex(0);
+        setSelectedAnswer(null);
+        setIsAnswerSubmitted(false);
+        setScore(0);
+        setIsQuizComplete(false);
+        
+        addLog(`Generating ${questionCount} quiz questions for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}`);
+        
+        const payload: any = { 
+          count: questionCount, 
+          debug: true 
+        };
+        
+        if (bookId) payload.bookId = bookId;
+        if (chapterId) payload.chapterId = chapterId;
+        if (paragraphId) payload.paragraphId = paragraphId;
+        
+        addLog(`Sending payload to generate-sales-question: ${JSON.stringify(payload)}`);
+        
+        const { data, error } = await supabase.functions.invoke('generate-sales-question', {
+          body: payload
+        });
+        
+        if (data) {
+          debugData.apiResponse = data;
+          setDebugData({...debugData, apiResponse: data});
+          addLog(`Full API response received: ${JSON.stringify(data).substring(0, 100)}...`);
+          console.log('Full API response:', data);
+        }
+        
+        if (error) {
+          console.error('Error generating quiz:', error);
+          setQuizError(`Er is een fout opgetreden: ${error.message}`);
+          addLog(`Error: ${error.message}`);
+          return;
+        }
+        
+        if (data && data.success && data.questions && Array.isArray(data.questions)) {
+          const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
+            let correctAnswerIndex;
+            
+            if (typeof q.correct === 'string' && q.correct.length === 1) {
+              correctAnswerIndex = q.correct.charCodeAt(0) - 65;
+            } else if (typeof q.correct === 'number') {
+              correctAnswerIndex = q.correct;
+            } else {
+              correctAnswerIndex = 0;
+            }
+            
+            return {
+              question: q.question,
+              options: q.options,
+              correctAnswer: correctAnswerIndex,
+              explanation: q.explanation || "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
+            };
+          });
+          
+          setQuestions(formattedQuestions);
+          addLog(`Created ${formattedQuestions.length} questions from the API response`);
+          
+          if (data.debug) {
+            setDebugData({
+              ...debugData,
+              prompt: data.debug.prompt,
+              response: data.debug.response
+            });
+            addLog('Debug data saved from API response');
+          }
+        } else {
+          setQuizError('Geen vragen konden worden gegenereerd. Controleer of er content beschikbaar is voor dit boek/hoofdstuk.');
+          addLog(`Failed to generate questions: Invalid response format or no questions returned`);
+          console.error('Invalid response format or no questions:', data);
+        }
+      }
+    } else if (paragraphId) {
+      generateQuizForParagraph(paragraphId);
+    } else if (paragraphs.length > 0) {
+      generateQuizForParagraph(paragraphs[0].id);
+    } else {
+      if (chapterId) {
+        await fetchAllParagraphsForChapter(chapterId);
+      } else {
+        setQuizError('Geen hoofdstuk geselecteerd om quiz te genereren');
+      }
+    }
+  };
+
+  const goToNextParagraph = () => {
+    if (paragraphs.length === 0) return;
+    
+    const currentIndex = paragraphs.findIndex(p => p.id === paragraphId);
+    if (currentIndex >= 0 && currentIndex < paragraphs.length - 1) {
+      const nextParagraph = paragraphs[currentIndex + 1];
+      
+      setQuestions([]);
+      setCurrentQuestionIndex(0);
+      setSelectedAnswer(null);
+      setIsAnswerSubmitted(false);
+      setScore(0);
+      setIsQuizComplete(false);
+      setShowParagraphContent(false);
+      
+      generateQuizForParagraph(nextParagraph.id);
+    } else {
+      toast.info('Je bent bij de laatste paragraaf');
+    }
+  };
+
+  const toggleParagraphContent = () => {
+    setShowParagraphContent(!showParagraphContent);
   };
 
   const handleAnswerSelect = (index: number) => {
@@ -323,7 +517,37 @@ const QuizPage = () => {
       setShowExplanation(false);
     } else {
       addLog('Quiz complete, showing results');
-      setIsQuizComplete(true);
+      completeQuiz();
+    }
+  };
+
+  const completeQuiz = () => {
+    setIsQuizComplete(true);
+    
+    if (isStructuredLearning && paragraphId) {
+      const percentage = Math.round((score / questions.length) * 100);
+      const passingScore = 70;
+      
+      setProgressData(prevData => 
+        prevData.map(p => {
+          if (p.id === paragraphId) {
+            return {
+              ...p,
+              completed: percentage >= passingScore,
+              score: score,
+              totalQuestions: questions.length,
+              lastAttemptDate: new Date()
+            };
+          }
+          return p;
+        })
+      );
+      
+      if (percentage >= passingScore) {
+        toast.success(`Je hebt dit onderdeel met succes afgerond! (${percentage}%)`);
+      } else {
+        toast.info(`Je moet minimaal 70% scoren om door te gaan. Probeer het nog eens. (${percentage}%)`);
+      }
     }
   };
 
@@ -334,9 +558,13 @@ const QuizPage = () => {
 
   const restartQuiz = () => {
     addLog('Restarting quiz');
-    generateQuiz();
+    if (isStructuredLearning && paragraphId) {
+      generateQuizForParagraph(paragraphId);
+    } else {
+      generateQuiz();
+    }
   };
-  
+
   const forceNextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
       addLog(`FORCE: Moving to next question (${currentQuestionIndex + 1})`);
@@ -348,6 +576,12 @@ const QuizPage = () => {
       addLog('FORCE: Cannot advance, already at last question');
       toast.info('Je bent al bij de laatste vraag');
     }
+  };
+
+  const calculateChapterProgress = () => {
+    if (progressData.length === 0) return 0;
+    const completedCount = progressData.filter(p => p.completed).length;
+    return Math.round((completedCount / progressData.length) * 100);
   };
 
   const renderLoadingContent = () => {
@@ -434,15 +668,17 @@ const QuizPage = () => {
             Opnieuw proberen
           </Button>
           
-          {bookId ? (
+          {isStructuredLearning && paragraphId && (
+            <Button onClick={goToNextParagraph} className="flex-1 bg-green-600 hover:bg-green-700">
+              Volgende paragraaf
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          )}
+          
+          {!isStructuredLearning && (
             <Button onClick={handleBackToBook} className="flex-1">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Terug naar boek
-            </Button>
-          ) : (
-            <Button onClick={handleBackToHome} className="flex-1">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Terug naar home
             </Button>
           )}
         </div>
@@ -494,6 +730,21 @@ const QuizPage = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {isStructuredLearning && showParagraphContent && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-md border">
+              <h3 className="font-medium mb-2">Paragraaf inhoud:</h3>
+              <p className="text-sm whitespace-pre-line">{currentParagraphContent}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={toggleParagraphContent}
+                className="mt-2"
+              >
+                Verberg inhoud
+              </Button>
+            </div>
+          )}
+          
           <RadioGroup
             value={selectedAnswer?.toString()}
             onValueChange={(value) => handleAnswerSelect(parseInt(value))}
@@ -542,6 +793,15 @@ const QuizPage = () => {
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0">
           <div className="flex items-center space-x-2">
+            {isStructuredLearning && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleParagraphContent}
+              >
+                {showParagraphContent ? 'Verberg inhoud' : 'Toon inhoud'}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -577,7 +837,73 @@ const QuizPage = () => {
     );
   };
 
-  // Main render function
+  const renderStructuredLearningNavigation = () => {
+    if (!isStructuredLearning || isFetchingParagraphs) return null;
+    
+    return (
+      <div className="w-full md:w-64 lg:w-72 flex-shrink-0 mb-6 md:mb-0 md:mr-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">
+              Hoofdstuk voortgang
+              <Badge className="ml-2" variant="outline">{calculateChapterProgress()}%</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Progress value={calculateChapterProgress()} className="h-3 mb-4" />
+            
+            {paragraphs.length > 0 ? (
+              <div className="space-y-2">
+                {paragraphs.map((paragraph, index) => {
+                  const progress = progressData.find(p => p.id === paragraph.id);
+                  const isActive = paragraphId === paragraph.id;
+                  const paragraphNumber = paragraph.paragraph_number || index + 1;
+                  
+                  return (
+                    <div 
+                      key={paragraph.id} 
+                      className={`p-2 rounded-md border cursor-pointer transition-colors ${
+                        isActive ? 'border-primary bg-primary/5' : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                      onClick={() => !isGenerating && generateQuizForParagraph(paragraph.id)}
+                    >
+                      <div className="flex items-center">
+                        {progress?.completed ? (
+                          <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                        ) : (
+                          <span className="h-5 w-5 flex items-center justify-center text-xs rounded-full bg-gray-200 text-gray-700 mr-2 flex-shrink-0">
+                            {paragraphNumber}
+                          </span>
+                        )}
+                        <span className="text-sm">Paragraaf {paragraphNumber}</span>
+                      </div>
+                      
+                      {progress?.score !== undefined && progress.totalQuestions !== undefined && (
+                        <div className="ml-6 mt-1 text-xs text-gray-500">
+                          Score: {progress.score}/{progress.totalQuestions}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Geen paragrafen gevonden
+              </p>
+            )}
+          </CardContent>
+          <CardFooter>
+            <Button variant="outline" size="sm" onClick={handleBackToBook} className="w-full">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Terug naar boek
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="flex justify-between items-center mb-6">
@@ -600,7 +926,7 @@ const QuizPage = () => {
               </>
             )}
           </Button>
-          {bookId ? (
+          {!isStructuredLearning && bookId && (
             <Button 
               variant="outline" 
               size="sm" 
@@ -609,35 +935,28 @@ const QuizPage = () => {
               <ArrowLeft className="mr-1 h-4 w-4" />
               Terug naar boek
             </Button>
-          ) : (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleBackToHome}
-            >
-              <ArrowLeft className="mr-1 h-4 w-4" />
-              Terug
-            </Button>
           )}
         </div>
       </div>
       
-      {/* Main Content */}
-      <div className="mb-8">
-        {isGenerating ? (
-          renderLoadingContent()
-        ) : quizError ? (
-          renderErrorContent()
-        ) : questions.length === 0 ? (
-          renderEmptyContent()
-        ) : isQuizComplete ? (
-          renderResultsContent()
-        ) : (
-          renderQuestionContent()
-        )}
+      <div className="flex flex-col md:flex-row">
+        {renderStructuredLearningNavigation()}
+        
+        <div className="flex-grow">
+          {isGenerating ? (
+            renderLoadingContent()
+          ) : quizError ? (
+            renderErrorContent()
+          ) : questions.length === 0 ? (
+            renderEmptyContent()
+          ) : isQuizComplete ? (
+            renderResultsContent()
+          ) : (
+            renderQuestionContent()
+          )}
+        </div>
       </div>
       
-      {/* Debug Panel */}
       {showDebug && (
         <div className="mt-8 border border-gray-200 rounded-md overflow-hidden bg-gray-50 max-w-4xl mx-auto">
           <h2 className="font-semibold p-4 bg-gray-100 border-b border-gray-200">
@@ -677,6 +996,12 @@ const QuizPage = () => {
                   </div>
                   <div className="bg-gray-100 p-1 rounded">
                     <span className="font-bold">Selected Answer:</span> {selectedAnswer !== null ? selectedAnswer : 'None'}
+                  </div>
+                  <div className="bg-gray-100 p-1 rounded">
+                    <span className="font-bold">Structured Learning:</span> {isStructuredLearning ? 'Yes' : 'No'}
+                  </div>
+                  <div className="bg-gray-100 p-1 rounded">
+                    <span className="font-bold">Paragraphs:</span> {paragraphs.length}
                   </div>
                 </div>
                 <div className="mt-2 flex justify-end">

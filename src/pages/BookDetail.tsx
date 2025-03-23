@@ -49,16 +49,10 @@ const BookDetail = () => {
       params.append('paragraphId', paragraphId.toString());
     }
     
-    navigate(`/quiz?${params.toString()}`);
-  };
-  
-  const handleStartStructuredLearning = () => {
-    if (!id) {
-      toast.error('Boek ID ontbreekt');
-      return;
-    }
+    // Add structured parameter to indicate we want structured learning
+    params.append('structured', 'true');
     
-    navigate(`/structured-learning/${id}`);
+    navigate(`/quiz?${params.toString()}`);
   };
 
   if (loading) {
@@ -77,18 +71,6 @@ const BookDetail = () => {
         )}
 
         <BookOverview book={book} />
-        
-        {/* Add structured learning button */}
-        <div className="flex justify-center my-6">
-          <Button 
-            onClick={handleStartStructuredLearning} 
-            className="bg-study-600 hover:bg-study-700 text-white"
-            size="lg"
-          >
-            <BookOpen className="mr-2 h-5 w-5" />
-            Start gestructureerd leren
-          </Button>
-        </div>
 
         <ChaptersList 
           chapters={chapters}
