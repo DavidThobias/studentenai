@@ -9,6 +9,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface RequestBody {
+  chapterId: number;
+}
+
+interface TableInfoArgs {
+  table_name: string;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -16,7 +24,9 @@ serve(async (req) => {
   }
 
   try {
-    const { chapterId } = await req.json();
+    // Explicitly type the request body
+    const body = await req.json() as RequestBody;
+    const { chapterId } = body;
     
     if (!chapterId) {
       throw new Error('Chapter ID is required');
@@ -54,9 +64,9 @@ serve(async (req) => {
       throw new Error(`Error fetching paragraphs: ${paragraphsError.message}`);
     }
 
-    // Get diagnostic information about database
+    // Get diagnostic information about database with explicit typing
     const { data: tableInfo, error: tableInfoError } = await supabase
-      .rpc('get_table_info', { table_name: 'books' })
+      .rpc('get_table_info', { table_name: 'books' } as TableInfoArgs)
       .catch(() => ({ data: null, error: { message: 'get_table_info function not available' } }));
 
     return new Response(

@@ -48,9 +48,9 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         
       console.log('Total books/paragraphs in database:', totalCount);
       
-      // Check table schema
+      // Check table schema - fixing the type issue by explicitly typing the rpc call
       const { data: schemaData } = await supabase
-        .rpc('get_table_info', { table_name: 'books' });
+        .rpc('get_table_info', { table_name: 'books' } as { table_name: string });
       
       console.log('Table schema:', schemaData);
       

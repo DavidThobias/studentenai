@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
+// Define clear interfaces to avoid deep type instantiation
 export interface ParagraphData {
   id: number;
   paragraph_number?: number;
@@ -86,6 +87,7 @@ export const useChaptersAndParagraphs = (
               index === self.findIndex(c => c.chapter_number === chapter.chapter_number)
             );
             
+            // Use explicit typing to avoid deep instantiation
             const chaptersData: ChapterData[] = uniqueChapters.map(chapter => ({
               id: chapter.id,
               chapter_number: chapter.chapter_number,
@@ -106,7 +108,7 @@ export const useChaptersAndParagraphs = (
           index === self.findIndex(c => c.chapter_number === chapter.chapter_number)
         );
         
-        // Explicitly map to ChapterData type to avoid deep type instantiation
+        // Use explicit typing to avoid deep instantiation
         const chaptersData: ChapterData[] = uniqueChapters.map(chapter => ({
           id: chapter.id,
           chapter_number: chapter.chapter_number,
@@ -150,7 +152,7 @@ export const useChaptersAndParagraphs = (
         return [];
       }
       
-      // Explicitly map to ParagraphData type to avoid deep type instantiation
+      // Use explicit typing to avoid deep instantiation
       const typedParagraphs: ParagraphData[] = data.map(p => ({
         id: p.id,
         paragraph_number: p.paragraph_number,
@@ -161,8 +163,8 @@ export const useChaptersAndParagraphs = (
       setParagraphs(typedParagraphs);
       addLog(`Fetched ${typedParagraphs.length} paragraphs for chapter ${chapterId}`);
       
-      // Create initial progress data
-      const initialProgressData = typedParagraphs.map(p => ({
+      // Create initial progress data with explicit typing
+      const initialProgressData: ParagraphProgress[] = typedParagraphs.map(p => ({
         id: p.id,
         paragraphNumber: p.paragraph_number || 0,
         chapterId: p.chapter_number,
