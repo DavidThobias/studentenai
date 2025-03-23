@@ -33,7 +33,6 @@ const QuizPage = () => {
   // State for quiz configuration
   const [quizTitle, setQuizTitle] = useState<string>("Quiz");
   const [isStructuredLearning, setIsStructuredLearning] = useState(false);
-  const [questionCount, setQuestionCount] = useState<number>(5);
 
   // Initialize hooks
   const {
@@ -93,7 +92,9 @@ const QuizPage = () => {
   useEffect(() => {
     addLog(`URL parameters: bookId=${bookIdParam}, chapterId=${chapterIdParam}, paragraphId=${paragraphIdParam}, structured=${structuredParam}`);
     
-    setIsStructuredLearning(structuredParam === 'true');
+    // Determine if in structured learning mode
+    const structuredMode = structuredParam === 'true';
+    setIsStructuredLearning(structuredMode);
     
     if (bookIdParam) {
       const numericBookId = parseInt(bookIdParam);
@@ -127,9 +128,18 @@ const QuizPage = () => {
       setQuizTitle("Quiz over Sales");
     }
     
-    if (structuredParam === 'true' && chapterIdParam) {
+    // Handle structured learning mode
+    if (structuredMode && chapterIdParam) {
       fetchAllParagraphsForChapter(parseInt(chapterIdParam));
+      
+      // If paragraph ID specified, start quiz for that paragraph
+      if (paragraphIdParam) {
+        const numericParagraphId = parseInt(paragraphIdParam);
+        setParagraphId(numericParagraphId);
+        generateQuizForParagraph(numericParagraphId);
+      }
     } else {
+      // Regular quiz mode - load saved state or generate new quiz
       const { hasValidContext, hasQuestions } = loadSavedQuizState(bookIdParam, chapterIdParam, paragraphIdParam);
       
       if (hasValidContext && !hasQuestions) {
@@ -166,19 +176,30 @@ const QuizPage = () => {
     }
   };
 
-  const handleQuestionCountChange = (count: number) => {
-    setQuestionCount(count);
-  };
-
   const handleGenerateQuiz = () => {
-    generateQuiz(questionCount);
+    if (isStructuredLearning && paragraphs.length > 0) {
+      // In structured mode, start with first paragraph if none selected
+      if (!paragraphId && paragraphs.length > 0) {
+        const firstParagraph = paragraphs[0];
+        handleSelectParagraph(firstParagraph.id);
+      } else if (paragraphId) {
+        generateQuizForParagraph(paragraphId);
+      }
+    } else {
+      // Regular quiz mode
+      generateQuiz();
+    }
   };
 
   const handleSelectParagraph = (paragraphId: number) => {
     if (!paragraphId) return;
     
     setCurrentParagraph(paragraphId);
-    setQuizTitle(`Quiz over paragraaf ${paragraphs.find(p => p.id === paragraphId)?.paragraph_number || '?'}`);
+    
+    // Find the paragraph to update the title
+    const selectedParagraph = paragraphs.find(p => p.id === paragraphId);
+    setQuizTitle(`Quiz over paragraaf ${selectedParagraph?.paragraph_number || '?'}`);
+    
     generateQuizForParagraph(paragraphId);
   };
 
@@ -213,9 +234,11 @@ const QuizPage = () => {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-xl font-semibold">Voortgang hoofdstuk</h2>
-              <Badge variant="outline">{calculateChapterProgress()}%</Badge>
+              <Badge variant="outline" className="px-3 py-1">
+                {calculateChapterProgress()}% compleet
+              </Badge>
             </div>
-            <Progress value={calculateChapterProgress()} className="h-2" />
+            <Progress value={calculateChapterProgress()} className="h-3" />
           </div>
         )}
         
@@ -229,7 +252,24 @@ const QuizPage = () => {
             />
           )}
           
-          <div className="flex-1">
+          <div className="flex-1 bg-card p-6 rounded-lg shadow-sm border">
+            {isStructuredLearning && !paragraphId && paragraphs.length > 0 && !isGenerating && (
+              <div className="text-center py-8">
+                <h3 className="text-xl font-medium mb-4">Selecteer een paragraaf om te beginnen</h3>
+                <p className="text-muted-foreground mb-6">
+                  Klik op een paragraaf in het zijpaneel om de quiz voor die paragraaf te starten.
+                </p>
+                {paragraphs.length > 0 && (
+                  <button 
+                    className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
+                    onClick={() => handleSelectParagraph(paragraphs[0].id)}
+                  >
+                    Start met eerste paragraaf
+                  </button>
+                )}
+              </div>
+            )}
+            
             {isGenerating && <QuizLoading />}
             
             {quizError && (
@@ -240,18 +280,19 @@ const QuizPage = () => {
               />
             )}
             
-            {!isGenerating && !quizError && questions.length === 0 && (
+            {!isGenerating && !quizError && questions.length === 0 && !(isStructuredLearning && paragraphs.length > 0 && !paragraphId) && (
               <QuizEmpty 
                 bookId={bookId}
                 chapterId={chapterId}
                 paragraphId={paragraphId}
                 availableChapters={availableChapters}
                 isLoadingChapters={isLoadingChapters}
-                questionCount={questionCount}
+                questionCount={5}
                 onChapterSelect={handleChapterSelect}
-                onQuestionCountChange={handleQuestionCountChange}
+                onQuestionCountChange={() => {}}
                 onGenerateQuiz={handleGenerateQuiz}
                 onBackToHome={handleBackToHome}
+                isStructuredLearning={isStructuredLearning}
               />
             )}
             

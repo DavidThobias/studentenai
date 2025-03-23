@@ -22,6 +22,7 @@ interface QuizEmptyProps {
   onQuestionCountChange: (count: number) => void;
   onGenerateQuiz: () => void;
   onBackToHome: () => void;
+  isStructuredLearning?: boolean;
 }
 
 const QuizEmpty = ({
@@ -34,7 +35,8 @@ const QuizEmpty = ({
   onChapterSelect,
   onQuestionCountChange,
   onGenerateQuiz,
-  onBackToHome
+  onBackToHome,
+  isStructuredLearning = false
 }: QuizEmptyProps) => {
   return (
     <div className="flex flex-col items-center justify-center space-y-4 p-6">
@@ -74,23 +76,25 @@ const QuizEmpty = ({
             </div>
           )}
           
-          <div className="space-y-2">
-            <h3 className="text-lg font-medium">Aantal vragen</h3>
-            <Select 
-              defaultValue={questionCount.toString()} 
-              onValueChange={(value) => onQuestionCountChange(parseInt(value))}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Aantal vragen" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="3">3 vragen</SelectItem>
-                <SelectItem value="5">5 vragen</SelectItem>
-                <SelectItem value="10">10 vragen</SelectItem>
-                <SelectItem value="15">15 vragen</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {!isStructuredLearning && (
+            <div className="space-y-2">
+              <h3 className="text-lg font-medium">Aantal vragen</h3>
+              <Select 
+                defaultValue={questionCount.toString()} 
+                onValueChange={(value) => onQuestionCountChange(parseInt(value))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Aantal vragen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3 vragen</SelectItem>
+                  <SelectItem value="5">5 vragen</SelectItem>
+                  <SelectItem value="10">10 vragen</SelectItem>
+                  <SelectItem value="15">15 vragen</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           
           <Button 
             onClick={onGenerateQuiz} 
@@ -98,9 +102,14 @@ const QuizEmpty = ({
             disabled={!bookId || (availableChapters.length > 0 && !chapterId)}
           >
             <BookCheck className="mr-2 h-4 w-4" />
-            {bookId && !chapterId && 'Genereer quiz over het boek'}
-            {chapterId && !paragraphId && `Genereer quiz over hoofdstuk ${chapterId}`}
-            {paragraphId && `Genereer quiz over paragraaf ${paragraphId}`}
+            {isStructuredLearning 
+              ? 'Start gestructureerd leren' 
+              : bookId && !chapterId 
+                ? 'Genereer quiz over het boek'
+                : chapterId && !paragraphId 
+                  ? `Genereer quiz over hoofdstuk ${chapterId}`
+                  : paragraphId && `Genereer quiz over paragraaf ${paragraphId}`
+            }
           </Button>
           
           {isLoadingChapters && (
