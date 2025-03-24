@@ -30,7 +30,7 @@
     
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
- 
+
     --ring: 222.2 84% 4.9%;
 
     --radius: 0.5rem;
@@ -102,7 +102,7 @@
 
 @layer components {
   .prose-blue {
-    @apply prose prose-blue
+    @apply prose 
       prose-h2:text-xl prose-h2:font-bold prose-h2:mt-8 prose-h2:mb-4
       prose-h3:text-lg prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-3
       prose-p:mb-4 prose-p:leading-relaxed

@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -124,12 +125,29 @@ export default {
 				'pulse': 'pulse 3s ease-in-out infinite'
 			},
 			typography: {
+				DEFAULT: {
+					css: {
+						maxWidth: '100%',
+					},
+				},
 				blue: {
 					css: {
-						'--tw-prose-headings': '#1e40af',
 						'--tw-prose-body': '#334155',
-						'--tw-prose-bold': '#0369a1',
+						'--tw-prose-headings': '#1e40af',
+						'--tw-prose-lead': '#4b5563',
 						'--tw-prose-links': '#0284c7',
+						'--tw-prose-bold': '#0369a1',
+						'--tw-prose-counters': '#1e40af',
+						'--tw-prose-bullets': '#1e40af',
+						'--tw-prose-hr': '#e0f2fe',
+						'--tw-prose-quotes': '#1e40af',
+						'--tw-prose-quote-borders': '#93c5fd',
+						'--tw-prose-captions': '#6b7280',
+						'--tw-prose-code': '#1e40af',
+						'--tw-prose-pre-code': '#e0f2fe',
+						'--tw-prose-pre-bg': '#1e293b',
+						'--tw-prose-th-borders': '#bfdbfe',
+						'--tw-prose-td-borders': '#e0f2fe',
 					},
 				},
 			},
