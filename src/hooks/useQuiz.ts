@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +41,11 @@ export const useQuiz = (
   const [chapterId, setChapterId] = useState<number | null>(initialChapterId);
   const [paragraphId, setParagraphId] = useState<number | null>(initialParagraphId);
   
-  const [debugData, setDebugData] = useState<any>({
+  const [debugData, setDebugData] = useState<{
+    prompt: string | null;
+    response: any | null;
+    apiResponse: any | null;
+  }>({
     prompt: null,
     response: null,
     apiResponse: null

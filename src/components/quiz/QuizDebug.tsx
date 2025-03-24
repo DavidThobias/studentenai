@@ -37,6 +37,15 @@ const QuizDebug = ({
   const [showDebug, setShowDebug] = useState(false);
   const [debugAccordion, setDebugAccordion] = useState<string | null>(null);
 
+  const handleAccordionChange = (value: string) => {
+    // Prevent default behavior first to avoid any issues
+    try {
+      setDebugAccordion(value === debugAccordion ? null : value);
+    } catch (error) {
+      console.error("Error changing accordion state:", error);
+    }
+  };
+
   if (!showDebug) {
     return (
       <div className="fixed bottom-4 right-4 z-10">
@@ -52,13 +61,19 @@ const QuizDebug = ({
     );
   }
 
+  // Safely prepare content (prevent rendering errors)
+  const safePrompt = typeof debugData.prompt === 'string' ? debugData.prompt : 'Geen prompt beschikbaar';
+  const safeResponse = debugData.response ? 
+    (typeof debugData.response === 'string' ? debugData.response : JSON.stringify(debugData.response, null, 2)) 
+    : 'Geen response beschikbaar';
+
   return (
     <>
       <Accordion 
         type="single" 
         collapsible
-        value={debugAccordion}
-        onValueChange={setDebugAccordion}
+        value={debugAccordion || undefined}
+        onValueChange={handleAccordionChange}
         className="mt-10 border"
       >
         <AccordionItem value="debug-state">
@@ -88,7 +103,7 @@ const QuizDebug = ({
           <AccordionItem value="debug-prompt">
             <AccordionTrigger className="px-4">AI Prompt</AccordionTrigger>
             <AccordionContent className="p-4 text-xs bg-gray-50 font-mono whitespace-pre-line">
-              {debugData.prompt}
+              {safePrompt}
             </AccordionContent>
           </AccordionItem>
         )}
@@ -96,7 +111,7 @@ const QuizDebug = ({
           <AccordionItem value="debug-response">
             <AccordionTrigger className="px-4">AI Response</AccordionTrigger>
             <AccordionContent className="p-4 text-xs bg-gray-50 font-mono whitespace-pre-line">
-              {debugData.response}
+              {safeResponse}
             </AccordionContent>
           </AccordionItem>
         )}

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, Eye } from "lucide-react";
 import { QuizQuestion } from "@/hooks/useQuiz";
+import { useEffect } from "react";
 
 interface QuizQuestionProps {
   question: QuizQuestion;
@@ -43,6 +44,15 @@ const QuizQuestionComponent = ({
   onToggleExplanation,
   onToggleParagraphContent
 }: QuizQuestionProps) => {
+  // Reset focus on radio buttons when moving to new question
+  useEffect(() => {
+    // When the question changes or when the answer is reset, clear any active focus
+    const activeElement = document.activeElement as HTMLElement;
+    if (activeElement && activeElement.blur) {
+      activeElement.blur();
+    }
+  }, [currentQuestionIndex, selectedAnswer]);
+  
   return (
     <Card className="border-2 max-w-3xl mx-auto">
       <CardHeader>
@@ -86,7 +96,7 @@ const QuizQuestionComponent = ({
         >
           {question.options.map((option, index) => (
             <div
-              key={index}
+              key={`${currentQuestionIndex}-${index}`}
               className={`flex items-center space-x-2 rounded-lg border p-4 ${
                 isAnswerSubmitted
                   ? index === question.correctAnswer
@@ -97,8 +107,8 @@ const QuizQuestionComponent = ({
                   : 'hover:border-primary'
               }`}
             >
-              <RadioGroupItem value={index.toString()} id={`option-${index}`} />
-              <Label htmlFor={`option-${index}`} className="flex-grow cursor-pointer">
+              <RadioGroupItem value={index.toString()} id={`option-${currentQuestionIndex}-${index}`} />
+              <Label htmlFor={`option-${currentQuestionIndex}-${index}`} className="flex-grow cursor-pointer">
                 {option}
               </Label>
               {isAnswerSubmitted && (
