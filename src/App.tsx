@@ -11,6 +11,7 @@ import Learn from "./pages/Learn";
 import Books from "./pages/Books";
 import BookDetail from "./pages/BookDetail";
 import QuizPage from "./pages/QuizPage";
+import Layout from "./components/Layout";
 
 const queryClient = new QueryClient();
 
@@ -36,10 +37,22 @@ function App() {
           <AnimatePresence mode="wait">
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/books" element={<Books />} />
+              <Route path="/books" element={
+                <Layout>
+                  <Books />
+                </Layout>
+              } />
               <Route path="/books/:id" element={<BookDetail />} />
-              <Route path="/learn" element={<Learn />} />
-              <Route path="/quiz" element={<QuizPage />} />
+              <Route path="/learn" element={
+                <Layout>
+                  <Learn />
+                </Layout>
+              } />
+              <Route path="/quiz" element={
+                <Layout>
+                  <QuizPage />
+                </Layout>
+              } />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AnimatePresence>

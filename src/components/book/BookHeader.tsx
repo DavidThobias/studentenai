@@ -26,7 +26,7 @@ const BookHeader = ({ title, author }: BookHeaderProps) => {
       >
         <h1 className="heading-xl text-foreground mb-4">{title || 'Boek details'}</h1>
         <p className="subheading max-w-3xl">
-          {author && `Door ${author}`}
+          Door {author}
         </p>
       </motion.div>
     </>

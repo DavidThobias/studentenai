@@ -9,8 +9,7 @@ import UpcomingFeatures from '@/components/book/UpcomingFeatures';
 import LoadingBookDetail from '@/components/book/LoadingBookDetail';
 import { useBookDetail } from '@/hooks/useBookDetail';
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { BookOpen, ListChecks } from "lucide-react";
+import Layout from '@/components/Layout';
 
 const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -55,40 +54,57 @@ const BookDetail = () => {
     navigate(`/quiz?${params.toString()}`);
   };
 
+  // Check if this is the Sales book
+  const isSalesBook = book?.book_title?.toLowerCase().includes('sales');
+
   if (loading) {
-    return <LoadingBookDetail />;
+    return (
+      <Layout>
+        <div className="pt-28 pb-20 px-6">
+          <LoadingBookDetail />
+        </div>
+      </Layout>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-background pt-28 pb-20 px-6">
-      <div className="max-w-4xl mx-auto">
-        <BookHeader title={book?.book_title} author="Onbekende auteur" />
+    <Layout>
+      <div className="min-h-screen pt-28 pb-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <BookHeader 
+            title={book?.book_title} 
+            author={book?.author_name || 'Onbekende auteur'} 
+          />
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-        <BookOverview book={book} />
+          <BookOverview book={book} />
 
-        <ChaptersList 
-          chapters={chapters}
-          onChapterSelect={handleChapterSelect} 
-          selectedChapterId={selectedChapterId}
-          onStartQuiz={handleStartQuiz}
-        />
+          <ChaptersList 
+            chapters={chapters}
+            onChapterSelect={handleChapterSelect} 
+            selectedChapterId={selectedChapterId}
+            onStartQuiz={handleStartQuiz}
+          />
 
-        <ParagraphsList 
-          paragraphs={paragraphs} 
-          loadingParagraphs={loadingParagraphs}
-          selectedChapterId={selectedChapterId}
-          onStartQuiz={handleStartQuiz}
-        />
+          {/* Only show paragraphs list if it's not the Sales book */}
+          {!isSalesBook && (
+            <ParagraphsList 
+              paragraphs={paragraphs} 
+              loadingParagraphs={loadingParagraphs}
+              selectedChapterId={selectedChapterId}
+              onStartQuiz={handleStartQuiz}
+            />
+          )}
 
-        <UpcomingFeatures />
+          <UpcomingFeatures />
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 
