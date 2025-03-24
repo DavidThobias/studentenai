@@ -1,6 +1,7 @@
 
 import { ArrowRight, BookOpen, Brain, Lightbulb } from "lucide-react";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 
 export default function Hero() {
   return (
@@ -23,13 +24,14 @@ export default function Hero() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <button className="btn-primary group">
-                Upload je boek
+              <Link to="/learn" className="btn-primary group inline-flex items-center justify-center">
+                Upload je eigen samenvatting
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </button>
-              <button className="btn-secondary">
-                Bekijk voorbeeldquiz
-              </button>
+              </Link>
+              <Link to="/books" className="btn-secondary inline-flex items-center justify-center">
+                Koop onze leermethodes
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
             </div>
 
             <div className="flex items-center space-x-4 text-sm text-muted-foreground">
