@@ -165,9 +165,9 @@ serve(async (req) => {
       contentToUse = contentToUse.substring(0, MAX_CONTENT_LENGTH) + "...";
     }
 
-    // Updated OpenAI prompt based on user's improved version
+    // Improved OpenAI prompt with focus on challenging questions and balanced answer distribution
     const openAIPrompt = `
-    Je bent een AI gespecialiseerd in het genereren van educatieve meerkeuzevragen om gebruikers volledig inzicht te geven in een specifieke paragraaf uit een boek.
+    Je bent een AI gespecialiseerd in het genereren van uitdagende educatieve meerkeuzevragen om gebruikers volledig inzicht te geven in een specifieke paragraaf uit een boek.
     
     Invoer:
     Boektitel: ${book.book_title}
@@ -177,9 +177,19 @@ serve(async (req) => {
     
     Vereisten voor de vragen:
     Dynamisch aantal vragen: Op basis van de lengte en inhoud van de paragraaf. Kortere paragrafen krijgen minder vragen, langere paragrafen meer. Genereer maximaal ${numberOfQuestions} vragen.
+    
     Diepgang: De vragen moeten zowel feitelijke kennis als begrip testen (bijv. onderscheid tussen concepten, praktische toepassingen).
+    
     Scenario-gebaseerde vragen: Minstens een paar vragen moeten de stof in een realistische context plaatsen.
+    
+    Strikvragen: Voeg enkele subtiele strikvragen toe waarbij oppervlakkige lezing tot een verkeerd antwoord kan leiden. Deze vragen testen diepgaand begrip.
+    
+    Moeilijkheidsgraad: Zorg voor gevarieerde antwoordopties die allemaal aannemelijk klinken, met subtiele verschillen tussen het juiste antwoord en de afleiders.
+    
+    Evenwichtige antwoorden: Zorg voor een gelijke verdeling van juiste antwoorden over A, B, C en D - geen enkel antwoord (A, B, C of D) mag vaker dan de andere voorkomen als juist antwoord.
+    
     Geen letterlijke kopie: De vragen moeten de stof testen zonder exacte zinnen uit de tekst over te nemen.
+    
     Uitgebreide uitleg: Naast het juiste antwoord moet ook worden uitgelegd waarom dit correct is en waarom de andere opties fout zijn.
     
     Correct geformatteerde JSON-uitvoer, met de volgende structuur:
@@ -201,7 +211,8 @@ serve(async (req) => {
     Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
     Bepaal het aantal vragen dynamisch op basis van de paragraaflengte en complexiteit.
     De uitleg moet helder en bondig zijn, en aangeven waarom het juiste antwoord correct is en waarom de andere opties fout zijn.
-    Scenario's en denkvragen toevoegen voor een diepgaand begrip.`;
+    Zorg voor een gelijke verdeling van A, B, C en D als correcte antwoorden.
+    Maak de foute antwoorden geloofwaardig en vergelijkbaar met het juiste antwoord.`;
 
     // Call OpenAI API with timeout handling
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -222,7 +233,7 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'Je bent een ervaren Nederlandse onderwijsassistent die gespecialiseerd is in het maken van hoogwaardige multiple-choice vragen. Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen. Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.'
+            content: 'Je bent een ervaren Nederlandse onderwijsassistent die gespecialiseerd is in het maken van hoogwaardige multiple-choice vragen. Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen. Je zorgt voor een evenwichtige verdeling van A, B, C en D als juiste antwoorden. Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.'
           },
           {
             role: 'user',
