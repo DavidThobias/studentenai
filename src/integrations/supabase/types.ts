@@ -65,7 +65,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_table_info: {
+        Args: {
+          table_name: string
+        }
+        Returns: {
+          column_name: string
+          data_type: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

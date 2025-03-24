@@ -23,14 +23,21 @@ export default function Hero() {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link to="/learn" className="btn-primary group inline-flex items-center justify-center">
+            <div className="flex flex-col gap-4 max-w-md">
+              <Link 
+                to="/learn" 
+                className="btn-primary group inline-flex items-center justify-center py-4 px-6 text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-300"
+              >
                 Upload je eigen samenvatting
-                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
-              <Link to="/books" className="btn-secondary inline-flex items-center justify-center">
+              
+              <Link 
+                to="/books" 
+                className="btn-secondary inline-flex items-center justify-center py-4 px-6 text-lg font-medium shadow-md hover:shadow-lg transition-all duration-300"
+              >
                 Koop onze leermethodes
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
 
@@ -51,18 +58,6 @@ export default function Hero() {
 
           <div className="relative animate-fade-in">
             <div className="aspect-square w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
-              <div className="glass-card absolute top-0 left-0 p-6 w-48 animate-float shadow-lg">
-                <BookOpen className="h-6 w-6 text-study-600 mb-2" />
-                <h3 className="font-medium">Upload je boek</h3>
-                <p className="text-sm text-muted-foreground mt-1">Zet passief lezen om in actief leren</p>
-              </div>
-              
-              <div className="glass-card absolute bottom-10 right-0 p-6 w-48 animate-float animation-delay-1000 shadow-lg">
-                <Brain className="h-6 w-6 text-study-600 mb-2" />
-                <h3 className="font-medium">AI-Quiz Generator</h3>
-                <p className="text-sm text-muted-foreground mt-1">Slimme vragen op basis van jouw boek</p>
-              </div>
-              
               <div className="rounded-2xl overflow-hidden shadow-2xl bg-white">
                 <div className="w-full h-full bg-gradient-to-br from-study-100 to-study-50 flex items-center justify-center p-8">
                   <div className="w-full max-w-sm glass-card p-8">
