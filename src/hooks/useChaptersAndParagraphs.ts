@@ -23,7 +23,11 @@ export interface ParagraphProgress {
   totalQuestions?: number;
 }
 
-export const useChaptersAndParagraphs = (bookId: string | number | undefined) => {
+export const useChaptersAndParagraphs = (
+  bookId: string | number | undefined, 
+  chapterId?: number | null,
+  addLog?: (message: string) => void
+) => {
   const [chapters, setChapters] = useState<ChapterData[]>([]);
   const [paragraphs, setParagraphs] = useState<ParagraphData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +39,15 @@ export const useChaptersAndParagraphs = (bookId: string | number | undefined) =>
   const [currentParagraphContent, setCurrentParagraphContent] = useState<string | null>(null);
   const [isLoadingChapters, setIsLoadingChapters] = useState(false);
   const [isFetchingParagraphs, setIsFetchingParagraphs] = useState(false);
+
+  // Helper function for logging if available
+  const log = (message: string) => {
+    if (addLog) {
+      addLog(message);
+    } else {
+      console.log(message);
+    }
+  };
 
   useEffect(() => {
     const fetchChapters = async () => {
@@ -99,10 +112,20 @@ export const useChaptersAndParagraphs = (bookId: string | number | undefined) =>
     fetchChapters();
   }, [bookId]);
 
+  useEffect(() => {
+    // If chapterId is provided in the constructor, fetch its paragraphs
+    if (chapterId) {
+      log(`Initial chapterId provided: ${chapterId}, fetching paragraphs`);
+      fetchParagraphs(chapterId);
+    }
+  }, [chapterId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const fetchParagraphs = async (chapterId: number) => {
     try {
       setLoadingParagraphs(true);
       setSelectedChapterId(chapterId);
+      
+      log(`Fetching paragraphs for chapter ${chapterId}`);
       
       const { data: paragraphsData, error: paragraphsError } = await supabase
         .from('books')
@@ -125,6 +148,7 @@ export const useChaptersAndParagraphs = (bookId: string | number | undefined) =>
       }));
       
       setParagraphs(typedParagraphs);
+      log(`Fetched ${typedParagraphs.length} paragraphs for chapter ${chapterId}`);
     } catch (error) {
       console.error('Error fetching paragraphs:', error);
     } finally {
@@ -137,6 +161,8 @@ export const useChaptersAndParagraphs = (bookId: string | number | undefined) =>
     setIsLoadingChapters(true);
     try {
       if (!bookId) return;
+      
+      log(`Fetching chapters for book ${bookId}`);
       
       // Get book title first
       const { data: bookData, error: bookError } = await supabase
@@ -178,6 +204,7 @@ export const useChaptersAndParagraphs = (bookId: string | number | undefined) =>
       
       const chaptersArray = Array.from(uniqueChapters.values());
       setChapters(chaptersArray);
+      log(`Fetched ${chaptersArray.length} chapters for book ${bookId}`);
     } catch (error) {
       console.error('Error fetching chapters for book:', error);
     } finally {
@@ -188,6 +215,7 @@ export const useChaptersAndParagraphs = (bookId: string | number | undefined) =>
   const fetchAllParagraphsForChapter = async (chapterId: number) => {
     setIsFetchingParagraphs(true);
     try {
+      log(`Fetching all paragraphs for chapter ${chapterId}`);
       await fetchParagraphs(chapterId);
     } catch (error) {
       console.error('Error fetching all paragraphs for chapter:', error);
@@ -197,6 +225,7 @@ export const useChaptersAndParagraphs = (bookId: string | number | undefined) =>
   };
 
   const setParagraphCompleted = (paragraphId: number, score: number, totalQuestions: number) => {
+    log(`Marking paragraph ${paragraphId} as completed with score ${score}/${totalQuestions}`);
     const updatedProgressData = [...progressData];
     const existingIndex = updatedProgressData.findIndex(p => p.id === paragraphId);
     
@@ -238,6 +267,7 @@ export const useChaptersAndParagraphs = (bookId: string | number | undefined) =>
   };
 
   const setCurrentParagraph = (paragraphId: number) => {
+    log(`Setting current paragraph to ${paragraphId}`);
     const paragraph = paragraphs.find(p => p.id === paragraphId);
     if (paragraph) {
       setCurrentParagraphContent(paragraph.content || null);
