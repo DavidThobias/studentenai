@@ -13,6 +13,7 @@ export interface EnhancedContent {
     paragraph_number: number;
     content: string;
   }[];
+  currentParagraphId?: number;
 }
 
 export const useTextEnhancer = () => {
@@ -26,9 +27,6 @@ export const useTextEnhancer = () => {
       setError(null);
       
       console.log(`Enhancing text for chapter ${chapterId}${paragraphId ? ` paragraph ${paragraphId}` : ''}`);
-      
-      // First check if we need to get the content from the database
-      let originalContent = '';
       
       // Call the edge function with the chapter ID and paragraph ID
       const { data, error: functionError } = await supabase.functions.invoke('enhance-readability', {
@@ -50,7 +48,12 @@ export const useTextEnhancer = () => {
         return null;
       }
       
-      setEnhancedContent(data);
+      // Set the enhanced content with the current paragraph ID if applicable
+      setEnhancedContent({
+        ...data,
+        currentParagraphId: paragraphId
+      });
+      
       return data;
     } catch (err) {
       console.error('Error enhancing text:', err);
@@ -62,10 +65,45 @@ export const useTextEnhancer = () => {
     }
   };
 
+  const getNextParagraphId = () => {
+    if (!enhancedContent?.paragraphs || !enhancedContent.currentParagraphId) return null;
+    
+    const currentIndex = enhancedContent.paragraphs.findIndex(
+      p => p.id === enhancedContent.currentParagraphId
+    );
+    
+    if (currentIndex === -1 || currentIndex >= enhancedContent.paragraphs.length - 1) return null;
+    return enhancedContent.paragraphs[currentIndex + 1].id;
+  };
+  
+  const getPreviousParagraphId = () => {
+    if (!enhancedContent?.paragraphs || !enhancedContent.currentParagraphId) return null;
+    
+    const currentIndex = enhancedContent.paragraphs.findIndex(
+      p => p.id === enhancedContent.currentParagraphId
+    );
+    
+    if (currentIndex <= 0) return null;
+    return enhancedContent.paragraphs[currentIndex - 1].id;
+  };
+  
+  const getCurrentParagraphNumber = () => {
+    if (!enhancedContent?.paragraphs || !enhancedContent.currentParagraphId) return null;
+    
+    const paragraph = enhancedContent.paragraphs.find(
+      p => p.id === enhancedContent.currentParagraphId
+    );
+    
+    return paragraph?.paragraph_number || null;
+  };
+
   return {
     enhancedContent,
     isLoading,
     error,
-    enhanceText
+    enhanceText,
+    getNextParagraphId,
+    getPreviousParagraphId,
+    getCurrentParagraphNumber
   };
 };

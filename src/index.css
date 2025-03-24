@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -98,4 +99,42 @@
   .border-study-100 {
     border-color: #e0f2fe;
   }
+}
+
+/* Enhanced typography for study materials */
+.prose-blue {
+  @apply prose-headings:text-blue-800 
+    prose-h2:text-xl prose-h2:font-bold prose-h2:mt-8 prose-h2:mb-4
+    prose-h3:text-lg prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-3
+    prose-p:mb-4 prose-p:leading-relaxed
+    prose-strong:text-blue-700 prose-strong:font-semibold
+    prose-ul:my-4 prose-ul:pl-6
+    prose-li:my-1 prose-li:pl-1
+    prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline;
+}
+
+.prose-blue blockquote {
+  @apply border-l-4 border-blue-300 bg-blue-50 pl-4 py-2 my-6 text-gray-700 rounded-r-md;
+}
+
+.prose-blue table {
+  @apply border-collapse w-full my-6;
+}
+
+.prose-blue table th {
+  @apply bg-blue-50 text-left p-2 font-semibold border border-blue-100;
+}
+
+.prose-blue table td {
+  @apply p-2 border border-blue-100;
+}
+
+.prose-blue hr {
+  @apply my-8 border-blue-100;
+}
+
+/* Definition styling */
+.prose-blue strong + em,
+.prose-blue strong em {
+  @apply text-gray-600 not-italic font-normal;
 }

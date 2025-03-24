@@ -63,7 +63,7 @@ serve(async (req) => {
       return `Paragraaf ${item.paragraph_number || 'onbekend'}: ${item.content || ''}`;
     }).join('\n\n');
 
-    // Process with OpenAI to enhance readability
+    // Process with OpenAI to enhance readability with improved prompt
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -75,24 +75,30 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `Je bent een ervaren docent die teksten duidelijker en makkelijker te begrijpen maakt voor studenten. 
-            Je taak is om de volgende tekst beter leesbaar te maken door:
-            1. Complexe zinnen te herformuleren in eenvoudigere taal
-            2. Vakjargon uit te leggen met duidelijke definities tussen haakjes
-            3. De structuur te verbeteren met duidelijke kopjes per paragraaf
-            4. Af en toe belangrijke punten te benadrukken met bullet points of vetgedrukte tekst (markdown)
-            
-            BELANGRIJK: Je mag de tekst NIET samenvatten. Alle informatie moet behouden blijven.
-            Je voegt alleen toelichting en structuur toe om het begrijpelijker te maken.
-            Behoud de oorspronkelijke paragraafnummers precies zoals in de input, maar maak de rest van 
-            de tekst helderder en toegankelijker voor studenten.`
+            content: `Je bent een ervaren universitair docent die studiemateriaal toegankelijker maakt voor studenten.
+
+Je taak is om de volgende studietekst te herstructureren en te verbeteren qua leesbaarheid door:
+
+1. Duidelijke koppen en subkoppen toe te voegen (gebruik ## voor hoofdkoppen en ### voor subkoppen)
+2. Kernbegrippen **vet** te maken en direct te definiëren op een begrijpelijke manier
+3. Complexe zinnen te herformuleren in eenvoudigere taal
+4. Opsommingen en lijsten te structureren met bullets (gebruik - voor lijstitems)
+5. Belangrijke concepten in een kader te plaatsen met > citaatblokken voor extra nadruk
+6. Kernpunten samen te vatten aan het einde van elke paragraaf
+7. Paragraafnummers exact te behouden zoals in de invoer (bijv. "Paragraaf 1.1: ...")
+
+BELANGRIJK:
+- Je mag de inhoud NIET inkorten - alle informatie moet behouden blijven
+- Academische termen moeten behouden blijven, maar wel uitgelegd worden
+- Maak de tekst visueel overzichtelijk, met goede witruimte tussen secties
+- Gebruik markdown-opmaak voor betere leesbaarheid`
           },
           {
             role: 'user',
             content: `Hier is de tekst uit het boek "${bookTitle}", hoofdstuk: "${chapterTitle}":\n\n${originalContent}`
           }
         ],
-        temperature: 0.5,
+        temperature: 0.7,
         max_tokens: 4096,
       }),
     });
