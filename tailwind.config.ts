@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -123,8 +122,21 @@ export default {
 				'slide-in': 'slideIn 0.5s ease-out',
 				'float': 'float 6s ease-in-out infinite',
 				'pulse': 'pulse 3s ease-in-out infinite'
-			}
+			},
+			typography: {
+				blue: {
+					css: {
+						'--tw-prose-headings': '#1e40af',
+						'--tw-prose-body': '#334155',
+						'--tw-prose-bold': '#0369a1',
+						'--tw-prose-links': '#0284c7',
+					},
+				},
+			},
 		}
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [
+		require("tailwindcss-animate"),
+		require("@tailwindcss/typography")
+	],
 } satisfies Config;
