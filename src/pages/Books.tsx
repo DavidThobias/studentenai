@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Book, Search, ArrowLeft, BookOpen } from 'lucide-react';
@@ -166,14 +167,13 @@ const BooksPage = () => {
                   <div className="aspect-[3/4] bg-study-50 flex items-center justify-center relative overflow-hidden">
                     {book.book_title?.toLowerCase().includes('sales') ? (
                       <img 
-                        src="/basisboek-sales-cover.jpg" 
+                        src="https://ncipejuazrewiizxtkcj.supabase.co/storage/v1/object/public/afbeeldingen//shopping.webp" 
                         alt={`${book.book_title} cover`} 
                         className="w-full h-full object-cover"
                       />
                     ) : (
                       <BookOpen className="h-20 w-20 text-study-200" />
                     )}
-                    {/* Placeholder for future book cover images */}
                   </div>
                   <div className="p-4">
                     <h3 className="font-medium text-foreground truncate">{book.book_title || 'Onbekende titel'}</h3>

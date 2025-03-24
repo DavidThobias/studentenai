@@ -29,7 +29,10 @@ const BookOverview = ({ book }: BookOverviewProps) => {
   const [loading, setLoading] = useState(false);
   
   const isSalesBook = book?.book_title?.toLowerCase().includes('sales');
-  const bookCoverImage = isSalesBook ? "/basisboek-sales-cover.jpg" : null;
+  // Update the book cover URL to use the Supabase storage URL
+  const bookCoverImage = isSalesBook 
+    ? "https://ncipejuazrewiizxtkcj.supabase.co/storage/v1/object/public/afbeeldingen//shopping.webp" 
+    : null;
 
   useEffect(() => {
     if (book?.id) {
