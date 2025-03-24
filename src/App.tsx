@@ -11,6 +11,7 @@ import Learn from "./pages/Learn";
 import Books from "./pages/Books";
 import BookDetail from "./pages/BookDetail";
 import QuizPage from "./pages/QuizPage";
+import SummaryPage from "./pages/SummaryPage";
 import Layout from "./components/Layout";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ function App() {
                 </Layout>
               } />
               <Route path="/books/:id" element={<BookDetail />} />
+              <Route path="/books/:id/summary" element={<SummaryPage />} />
               <Route path="/learn" element={
                 <Layout>
                   <Learn />

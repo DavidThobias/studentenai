@@ -105,6 +105,17 @@ const BookOverview = ({ book }: BookOverviewProps) => {
     }
   };
 
+  const handleNavigateToSummary = (chapterId: number) => {
+    if (book?.id) {
+      const params = new URLSearchParams();
+      params.append('chapter', chapterId.toString());
+      
+      navigate(`/books/${book.id}/summary?${params.toString()}`);
+    } else {
+      toast.error('Boek informatie ontbreekt.');
+    }
+  };
+
   return (
     <div className="space-y-8 mb-12">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -159,7 +170,9 @@ const BookOverview = ({ book }: BookOverviewProps) => {
             <Button 
               size="lg" 
               variant="outline" 
-              onClick={() => toast.info('Functionaliteit wordt binnenkort toegevoegd')} 
+              onClick={() => bookDetails && bookDetails.count > 0 
+                ? handleNavigateToSummary(1) 
+                : toast.info('Geen hoofdstukken beschikbaar')} 
               className="flex-1"
             >
               <FileText className="mr-2 h-5 w-5" />

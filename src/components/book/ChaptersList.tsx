@@ -3,6 +3,7 @@ import { BookOpen, Brain, FileText, BookText, ChevronRight, ArrowRight } from 'l
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from 'framer-motion';
+import { useNavigate, useParams } from 'react-router-dom';
 
 interface ChapterData {
   id: number;
@@ -19,6 +20,9 @@ interface ChaptersListProps {
 }
 
 const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect, selectedChapterId }: ChaptersListProps) => {
+  const navigate = useNavigate();
+  const { id: bookId } = useParams<{ id: string }>();
+  
   // Animation variants for staggered children
   const container = {
     hidden: { opacity: 0 },
@@ -33,6 +37,15 @@ const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect, selectedChapterI
   const item = {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0 }
+  };
+  
+  const handleViewSummary = (chapterId: number) => {
+    if (bookId) {
+      const params = new URLSearchParams();
+      params.append('chapter', chapterId.toString());
+      
+      navigate(`/books/${bookId}/summary?${params.toString()}`);
+    }
   };
 
   return (
@@ -84,6 +97,15 @@ const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect, selectedChapterI
                     </CardContent>
                     
                     <CardFooter className="flex flex-col sm:flex-row gap-3 pt-2">
+                      <Button
+                        variant="outline"
+                        className="w-full sm:w-auto flex items-center gap-2"
+                        onClick={() => handleViewSummary(chapter.id)}
+                      >
+                        <FileText className="h-4 w-4" />
+                        Bekijk samenvatting
+                      </Button>
+                    
                       {onStartQuiz && (
                         <Button 
                           onClick={() => onStartQuiz(chapter.id)} 

@@ -1,10 +1,10 @@
-
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useEffect, useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate, useParams } from 'react-router-dom';
 
 interface ParagraphData {
   id: number;
@@ -26,6 +26,8 @@ interface ParagraphsListProps {
 }
 
 const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedChapterId }: ParagraphsListProps) => {
+  const navigate = useNavigate();
+  const { id: bookId } = useParams<{ id: string }>();
   const [directDbCount, setDirectDbCount] = useState<number | null>(null);
   const [isCheckingDb, setIsCheckingDb] = useState(false);
   const [edgeFunctionResult, setEdgeFunctionResult] = useState<any>(null);
@@ -42,24 +44,20 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     
     try {
       setIsCheckingDb(true);
-      // Convert chapter ID to number to ensure type safety
       const numericChapterId = Number(selectedChapterId);
       console.log('Checking database directly for paragraphs with chapter_number =', numericChapterId);
       
-      // Get total count of records in books table
       const { count: totalCount } = await supabase
         .from('books')
         .select('*', { count: 'exact', head: true });
         
       console.log('Total books/paragraphs in database:', totalCount);
       
-      // Fix: Use type assertion to avoid type parameter issues
       const { data: schemaData } = await supabase
         .rpc('get_table_info', { table_name: 'books' } as TableInfoParams);
       
       console.log('Table schema:', schemaData);
       
-      // Query books table by chapter_number
       const { data: chapterData, error: chapterError } = await supabase
         .from('books')
         .select('*')
@@ -71,7 +69,6 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         count: chapterData?.length || 0
       });
       
-      // Count total paragraphs
       let totalParagraphCount = chapterData?.length || 0;
       
       setDirectDbCount(totalParagraphCount);
@@ -88,7 +85,6 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     
     try {
       setIsTestingEdgeFunction(true);
-      // Convert chapter ID to number for consistent type handling
       const numericChapterId = Number(selectedChapterId);
       console.log('Testing edge function with chapter_id =', numericChapterId);
       
@@ -97,7 +93,6 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       
       console.log('Access token available for edge function test:', !!accessToken);
       
-      // Test the get-paragraphs function explicitly (need to create or point to existing function)
       const response = await fetch('https://ncipejuazrewiizxtkcj.supabase.co/functions/v1/get-paragraphs', {
         method: 'POST',
         headers: {
@@ -133,6 +128,16 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     }
   };
 
+  const handleViewSummary = (paragraphId: number) => {
+    if (bookId && selectedChapterId) {
+      const params = new URLSearchParams();
+      params.append('chapter', selectedChapterId.toString());
+      params.append('paragraph', paragraphId.toString());
+      
+      navigate(`/books/${bookId}/summary?${params.toString()}`);
+    }
+  };
+
   return (
     <div className="mb-12">
       <h2 className="text-2xl font-semibold mb-6">Paragrafen</h2>
@@ -158,15 +163,25 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                     'Geen inhoud beschikbaar'}
                 </p>
               </CardContent>
-              <CardFooter className="flex flex-row gap-2">
+              <CardFooter className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                  onClick={() => handleViewSummary(paragraph.id)}
+                >
+                  <FileText className="h-4 w-4" />
+                  Bekijk samenvatting
+                </Button>
+              
                 {onStartQuiz && selectedChapterId && (
                   <Button 
                     onClick={() => onStartQuiz(Number(selectedChapterId), paragraph.id)}
                     variant="outline"
                     size="sm"
-                    className="w-full sm:w-auto"
+                    className="flex items-center gap-2"
                   >
-                    <ListChecks className="mr-2 h-4 w-4" />
+                    <ListChecks className="h-4 w-4" />
                     Quiz over paragraaf
                   </Button>
                 )}
