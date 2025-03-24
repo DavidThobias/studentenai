@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-interface EnhancedContent {
+export interface EnhancedContent {
   originalContent: string;
   enhancedContent: string;
   bookTitle: string;
@@ -27,6 +27,10 @@ export const useTextEnhancer = () => {
       
       console.log(`Enhancing text for chapter ${chapterId}${paragraphId ? ` paragraph ${paragraphId}` : ''}`);
       
+      // First check if we need to get the content from the database
+      let originalContent = '';
+      
+      // Call the edge function with the chapter ID and paragraph ID
       const { data, error: functionError } = await supabase.functions.invoke('enhance-readability', {
         body: { chapterId, paragraphId },
       });
@@ -35,14 +39,15 @@ export const useTextEnhancer = () => {
         console.error('Error calling enhance-readability function:', functionError);
         setError('Er is een fout opgetreden bij het verbeteren van de leesbaarheid');
         toast.error('Kan de inhoud niet verbeteren');
-        return;
+        return null;
       }
       
-      if (!data.success) {
-        console.error('Function returned error:', data.error);
-        setError(data.error || 'Er is een fout opgetreden');
+      if (!data?.success) {
+        const errorMessage = data?.error || 'Er is een fout opgetreden';
+        console.error('Function returned error:', errorMessage);
+        setError(errorMessage);
         toast.error('Kan de inhoud niet verbeteren');
-        return;
+        return null;
       }
       
       setEnhancedContent(data);
@@ -51,6 +56,7 @@ export const useTextEnhancer = () => {
       console.error('Error enhancing text:', err);
       setError('Er is een fout opgetreden bij het verbeteren van de leesbaarheid');
       toast.error('Kan de inhoud niet verbeteren');
+      return null;
     } finally {
       setIsLoading(false);
     }
