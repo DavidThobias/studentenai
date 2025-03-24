@@ -1,3 +1,4 @@
+
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +13,7 @@ interface ParagraphData {
   chapter_number: number;
 }
 
-// Define a more specific type for RPC calls
+// Define a specific type for table info params
 interface TableInfoParams {
   table_name: string;
 }
@@ -52,9 +53,9 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         
       console.log('Total books/paragraphs in database:', totalCount);
       
-      // Fix: Use the generic type parameter that doesn't conflict with constraints
+      // Fix: Use type assertion to avoid type parameter issues
       const { data: schemaData } = await supabase
-        .rpc('get_table_info', { table_name: 'books' });
+        .rpc('get_table_info', { table_name: 'books' } as TableInfoParams);
       
       console.log('Table schema:', schemaData);
       
