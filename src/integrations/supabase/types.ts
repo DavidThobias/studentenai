@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       books: {
         Row: {
+          author_name: string | null
           book_title: string
           chapter_number: number
           chapter_title: string
@@ -19,6 +20,7 @@ export type Database = {
           paragraph_number: number
         }
         Insert: {
+          author_name?: string | null
           book_title: string
           chapter_number: number
           chapter_title: string
@@ -27,6 +29,7 @@ export type Database = {
           paragraph_number: number
         }
         Update: {
+          author_name?: string | null
           book_title?: string
           chapter_number?: number
           chapter_title?: string

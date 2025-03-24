@@ -12,6 +12,7 @@ interface BookData {
   id: number;
   book_title: string;
   chapter_title?: string;
+  author_name?: string;
 }
 
 const BooksPage = () => {
@@ -27,7 +28,7 @@ const BooksPage = () => {
         setLoading(true);
         const { data, error } = await supabase
           .from('books')
-          .select('id, book_title');
+          .select('id, book_title, author_name');
         
         if (error) {
           throw error;
@@ -42,7 +43,8 @@ const BooksPage = () => {
             bookTitles.add(book.book_title);
             uniqueBooks.push({
               id: book.id,
-              book_title: book.book_title
+              book_title: book.book_title,
+              author_name: book.author_name
             });
           }
         });
@@ -59,6 +61,14 @@ const BooksPage = () => {
     fetchBooks();
   }, []);
 
+  const handleCategoryChange = (value: string) => {
+    setSelectedCategory(value);
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
   const categories = [
     { id: 'all', name: 'Alle categorieën' },
     { id: 'biology', name: 'Biologie' },
@@ -69,18 +79,10 @@ const BooksPage = () => {
     { id: 'sales', name: 'Verkoop' },
   ];
 
-  const handleCategoryChange = (value: string) => {
-    setSelectedCategory(value);
-  };
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-
-  // Filter books based on search query and category
   const filteredBooks = books.filter(book => {
     const matchesSearch = !searchQuery || 
-      (book.book_title?.toLowerCase().includes(searchQuery.toLowerCase()));
+      (book.book_title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+       book.author_name?.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesCategory = selectedCategory === 'all';
     
@@ -162,15 +164,23 @@ const BooksPage = () => {
               >
                 <Link to={`/books/${book.id}`} className="block">
                   <div className="aspect-[3/4] bg-study-50 flex items-center justify-center relative overflow-hidden">
-                    <BookOpen className="h-20 w-20 text-study-200" />
+                    {book.book_title?.toLowerCase().includes('sales') ? (
+                      <img 
+                        src="/basisboek-sales-cover.jpg" 
+                        alt={`${book.book_title} cover`} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <BookOpen className="h-20 w-20 text-study-200" />
+                    )}
                     {/* Placeholder for future book cover images */}
                   </div>
                   <div className="p-4">
                     <h3 className="font-medium text-foreground truncate">{book.book_title || 'Onbekende titel'}</h3>
-                    <p className="text-sm text-muted-foreground">{'Onbekende auteur'}</p>
+                    <p className="text-sm text-muted-foreground">{book.author_name || 'Onbekende auteur'}</p>
                     <div className="flex items-center mt-2">
                       <div className="text-xs bg-study-100 text-study-700 px-2 py-1 rounded">
-                        {categories[categories.length - 1].name}
+                        {book.book_title?.toLowerCase().includes('sales') ? 'Verkoop' : categories[categories.length - 1].name}
                       </div>
                     </div>
                   </div>

@@ -5,10 +5,12 @@ import { toast } from "sonner";
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from 'react-router-dom';
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 
 interface BookData {
   id: number;
   book_title?: string;
+  author_name?: string;
 }
 
 interface BookOverviewProps {
@@ -27,6 +29,7 @@ const BookOverview = ({ book }: BookOverviewProps) => {
   const [loading, setLoading] = useState(false);
   
   const isSalesBook = book?.book_title?.toLowerCase().includes('sales');
+  const bookCoverImage = isSalesBook ? "/basisboek-sales-cover.jpg" : null;
 
   useEffect(() => {
     if (book?.id) {
@@ -104,24 +107,49 @@ const BookOverview = ({ book }: BookOverviewProps) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Book Cover */}
         <div className="md:col-span-1">
-          <div className="aspect-[3/4] bg-study-50 rounded-lg shadow-md flex items-center justify-center overflow-hidden border border-study-100">
-            <BookOpen className="h-24 w-24 text-study-300" />
-          </div>
+          {bookCoverImage ? (
+            <div className="aspect-[3/4] bg-study-50 rounded-lg shadow-md overflow-hidden border border-study-100">
+              <img 
+                src={bookCoverImage} 
+                alt={`${book?.book_title} cover`} 
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="aspect-[3/4] bg-study-50 rounded-lg shadow-md flex items-center justify-center overflow-hidden border border-study-100">
+              <BookOpen className="h-24 w-24 text-study-300" />
+            </div>
+          )}
         </div>
 
         {/* Book Info */}
         <div className="md:col-span-2 space-y-6">
           <div>
             <h2 className="text-2xl font-semibold mb-4">Over dit boek</h2>
-            <p className="text-muted-foreground mb-2">
-              Dit is een samenvatting van het boek "{book?.book_title}" door onbekende auteur.
-            </p>
-            {bookDetails && (
-              <div className="text-sm text-muted-foreground">
-                <p>Bevat {bookDetails.count} hoofdstukken en {bookDetails.paragraphCount} paragrafen.</p>
-                <p className="mt-1">Boek ID: {book?.id}</p>
-              </div>
-            )}
+            <Table>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="font-medium">Titel</TableCell>
+                  <TableCell>{book?.book_title || 'Onbekende titel'}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Auteur</TableCell>
+                  <TableCell>{book?.author_name || 'Onbekende auteur'}</TableCell>
+                </TableRow>
+                {bookDetails && (
+                  <>
+                    <TableRow>
+                      <TableCell className="font-medium">Hoofdstukken</TableCell>
+                      <TableCell>{bookDetails.count}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Paragrafen</TableCell>
+                      <TableCell>{bookDetails.paragraphCount}</TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4">

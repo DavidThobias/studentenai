@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
@@ -8,6 +7,7 @@ import { mapBooksDataToParagraphs } from '@/lib/bookDataAdapter';
 interface BookData {
   id: number;
   book_title?: string;
+  author_name?: string;
 }
 
 interface ChapterData {
@@ -47,7 +47,7 @@ export const useBookDetail = (id: string | undefined) => {
         // Fetch book from books table
         const { data: bookData, error: bookError } = await supabase
           .from('books')
-          .select('*')
+          .select('id, book_title, author_name')
           .eq('id', numericBookId)
           .maybeSingle();
 
@@ -67,7 +67,8 @@ export const useBookDetail = (id: string | undefined) => {
         console.log('Book data retrieved:', bookData);
         setBook({
           id: bookData.id,
-          book_title: bookData.book_title
+          book_title: bookData.book_title,
+          author_name: bookData.author_name
         });
 
         // Get chapters for this book (based on unique chapter numbers)
