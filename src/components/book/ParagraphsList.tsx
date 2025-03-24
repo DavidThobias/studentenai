@@ -54,7 +54,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       
       // Fix: Use the generic type parameter that doesn't conflict with constraints
       const { data: schemaData } = await supabase
-        .rpc('get_table_info', { table_name: 'books' } as TableInfoParams);
+        .rpc('get_table_info', { table_name: 'books' });
       
       console.log('Table schema:', schemaData);
       
