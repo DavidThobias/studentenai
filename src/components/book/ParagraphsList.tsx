@@ -1,4 +1,5 @@
-import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle } from 'lucide-react';
+
+import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle, BookOpen } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -138,6 +139,16 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     }
   };
 
+  const handleStartLearning = (paragraphId: number) => {
+    if (bookId && selectedChapterId) {
+      const params = new URLSearchParams();
+      params.append('chapter', selectedChapterId.toString());
+      params.append('paragraph', paragraphId.toString());
+      
+      navigate(`/books/${bookId}/learn?${params.toString()}`);
+    }
+  };
+
   return (
     <div className="mb-12">
       <h2 className="text-2xl font-semibold mb-6">Paragrafen</h2>
@@ -172,6 +183,16 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                 >
                   <FileText className="h-4 w-4" />
                   Bekijk samenvatting
+                </Button>
+              
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                  onClick={() => handleStartLearning(paragraph.id)}
+                >
+                  <BookOpen className="h-4 w-4" />
+                  Start leren
                 </Button>
               
                 {onStartQuiz && selectedChapterId && (

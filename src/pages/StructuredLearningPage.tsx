@@ -17,7 +17,8 @@ import {
   BookOpen, 
   ArrowLeft, 
   Loader2,
-  FileText
+  FileText,
+  Play
 } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
@@ -25,6 +26,7 @@ import { useBookDetail } from '@/hooks/useBookDetail';
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
+import ParagraphViewer from '@/components/ParagraphViewer';
 
 // Define quiz states for each paragraph
 interface ParagraphProgress {
@@ -57,8 +59,9 @@ const StructuredLearningPage = () => {
   const [score, setScore] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentParagraphContent, setCurrentParagraphContent] = useState<string>('');
-  const [showParagraphContent, setShowParagraphContent] = useState(false);
+  const [currentParagraphNumber, setCurrentParagraphNumber] = useState<number | undefined>(undefined);
   const [isQuizComplete, setIsQuizComplete] = useState(false);
+  const [isStudyMode, setIsStudyMode] = useState(false);
   
   // Get book details including paragraphs
   const { 
@@ -89,6 +92,7 @@ const StructuredLearningPage = () => {
       if (activeParagraphId === null && initialProgressData.length > 0) {
         setActiveParagraphId(initialProgressData[0].id);
         setCurrentParagraphContent(paragraphs[0].content || 'No content available');
+        setCurrentParagraphNumber(paragraphs[0].paragraph_number);
       }
     }
   }, [paragraphs, loadingParagraphs]);
@@ -100,11 +104,11 @@ const StructuredLearningPage = () => {
     return Math.round((completedCount / progressData.length) * 100);
   };
 
-  // Start quiz for a specific paragraph
-  const startParagraphQuiz = async (paragraphId: number) => {
+  // Start study mode for a specific paragraph
+  const startParagraphStudy = (paragraphId: number) => {
     try {
       setActiveParagraphId(paragraphId);
-      setIsGenerating(true);
+      setIsStudyMode(true);
       setQuestions([]);
       setCurrentQuestionIndex(0);
       setSelectedAnswer(null);
@@ -116,7 +120,28 @@ const StructuredLearningPage = () => {
       const paragraph = paragraphs.find(p => p.id === paragraphId);
       if (paragraph) {
         setCurrentParagraphContent(paragraph.content || 'No content available');
+        setCurrentParagraphNumber(paragraph.paragraph_number);
+        setActiveAccordion(`paragraph-${paragraphId}`);
       }
+      
+    } catch (err) {
+      console.error('Error starting paragraph study:', err);
+      toast.error('Er is een fout opgetreden bij het starten van de studie');
+    }
+  };
+
+  // Start quiz for a specific paragraph
+  const startParagraphQuiz = async (paragraphId: number) => {
+    try {
+      setIsStudyMode(false);
+      setActiveParagraphId(paragraphId);
+      setIsGenerating(true);
+      setQuestions([]);
+      setCurrentQuestionIndex(0);
+      setSelectedAnswer(null);
+      setIsAnswerSubmitted(false);
+      setScore(0);
+      setIsQuizComplete(false);
       
       // Generate questions specific to this paragraph
       if (!book?.id || !selectedChapterId) {
@@ -245,7 +270,7 @@ const StructuredLearningPage = () => {
     setIsAnswerSubmitted(false);
     setScore(0);
     setIsQuizComplete(false);
-    setShowParagraphContent(false);
+    setIsStudyMode(false);
   };
   
   // Go to next paragraph
@@ -262,13 +287,9 @@ const StructuredLearningPage = () => {
       const paragraph = paragraphs.find(p => p.id === nextParagraph.id);
       if (paragraph) {
         setCurrentParagraphContent(paragraph.content || 'No content available');
+        setCurrentParagraphNumber(paragraph.paragraph_number);
       }
     }
-  };
-  
-  // Toggle paragraph content visibility
-  const toggleParagraphContent = () => {
-    setShowParagraphContent(!showParagraphContent);
   };
   
   // Handle going back to book detail
@@ -320,6 +341,26 @@ const StructuredLearningPage = () => {
             </p>
           </CardContent>
         </Card>
+        
+        {/* Study Mode - Show paragraph content before quiz */}
+        {isStudyMode && activeParagraphId && (
+          <div className="mb-8">
+            <ParagraphViewer 
+              content={currentParagraphContent}
+              paragraphNumber={currentParagraphNumber}
+            />
+            
+            <div className="flex justify-end">
+              <Button 
+                onClick={() => startParagraphQuiz(activeParagraphId)}
+                className="bg-study-600 hover:bg-study-700"
+              >
+                <Play className="mr-2 h-4 w-4" />
+                Start Quiz
+              </Button>
+            </div>
+          </div>
+        )}
         
         {/* Paragraphs list with progress indicators */}
         <div className="grid grid-cols-1 gap-4 mb-8">
@@ -373,25 +414,25 @@ const StructuredLearningPage = () => {
                         </p>
                         
                         <div className="flex flex-wrap gap-2">
-                          {isActive && questions.length > 0 ? (
-                            <Button variant="outline" onClick={toggleParagraphContent}>
-                              {showParagraphContent ? 'Verberg inhoud' : 'Toon volledige inhoud'}
+                          {isActive && (isStudyMode || questions.length > 0) ? (
+                            <Button variant="outline" onClick={resetQuiz}>
+                              Annuleren
                             </Button>
                           ) : (
                             <Button 
-                              onClick={() => startParagraphQuiz(paragraph.id)}
+                              onClick={() => startParagraphStudy(paragraph.id)}
                               disabled={isGenerating}
                               className={progress?.completed ? 'bg-green-600 hover:bg-green-700' : ''}
                             >
                               {isGenerating && activeParagraphId === paragraph.id ? (
                                 <>
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Quiz laden...
+                                  Laden...
                                 </>
                               ) : progress?.completed ? (
                                 <>
                                   <CheckCircle className="mr-2 h-4 w-4" />
-                                  Opnieuw oefenen
+                                  Opnieuw bekijken
                                 </>
                               ) : (
                                 <>
@@ -419,7 +460,7 @@ const StructuredLearningPage = () => {
         </div>
         
         {/* Active paragraph quiz */}
-        {activeParagraphId && questions.length > 0 && !isQuizComplete && (
+        {activeParagraphId && questions.length > 0 && !isQuizComplete && !isStudyMode && (
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex justify-between items-center">
@@ -434,22 +475,6 @@ const StructuredLearningPage = () => {
               />
             </CardHeader>
             <CardContent>
-              {/* Paragraph content display */}
-              {showParagraphContent && (
-                <div className="mb-6 p-4 bg-gray-50 rounded-md border">
-                  <h3 className="font-medium mb-2">Paragraaf inhoud:</h3>
-                  <p className="text-sm whitespace-pre-line">{currentParagraphContent}</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={toggleParagraphContent}
-                    className="mt-2"
-                  >
-                    Verberg inhoud
-                  </Button>
-                </div>
-              )}
-              
               {/* Quiz question */}
               <div className="mb-6">
                 <h3 className="text-lg font-medium mb-4">{questions[currentQuestionIndex].question}</h3>
@@ -512,9 +537,9 @@ const StructuredLearningPage = () => {
             <CardFooter className="flex justify-between">
               <Button
                 variant="outline"
-                onClick={toggleParagraphContent}
+                onClick={() => setIsStudyMode(true)}
               >
-                {showParagraphContent ? 'Verberg inhoud' : 'Toon inhoud'}
+                Bekijk inhoud opnieuw
               </Button>
               
               {!isAnswerSubmitted ? (
@@ -563,6 +588,13 @@ const StructuredLearningPage = () => {
               </p>
               
               <div className="flex gap-3">
+                <Button 
+                  variant="outline" 
+                  onClick={() => startParagraphStudy(activeParagraphId)}
+                >
+                  Bekijk inhoud opnieuw
+                </Button>
+                
                 <Button 
                   variant="outline" 
                   onClick={() => startParagraphQuiz(activeParagraphId)}
