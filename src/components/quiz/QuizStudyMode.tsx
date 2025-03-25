@@ -1,7 +1,8 @@
 
 import { Button } from "@/components/ui/button";
-import { BookOpen, Play, History } from "lucide-react";
+import { BookOpen, Play, History, ArrowLeft } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
+import { Card, CardContent } from "@/components/ui/card";
 
 interface QuizStudyModeProps {
   paragraphContent: string | null;
@@ -9,6 +10,7 @@ interface QuizStudyModeProps {
   onStartQuiz: () => void;
   hasExistingQuiz?: boolean;
   onContinueExistingQuiz?: () => void;
+  onBackToParagraphSelection?: () => void;
 }
 
 const QuizStudyMode = ({ 
@@ -16,7 +18,8 @@ const QuizStudyMode = ({
   paragraphNumber,
   onStartQuiz,
   hasExistingQuiz = false,
-  onContinueExistingQuiz
+  onContinueExistingQuiz,
+  onBackToParagraphSelection
 }: QuizStudyModeProps) => {
   return (
     <div className="flex flex-col">
@@ -25,20 +28,35 @@ const QuizStudyMode = ({
         <h3>Paragraaf {paragraphNumber}</h3>
       </div>
 
-      <div className="prose prose-sm sm:prose-base max-w-none mb-6 p-4 bg-card rounded-md shadow-sm">
-        {paragraphContent ? (
-          <ReactMarkdown>{paragraphContent}</ReactMarkdown>
-        ) : (
-          <p className="text-muted-foreground">Geen inhoud beschikbaar voor deze paragraaf.</p>
-        )}
-      </div>
+      <Card className="mb-6 shadow-sm">
+        <CardContent className="p-6">
+          <div className="prose prose-sm sm:prose-base max-w-none">
+            {paragraphContent ? (
+              <ReactMarkdown>{paragraphContent}</ReactMarkdown>
+            ) : (
+              <p className="text-muted-foreground">Geen inhoud beschikbaar voor deze paragraaf.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex flex-col sm:flex-row gap-3 justify-center sm:justify-start mt-4">
+        {onBackToParagraphSelection && (
+          <Button 
+            variant="outline"
+            onClick={onBackToParagraphSelection}
+            className="flex items-center gap-2 px-4 py-2 rounded-md"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Terug naar paragraaf overzicht
+          </Button>
+        )}
+        
         <Button 
           onClick={onStartQuiz}
-          className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
         >
-          <Play className="mr-2 h-4 w-4" />
+          <Play className="h-4 w-4" />
           Start quiz over deze paragraaf
         </Button>
 
@@ -46,9 +64,9 @@ const QuizStudyMode = ({
           <Button 
             variant="outline"
             onClick={onContinueExistingQuiz}
-            className="px-4 py-2 rounded-md"
+            className="flex items-center gap-2 px-4 py-2 rounded-md"
           >
-            <History className="mr-2 h-4 w-4" />
+            <History className="h-4 w-4" />
             Doorgaan met je laatste quiz
           </Button>
         )}

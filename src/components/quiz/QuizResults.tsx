@@ -1,13 +1,20 @@
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { RotateCcw, ArrowLeft, ChevronRight, Trophy } from "lucide-react";
+import { RotateCcw, ArrowLeft, ChevronRight, Trophy, Save, Share } from "lucide-react";
+import { toast } from "sonner";
+import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 
 interface QuizResultsProps {
   score: number;
   totalQuestions: number;
   isStructuredLearning: boolean;
   hasNextParagraph: boolean;
+  bookId: number | null;
+  chapterId: number | null;
+  paragraphId: number | null;
   onRestart: () => void;
   onNextParagraph: () => void;
   onBackToBook: () => void;
@@ -18,12 +25,127 @@ const QuizResults = ({
   totalQuestions,
   isStructuredLearning,
   hasNextParagraph,
+  bookId,
+  chapterId,
+  paragraphId,
   onRestart,
   onNextParagraph,
   onBackToBook
 }: QuizResultsProps) => {
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  
   const percentage = Math.round((score / totalQuestions) * 100);
   const isPassing = percentage >= 70;
+  
+  const saveResultsToDatabase = async () => {
+    try {
+      setIsSaving(true);
+      
+      // Check if a session exists
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("Je moet ingelogd zijn om resultaten op te slaan");
+        return;
+      }
+      
+      if (!bookId) {
+        toast.error("Boek-ID ontbreekt");
+        return;
+      }
+      
+      const { error } = await supabase
+        .from('quiz_results')
+        .insert({
+          user_id: session.user.id,
+          book_id: bookId,
+          chapter_id: chapterId,
+          paragraph_id: paragraphId,
+          score: score,
+          total_questions: totalQuestions,
+          percentage: percentage,
+          completed: true
+        });
+      
+      if (error) {
+        console.error('Error saving quiz results:', error);
+        toast.error("Er is een fout opgetreden bij het opslaan van je resultaten");
+        return;
+      }
+      
+      // If paragraph progress should be tracked
+      if (isStructuredLearning && paragraphId) {
+        // Check if there's an existing record
+        const { data: existingProgress } = await supabase
+          .from('paragraph_progress')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .eq('paragraph_id', paragraphId)
+          .maybeSingle();
+          
+        if (existingProgress) {
+          // Update existing record
+          await supabase
+            .from('paragraph_progress')
+            .update({
+              completed: isPassing,
+              score: score,
+              total_questions: totalQuestions,
+              percentage: percentage,
+              last_attempted: new Date().toISOString(),
+              completed_date: isPassing ? new Date().toISOString() : existingProgress.completed_date
+            })
+            .eq('id', existingProgress.id);
+        } else {
+          // Insert new record
+          await supabase
+            .from('paragraph_progress')
+            .insert({
+              user_id: session.user.id,
+              paragraph_id: paragraphId,
+              chapter_id: chapterId,
+              book_id: bookId,
+              completed: isPassing,
+              score: score,
+              total_questions: totalQuestions,
+              percentage: percentage,
+              completed_date: isPassing ? new Date().toISOString() : null
+            });
+        }
+      }
+      
+      toast.success("Quiz resultaten succesvol opgeslagen!");
+      setIsSaved(true);
+    } catch (error) {
+      console.error('Error in saveResultsToDatabase:', error);
+      toast.error("Er is een onverwachte fout opgetreden");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleShareResults = () => {
+    // Create share text
+    const shareText = `Ik heb ${score} van de ${totalQuestions} vragen goed beantwoord in mijn Sales quiz! Score: ${percentage}%`;
+    
+    // Check if the Web Share API is available
+    if (navigator.share) {
+      navigator.share({
+        title: 'Mijn Quiz Resultaten',
+        text: shareText,
+        // url: window.location.href, // Uncomment if you want to include the URL
+      }).catch((error) => {
+        console.error('Error sharing:', error);
+        toast.error("Delen is niet gelukt");
+      });
+    } else {
+      // Fallback for browsers that don't support the Web Share API
+      navigator.clipboard.writeText(shareText)
+        .then(() => toast.success("Resultaten gekopieerd naar klembord"))
+        .catch(() => toast.error("Kopiëren naar klembord is niet gelukt"));
+    }
+  };
   
   return (
     <div className="flex flex-col items-center justify-center space-y-6 py-8">
@@ -49,36 +171,59 @@ const QuizResults = ({
       </p>
       
       {isStructuredLearning && (
-        <div className="bg-muted p-4 rounded-md text-center max-w-md">
-          <p className="font-medium mb-2">
-            {isPassing 
-              ? "Gefeliciteerd! Je kunt doorgaan naar de volgende paragraaf." 
-              : "Je hebt minimaal 70% nodig om door te gaan. Probeer het nog eens."}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {isPassing 
-              ? "Deze paragraaf is nu gemarkeerd als voltooid." 
-              : "Lees de paragraaf nog eens door en probeer de quiz opnieuw."}
-          </p>
-        </div>
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6">
+            <p className="font-medium mb-2 text-center">
+              {isPassing 
+                ? "Gefeliciteerd! Je kunt doorgaan naar de volgende paragraaf." 
+                : "Je hebt minimaal 70% nodig om door te gaan. Probeer het nog eens."}
+            </p>
+            <p className="text-sm text-muted-foreground text-center">
+              {isPassing 
+                ? "Deze paragraaf is nu gemarkeerd als voltooid." 
+                : "Lees de paragraaf nog eens door en probeer de quiz opnieuw."}
+            </p>
+          </CardContent>
+        </Card>
       )}
       
+      <div className="flex gap-3 mt-4">
+        <Button 
+          onClick={saveResultsToDatabase} 
+          variant="outline" 
+          disabled={isSaving || isSaved}
+          className="flex items-center gap-1"
+        >
+          <Save className="h-4 w-4" />
+          {isSaving ? 'Opslaan...' : isSaved ? 'Opgeslagen' : 'Resultaat opslaan'}
+        </Button>
+        
+        <Button 
+          onClick={handleShareResults} 
+          variant="outline"
+          className="flex items-center gap-1"
+        >
+          <Share className="h-4 w-4" />
+          Delen
+        </Button>
+      </div>
+      
       <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full max-w-md">
-        <Button onClick={onRestart} variant="outline" className="flex-1">
-          <RotateCcw className="mr-2 h-4 w-4" />
+        <Button onClick={onRestart} variant="outline" className="flex-1 flex items-center justify-center gap-1">
+          <RotateCcw className="h-4 w-4" />
           Opnieuw proberen
         </Button>
         
         {isStructuredLearning && hasNextParagraph && (
-          <Button onClick={onNextParagraph} className="flex-1 bg-green-600 hover:bg-green-700">
+          <Button onClick={onNextParagraph} className="flex-1 bg-green-600 hover:bg-green-700 flex items-center justify-center gap-1">
             Volgende paragraaf
-            <ChevronRight className="ml-2 h-4 w-4" />
+            <ChevronRight className="h-4 w-4" />
           </Button>
         )}
         
         {!isStructuredLearning || (!hasNextParagraph && isStructuredLearning) ? (
-          <Button onClick={onBackToBook} className="flex-1">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+          <Button onClick={onBackToBook} className="flex-1 flex items-center justify-center gap-1">
+            <ArrowLeft className="h-4 w-4" />
             Terug naar boek
           </Button>
         ) : null}

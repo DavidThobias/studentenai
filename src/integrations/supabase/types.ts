@@ -39,6 +39,48 @@ export type Database = {
         }
         Relationships: []
       }
+      paragraph_progress: {
+        Row: {
+          book_id: number
+          chapter_id: number
+          completed: boolean
+          completed_date: string | null
+          id: string
+          last_attempted: string
+          paragraph_id: number
+          percentage: number | null
+          score: number | null
+          total_questions: number | null
+          user_id: string | null
+        }
+        Insert: {
+          book_id: number
+          chapter_id: number
+          completed?: boolean
+          completed_date?: string | null
+          id?: string
+          last_attempted?: string
+          paragraph_id: number
+          percentage?: number | null
+          score?: number | null
+          total_questions?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          book_id?: number
+          chapter_id?: number
+          completed?: boolean
+          completed_date?: string | null
+          id?: string
+          last_attempted?: string
+          paragraph_id?: number
+          percentage?: number | null
+          score?: number | null
+          total_questions?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -63,9 +105,61 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_results: {
+        Row: {
+          book_id: number
+          chapter_id: number | null
+          completed: boolean
+          created_at: string
+          id: string
+          paragraph_id: number | null
+          percentage: number
+          score: number
+          total_questions: number
+          user_id: string | null
+        }
+        Insert: {
+          book_id: number
+          chapter_id?: number | null
+          completed?: boolean
+          created_at?: string
+          id?: string
+          paragraph_id?: number | null
+          percentage: number
+          score: number
+          total_questions: number
+          user_id?: string | null
+        }
+        Update: {
+          book_id?: number
+          chapter_id?: number | null
+          completed?: boolean
+          created_at?: string
+          id?: string
+          paragraph_id?: number | null
+          percentage?: number
+          score?: number
+          total_questions?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      user_quiz_stats: {
+        Row: {
+          average_score: number | null
+          books_studied: number | null
+          chapters_studied: number | null
+          last_quiz_date: string | null
+          paragraphs_studied: number | null
+          total_correct_answers: number | null
+          total_questions: number | null
+          total_quizzes: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_table_info: {

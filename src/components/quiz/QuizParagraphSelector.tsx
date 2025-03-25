@@ -1,5 +1,6 @@
 
 import { Button } from "@/components/ui/button";
+import { ChevronRight, BookOpen, History } from "lucide-react";
 
 interface QuizParagraphSelectorProps {
   paragraphs: any[];
@@ -24,19 +25,22 @@ const QuizParagraphSelector = ({
       <div className="flex flex-col sm:flex-row justify-center gap-4">
         {paragraphs.length > 0 && (
           <Button 
-            className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
+            className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
             onClick={onSelectFirstParagraph}
           >
+            <BookOpen className="h-4 w-4" />
             Start met eerste paragraaf
+            <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         )}
         
         {hasExistingQuiz && onContinueExistingQuiz && (
           <Button 
             variant="outline"
-            className="px-4 py-2 rounded-md"
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-md"
             onClick={onContinueExistingQuiz}
           >
+            <History className="h-4 w-4" />
             Doorgaan met je laatste quiz
           </Button>
         )}
