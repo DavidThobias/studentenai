@@ -1,7 +1,10 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { PlayCircle } from 'lucide-react';
 import { useQuiz } from '@/hooks/useQuiz';
 import { useChaptersAndParagraphs } from '@/hooks/useChaptersAndParagraphs';
 import QuizLoading from '@/components/quiz/QuizLoading';
@@ -11,6 +14,7 @@ import QuizQuestion from '@/components/quiz/QuizQuestion';
 import QuizResults from '@/components/quiz/QuizResults';
 import QuizSidebar from '@/components/quiz/QuizSidebar';
 import QuizDebug from '@/components/quiz/QuizDebug';
+import ParagraphViewer from '@/components/ParagraphViewer';
 
 const QuizPage = () => {
   const navigate = useNavigate();
@@ -34,6 +38,10 @@ const QuizPage = () => {
   const [isStructuredLearning, setIsStructuredLearning] = useState(false);
   const [questionCount, setQuestionCount] = useState(5);
   const [hasSelectedChapter, setHasSelectedChapter] = useState(false);
+  
+  // New state for showing paragraph content before quiz
+  const [showingParagraphContent, setShowingParagraphContent] = useState(false);
+  const [selectedParagraphForStudy, setSelectedParagraphForStudy] = useState<number | null>(null);
 
   // Initialize hooks
   const {
@@ -205,13 +213,28 @@ const QuizPage = () => {
   const handleSelectParagraph = (paragraphId: number) => {
     if (!paragraphId) return;
     
+    // Set the selected paragraph for study
+    setSelectedParagraphForStudy(paragraphId);
+    setShowingParagraphContent(true);
     setCurrentParagraph(paragraphId);
     
     // Find the paragraph to update the title
     const selectedParagraph = paragraphs.find(p => p.id === paragraphId);
-    setQuizTitle(`Quiz over paragraaf ${selectedParagraph?.paragraph_number || '?'}`);
-    
-    generateQuizForParagraph(paragraphId);
+    setQuizTitle(`Paragraaf ${selectedParagraph?.paragraph_number || '?'}`);
+  };
+
+  const handleStartQuiz = () => {
+    if (selectedParagraphForStudy) {
+      // Update title to reflect we're now in quiz mode
+      const selectedParagraph = paragraphs.find(p => p.id === selectedParagraphForStudy);
+      setQuizTitle(`Quiz over paragraaf ${selectedParagraph?.paragraph_number || '?'}`);
+      
+      // Start the quiz for this paragraph
+      generateQuizForParagraph(selectedParagraphForStudy);
+      
+      // Hide the paragraph content and show the quiz
+      setShowingParagraphContent(false);
+    }
   };
 
   const handleCompleteQuiz = () => {
@@ -234,6 +257,21 @@ const QuizPage = () => {
       handleCompleteQuiz();
     }
   }, [isQuizComplete]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Get the content of the currently selected paragraph
+  const getSelectedParagraphContent = () => {
+    if (!selectedParagraphForStudy) return null;
+    
+    const paragraph = paragraphs.find(p => p.id === selectedParagraphForStudy);
+    return paragraph?.content || null;
+  };
+
+  const getSelectedParagraphNumber = () => {
+    if (!selectedParagraphForStudy) return null;
+    
+    const paragraph = paragraphs.find(p => p.id === selectedParagraphForStudy);
+    return paragraph?.paragraph_number || null;
+  };
 
   // Render functions
   return (
@@ -258,17 +296,39 @@ const QuizPage = () => {
             <QuizSidebar 
               paragraphs={paragraphs} 
               progressData={progressData}
-              selectedParagraphId={paragraphId}
+              selectedParagraphId={showingParagraphContent ? selectedParagraphForStudy : paragraphId}
               onSelectParagraph={handleSelectParagraph}
             />
           )}
           
           <div className="flex-1 bg-card p-6 rounded-lg shadow-sm border">
-            {isStructuredLearning && hasSelectedChapter && !paragraphId && paragraphs.length > 0 && !isGenerating && (
+            {/* Show paragraph content for study before the quiz */}
+            {isStructuredLearning && hasSelectedChapter && showingParagraphContent && selectedParagraphForStudy && (
+              <div className="space-y-6">
+                <ParagraphViewer 
+                  content={getSelectedParagraphContent() || ""}
+                  paragraphNumber={getSelectedParagraphNumber() || undefined}
+                />
+                
+                <div className="flex justify-center mt-6">
+                  <Button 
+                    onClick={handleStartQuiz}
+                    className="px-6 py-2 text-lg flex items-center gap-2"
+                    size="lg"
+                  >
+                    <PlayCircle className="h-5 w-5" />
+                    Start quiz over deze paragraaf
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            {/* Show "select a paragraph" prompt */}
+            {isStructuredLearning && hasSelectedChapter && !showingParagraphContent && !paragraphId && paragraphs.length > 0 && !isGenerating && (
               <div className="text-center py-8">
                 <h3 className="text-xl font-medium mb-4">Selecteer een paragraaf om te beginnen</h3>
                 <p className="text-muted-foreground mb-6">
-                  Klik op een paragraaf in het zijpaneel om de quiz voor die paragraaf te starten.
+                  Klik op een paragraaf in het zijpaneel om de paragraaf te bestuderen en vervolgens een quiz te maken.
                 </p>
                 {paragraphs.length > 0 && (
                   <button 
@@ -281,65 +341,70 @@ const QuizPage = () => {
               </div>
             )}
             
-            {isGenerating && <QuizLoading />}
-            
-            {quizError && (
-              <QuizError 
-                error={quizError} 
-                onBackToBook={handleBackToBook} 
-                onRetry={handleGenerateQuiz} 
-              />
-            )}
-            
-            {!isGenerating && !quizError && questions.length === 0 && 
-             !(isStructuredLearning && hasSelectedChapter && paragraphs.length > 0 && !paragraphId) && (
-              <QuizEmpty 
-                bookId={bookId}
-                chapterId={chapterId}
-                paragraphId={paragraphId}
-                availableChapters={availableChapters}
-                isLoadingChapters={isLoadingChapters}
-                questionCount={questionCount}
-                onChapterSelect={handleChapterSelect}
-                onQuestionCountChange={handleQuestionCountChange}
-                onGenerateQuiz={handleGenerateQuiz}
-                onBackToHome={handleBackToHome}
-                isStructuredLearning={isStructuredLearning}
-              />
-            )}
-            
-            {!isGenerating && !quizError && questions.length > 0 && !isQuizComplete && (
-              questions[currentQuestionIndex] && (
-                <QuizQuestion
-                  question={questions[currentQuestionIndex]}
-                  currentQuestionIndex={currentQuestionIndex}
-                  questionsTotal={questions.length}
-                  selectedAnswer={selectedAnswer}
-                  isAnswerSubmitted={isAnswerSubmitted}
-                  score={score}
-                  showExplanation={showExplanation}
-                  showParagraphContent={showParagraphContent}
-                  currentParagraphContent={currentParagraphContent}
-                  structuredLearning={isStructuredLearning}
-                  onAnswerSelect={handleAnswerSelect}
-                  onSubmitAnswer={handleSubmitAnswer}
-                  onNextQuestion={handleNextQuestion}
-                  onToggleExplanation={toggleExplanation}
-                  onToggleParagraphContent={toggleParagraphContent}
-                />
-              )
-            )}
-            
-            {!isGenerating && !quizError && questions.length > 0 && isQuizComplete && (
-              <QuizResults
-                score={score}
-                totalQuestions={questions.length}
-                isStructuredLearning={isStructuredLearning}
-                hasNextParagraph={paragraphId ? !!getNextParagraphId(paragraphId) : false}
-                onRestart={restartQuiz}
-                onNextParagraph={handleGoToNextParagraph}
-                onBackToBook={handleBackToBook}
-              />
+            {/* Quiz related components */}
+            {!showingParagraphContent && (
+              <>
+                {isGenerating && <QuizLoading />}
+                
+                {quizError && (
+                  <QuizError 
+                    error={quizError} 
+                    onBackToBook={handleBackToBook} 
+                    onRetry={handleGenerateQuiz} 
+                  />
+                )}
+                
+                {!isGenerating && !quizError && questions.length === 0 && 
+                 !(isStructuredLearning && hasSelectedChapter && paragraphs.length > 0 && !paragraphId) && (
+                  <QuizEmpty 
+                    bookId={bookId}
+                    chapterId={chapterId}
+                    paragraphId={paragraphId}
+                    availableChapters={availableChapters}
+                    isLoadingChapters={isLoadingChapters}
+                    questionCount={questionCount}
+                    onChapterSelect={handleChapterSelect}
+                    onQuestionCountChange={handleQuestionCountChange}
+                    onGenerateQuiz={handleGenerateQuiz}
+                    onBackToHome={handleBackToHome}
+                    isStructuredLearning={isStructuredLearning}
+                  />
+                )}
+                
+                {!isGenerating && !quizError && questions.length > 0 && !isQuizComplete && (
+                  questions[currentQuestionIndex] && (
+                    <QuizQuestion
+                      question={questions[currentQuestionIndex]}
+                      currentQuestionIndex={currentQuestionIndex}
+                      questionsTotal={questions.length}
+                      selectedAnswer={selectedAnswer}
+                      isAnswerSubmitted={isAnswerSubmitted}
+                      score={score}
+                      showExplanation={showExplanation}
+                      showParagraphContent={showParagraphContent}
+                      currentParagraphContent={currentParagraphContent}
+                      structuredLearning={isStructuredLearning}
+                      onAnswerSelect={handleAnswerSelect}
+                      onSubmitAnswer={handleSubmitAnswer}
+                      onNextQuestion={handleNextQuestion}
+                      onToggleExplanation={toggleExplanation}
+                      onToggleParagraphContent={toggleParagraphContent}
+                    />
+                  )
+                )}
+                
+                {!isGenerating && !quizError && questions.length > 0 && isQuizComplete && (
+                  <QuizResults
+                    score={score}
+                    totalQuestions={questions.length}
+                    isStructuredLearning={isStructuredLearning}
+                    hasNextParagraph={paragraphId ? !!getNextParagraphId(paragraphId) : false}
+                    onRestart={restartQuiz}
+                    onNextParagraph={handleGoToNextParagraph}
+                    onBackToBook={handleBackToBook}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>
