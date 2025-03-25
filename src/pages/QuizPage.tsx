@@ -443,6 +443,9 @@ const QuizPage = () => {
             totalQuestions={questions.length}
             isStructuredLearning={isStructuredLearning}
             hasNextParagraph={paragraphId ? !!getNextParagraphId(paragraphId) : false}
+            bookId={bookId}
+            chapterId={chapterId}
+            paragraphId={paragraphId}
             onRestart={restartQuiz}
             onNextParagraph={handleGoToNextParagraph}
             onBackToBook={handleBackToBook}
