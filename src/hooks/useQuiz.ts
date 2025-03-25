@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +20,8 @@ interface QuizState {
   bookId: number | null;
   chapterId: number | null;
   paragraphId: number | null;
+  showingParagraphContent?: boolean;
+  selectedParagraphForStudy?: number | null;
 }
 
 export const useQuiz = (
@@ -51,8 +54,9 @@ export const useQuiz = (
     apiResponse: null
   });
 
+  // Save quiz state whenever important values change
   useEffect(() => {
-    if (questions.length > 0) {
+    if (bookId !== null) {
       const quizState: QuizState = {
         questions,
         currentQuestionIndex,
@@ -62,44 +66,79 @@ export const useQuiz = (
         isQuizComplete,
         bookId,
         chapterId,
-        paragraphId
+        paragraphId,
       };
-      localStorage.setItem('quizState', JSON.stringify(quizState));
-      addLog('Saved quiz state to localStorage');
+      
+      // Save to localStorage with a key that includes the context
+      const stateKey = `quizState_${bookId}_${chapterId || 'all'}_${paragraphId || 'all'}`;
+      localStorage.setItem(stateKey, JSON.stringify(quizState));
+      // Also save a reference to the last active quiz
+      localStorage.setItem('lastActiveQuiz', stateKey);
+      
+      addLog(`Saved quiz state to localStorage with key: ${stateKey}`);
     }
   }, [questions, currentQuestionIndex, selectedAnswer, isAnswerSubmitted, score, isQuizComplete, bookId, chapterId, paragraphId, addLog]);
 
   const loadSavedQuizState = (bookIdParam: string | null, chapterIdParam: string | null, paragraphIdParam: string | null) => {
-    const savedQuiz = localStorage.getItem('quizState');
-    if (savedQuiz && !bookIdParam && !chapterIdParam && !paragraphIdParam) {
-      try {
-        const quizState = JSON.parse(savedQuiz) as QuizState;
-        setQuestions(quizState.questions || []);
-        setCurrentQuestionIndex(quizState.currentQuestionIndex || 0);
-        setSelectedAnswer(quizState.selectedAnswer);
-        setIsAnswerSubmitted(quizState.isAnswerSubmitted || false);
-        setScore(quizState.score || 0);
-        setIsQuizComplete(quizState.isQuizComplete || false);
-        
-        if (!bookIdParam && quizState.bookId) {
-          setBookId(quizState.bookId);
-        }
-        if (!chapterIdParam && quizState.chapterId) {
-          setChapterId(quizState.chapterId);
-        }
-        if (!paragraphIdParam && quizState.paragraphId) {
-          setParagraphId(quizState.paragraphId);
-        }
-        
-        addLog('Loaded saved quiz state from localStorage');
-      } catch (error) {
-        console.error('Error loading saved quiz:', error);
-        addLog(`Error loading saved quiz: ${error instanceof Error ? error.message : String(error)}`);
-      }
+    // Determine which quiz state to load
+    let stateKey: string | null = null;
+    
+    if (bookIdParam && chapterIdParam && paragraphIdParam) {
+      // If we have all parameters, try to load that specific quiz
+      stateKey = `quizState_${bookIdParam}_${chapterIdParam}_${paragraphIdParam}`;
+    } else if (bookIdParam && chapterIdParam) {
+      // If we have book and chapter, try to load that quiz
+      stateKey = `quizState_${bookIdParam}_${chapterIdParam}_all`;
+    } else if (bookIdParam) {
+      // If we only have the book, try to load that quiz
+      stateKey = `quizState_${bookIdParam}_all_all`;
+    } else {
+      // If no parameters, try to load the last active quiz
+      stateKey = localStorage.getItem('lastActiveQuiz');
     }
     
-    const hasValidContext = bookIdParam || (savedQuiz && JSON.parse(savedQuiz).bookId);
-    const hasQuestions = savedQuiz && JSON.parse(savedQuiz).questions && JSON.parse(savedQuiz).questions.length > 0;
+    addLog(`Attempting to load quiz state with key: ${stateKey}`);
+    
+    let hasValidContext = false;
+    let hasQuestions = false;
+    
+    if (stateKey) {
+      const savedQuiz = localStorage.getItem(stateKey);
+      if (savedQuiz) {
+        try {
+          const quizState = JSON.parse(savedQuiz) as QuizState;
+          
+          if (quizState.questions && quizState.questions.length > 0) {
+            setQuestions(quizState.questions);
+            setCurrentQuestionIndex(quizState.currentQuestionIndex || 0);
+            setSelectedAnswer(quizState.selectedAnswer);
+            setIsAnswerSubmitted(quizState.isAnswerSubmitted || false);
+            setScore(quizState.score || 0);
+            setIsQuizComplete(quizState.isQuizComplete || false);
+            
+            if (!bookIdParam && quizState.bookId) {
+              setBookId(quizState.bookId);
+            }
+            if (!chapterIdParam && quizState.chapterId) {
+              setChapterId(quizState.chapterId);
+            }
+            if (!paragraphIdParam && quizState.paragraphId) {
+              setParagraphId(quizState.paragraphId);
+            }
+            
+            addLog(`Successfully loaded saved quiz state with ${quizState.questions.length} questions`);
+            hasQuestions = true;
+          }
+          
+          hasValidContext = true;
+        } catch (error) {
+          console.error('Error loading saved quiz:', error);
+          addLog(`Error loading saved quiz: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      } else {
+        addLog(`No saved quiz found with key: ${stateKey}`);
+      }
+    }
     
     return { hasValidContext, hasQuestions };
   };
@@ -352,6 +391,26 @@ export const useQuiz = (
     setShowExplanation(!showExplanation);
   };
 
+  const clearQuizState = () => {
+    addLog('Clearing quiz state');
+    setQuestions([]);
+    setCurrentQuestionIndex(0);
+    setSelectedAnswer(null);
+    setIsAnswerSubmitted(false);
+    setScore(0);
+    setIsQuizComplete(false);
+    setShowExplanation(false);
+    setQuizError(null);
+    
+    // Remove from localStorage
+    if (bookId) {
+      const stateKey = `quizState_${bookId}_${chapterId || 'all'}_${paragraphId || 'all'}`;
+      localStorage.removeItem(stateKey);
+      localStorage.removeItem('lastActiveQuiz');
+      addLog(`Removed quiz state from localStorage with key: ${stateKey}`);
+    }
+  };
+
   return {
     questions,
     quizError,
@@ -376,6 +435,7 @@ export const useQuiz = (
     handleSubmitAnswer,
     handleNextQuestion,
     restartQuiz,
-    toggleExplanation
+    toggleExplanation,
+    clearQuizState
   };
 };

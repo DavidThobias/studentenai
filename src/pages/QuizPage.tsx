@@ -37,6 +37,7 @@ const QuizPage = () => {
   
   const [showingParagraphContent, setShowingParagraphContent] = useState(false);
   const [selectedParagraphForStudy, setSelectedParagraphForStudy] = useState<number | null>(null);
+  const [hasExistingQuiz, setHasExistingQuiz] = useState(false);
 
   const {
     questions,
@@ -62,7 +63,8 @@ const QuizPage = () => {
     handleSubmitAnswer,
     handleNextQuestion,
     restartQuiz,
-    toggleExplanation
+    toggleExplanation,
+    clearQuizState
   } = useQuiz(
     bookIdParam ? parseInt(bookIdParam) : null,
     chapterIdParam ? parseInt(chapterIdParam) : null,
@@ -135,7 +137,28 @@ const QuizPage = () => {
         if (paragraphIdParam) {
           const numericParagraphId = parseInt(paragraphIdParam);
           setParagraphId(numericParagraphId);
-          generateQuizForParagraph(numericParagraphId);
+          
+          // Check if there's a saved quiz state for this paragraph
+          const stateKey = `quizState_${bookIdParam}_${chapterIdParam}_${paragraphIdParam}`;
+          const savedQuiz = localStorage.getItem(stateKey);
+          
+          if (savedQuiz && JSON.parse(savedQuiz).questions?.length > 0) {
+            // If there's a saved quiz and it has questions, set flag to show continue button
+            setHasExistingQuiz(true);
+            addLog(`Found existing quiz for paragraph ${paragraphIdParam}`);
+          } else {
+            // If no saved quiz, generate a new one
+            generateQuizForParagraph(numericParagraphId);
+          }
+        } else {
+          // Check if there's a saved quiz state for this chapter
+          const stateKey = `quizState_${bookIdParam}_${chapterIdParam}_all`;
+          const savedQuiz = localStorage.getItem(stateKey);
+          
+          if (savedQuiz && JSON.parse(savedQuiz).questions?.length > 0) {
+            setHasExistingQuiz(true);
+            addLog(`Found existing quiz for chapter ${chapterIdParam}`);
+          }
         }
       } else if (bookIdParam) {
         addLog('Structured learning mode without chapter - showing chapter selection');
@@ -147,6 +170,9 @@ const QuizPage = () => {
       if (hasValidContext && !hasQuestions && !structuredMode) {
         addLog('Auto-starting quiz generation with context');
         generateQuiz();
+      } else if (hasQuestions) {
+        addLog('Loaded existing quiz from localStorage');
+        setHasExistingQuiz(true);
       }
     }
   }, [searchParams]);
@@ -198,6 +224,17 @@ const QuizPage = () => {
     
     const selectedParagraph = paragraphs.find(p => p.id === paragraphId);
     setQuizTitle(`Paragraaf ${selectedParagraph?.paragraph_number || '?'}`);
+    
+    // Check if there's an existing quiz for this paragraph
+    const stateKey = `quizState_${bookId}_${chapterId}_${paragraphId}`;
+    const savedQuiz = localStorage.getItem(stateKey);
+    
+    if (savedQuiz && JSON.parse(savedQuiz).questions?.length > 0) {
+      setHasExistingQuiz(true);
+      addLog(`Found existing quiz for paragraph ${paragraphId}`);
+    } else {
+      setHasExistingQuiz(false);
+    }
   };
 
   const handleStartQuiz = () => {
@@ -205,9 +242,68 @@ const QuizPage = () => {
       const selectedParagraph = paragraphs.find(p => p.id === selectedParagraphForStudy);
       setQuizTitle(`Quiz over paragraaf ${selectedParagraph?.paragraph_number || '?'}`);
       
+      // Clear any existing quiz state first
+      clearQuizState();
+      
+      // Start a new quiz
       generateQuizForParagraph(selectedParagraphForStudy);
       
       setShowingParagraphContent(false);
+    }
+  };
+
+  const handleContinueExistingQuiz = () => {
+    addLog('Continuing existing quiz');
+    
+    if (selectedParagraphForStudy) {
+      // For paragraph-specific quizzes
+      const stateKey = `quizState_${bookId}_${chapterId}_${selectedParagraphForStudy}`;
+      const savedQuiz = localStorage.getItem(stateKey);
+      
+      if (savedQuiz) {
+        try {
+          const quizState = JSON.parse(savedQuiz);
+          if (quizState.questions && quizState.questions.length > 0) {
+            setParagraphId(selectedParagraphForStudy);
+            
+            // Update state based on saved quiz
+            const selectedParagraph = paragraphs.find(p => p.id === selectedParagraphForStudy);
+            setQuizTitle(`Quiz over paragraaf ${selectedParagraph?.paragraph_number || '?'}`);
+            
+            // Load the saved state
+            loadSavedQuizState(
+              bookId?.toString() || null, 
+              chapterId?.toString() || null, 
+              selectedParagraphForStudy.toString()
+            );
+            
+            setShowingParagraphContent(false);
+          }
+        } catch (error) {
+          console.error('Error continuing quiz:', error);
+          addLog(`Error continuing quiz: ${error instanceof Error ? error.message : String(error)}`);
+          
+          // Start a new quiz if there was an error
+          handleStartQuiz();
+        }
+      } else {
+        // Start a new quiz if no saved state was found
+        handleStartQuiz();
+      }
+    } else if (paragraphId) {
+      // For URL-parameter based quizzes
+      loadSavedQuizState(
+        bookId?.toString() || null, 
+        chapterId?.toString() || null, 
+        paragraphId.toString()
+      );
+    } else if (chapterId) {
+      // For chapter-level quizzes
+      loadSavedQuizState(
+        bookId?.toString() || null, 
+        chapterId.toString(), 
+        null
+      );
     }
   };
 
@@ -267,6 +363,8 @@ const QuizPage = () => {
           paragraphContent={getSelectedParagraphContent()}
           paragraphNumber={getSelectedParagraphNumber()}
           onStartQuiz={handleStartQuiz}
+          hasExistingQuiz={hasExistingQuiz}
+          onContinueExistingQuiz={handleContinueExistingQuiz}
         />
       );
     }
@@ -276,6 +374,8 @@ const QuizPage = () => {
         <QuizParagraphSelector 
           paragraphs={paragraphs}
           onSelectFirstParagraph={() => handleSelectParagraph(paragraphs[0].id)}
+          hasExistingQuiz={hasExistingQuiz}
+          onContinueExistingQuiz={handleContinueExistingQuiz}
         />
       );
     }
