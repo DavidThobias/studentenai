@@ -48,12 +48,13 @@ interface RecentActivity {
   created_at: string;
 }
 
-interface BookProgress {
+interface ParagraphProgress {
   id: number;
-  title: string;
-  overallProgress: number;
-  chaptersProgress: ChapterProgress[];
-  lastActive?: string;
+  number: number;
+  completed: boolean;
+  score?: number;
+  totalQuestions?: number;
+  percentage?: number;
 }
 
 interface ChapterProgress {
@@ -63,13 +64,12 @@ interface ChapterProgress {
   paragraphs: ParagraphProgress[];
 }
 
-interface ParagraphProgress {
+interface BookProgress {
   id: number;
-  number: number;
-  completed: boolean;
-  score?: number;
-  totalQuestions?: number;
-  percentage?: number;
+  title: string;
+  overallProgress: number;
+  chaptersProgress: ChapterProgress[];
+  lastActive?: string;
 }
 
 const UserDashboard = () => {
