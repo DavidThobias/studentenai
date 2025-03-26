@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -107,12 +106,11 @@ const UserDashboard = () => {
         const { data: booksData, error: booksError } = await supabase
           .from('books')
           .select('id, book_title')
-          .in('id', bookIds)
-          .distinct('book_title');
+          .in('id', bookIds);
         
         if (booksError) throw booksError;
         
-        // Create a map of book ID to book title
+        // Create a map of book ID to book title using JS to handle the deduplication
         const bookTitleMap: {[key: number]: string} = {};
         booksData?.forEach(book => {
           bookTitleMap[book.id] = book.book_title;
