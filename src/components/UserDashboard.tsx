@@ -81,7 +81,7 @@ const UserDashboard = () => {
 
   const fetchRecentActivity = async () => {
     try {
-      // Get recent quiz results
+      // Get recent quiz results without using foreign key relationships
       const { data: quizResults, error: quizError } = await supabase
         .from('quiz_results')
         .select(`
@@ -90,7 +90,6 @@ const UserDashboard = () => {
           book_id,
           chapter_id,
           paragraph_id,
-          books:book_id(book_title),
           percentage
         `)
         .eq('user_id', user?.id)
@@ -99,28 +98,54 @@ const UserDashboard = () => {
       
       if (quizError) throw quizError;
       
-      // Format the data for display
-      const formattedResults = quizResults?.map(result => {
-        const daysDiff = calculateDaysDifference(new Date(result.created_at));
-        const daysText = daysDiff === 0 
-          ? 'vandaag' 
-          : daysDiff === 1 
-            ? 'gisteren' 
-            : `${daysDiff} dagen geleden`;
+      // If we have quiz results, fetch the corresponding book titles
+      if (quizResults && quizResults.length > 0) {
+        // Get all book IDs from the quiz results
+        const bookIds = quizResults.map(result => result.book_id);
         
-        return {
-          id: result.id,
-          title: result.books?.book_title || 'Basisboek Sales',
-          subtitle: `Hoofdstuk ${result.chapter_id}: Paragraaf ${result.paragraph_id}`,
-          date: daysText,
-          type: 'quiz',
-          score: result.percentage
-        };
-      }) || [];
-      
-      setRecentMaterials(formattedResults);
+        // Fetch book titles for those IDs
+        const { data: booksData, error: booksError } = await supabase
+          .from('books')
+          .select('id, book_title')
+          .in('id', bookIds)
+          .distinct('book_title');
+        
+        if (booksError) throw booksError;
+        
+        // Create a map of book ID to book title
+        const bookTitleMap: {[key: number]: string} = {};
+        booksData?.forEach(book => {
+          bookTitleMap[book.id] = book.book_title;
+        });
+        
+        // Format the data for display
+        const formattedResults = quizResults.map(result => {
+          const daysDiff = calculateDaysDifference(new Date(result.created_at));
+          const daysText = daysDiff === 0 
+            ? 'vandaag' 
+            : daysDiff === 1 
+              ? 'gisteren' 
+              : `${daysDiff} dagen geleden`;
+          
+          return {
+            id: result.id,
+            title: bookTitleMap[result.book_id] || 'Basisboek Sales',
+            subtitle: `Hoofdstuk ${result.chapter_id}: Paragraaf ${result.paragraph_id}`,
+            date: daysText,
+            type: 'quiz',
+            score: result.percentage
+          };
+        });
+        
+        setRecentMaterials(formattedResults);
+      } else {
+        setRecentMaterials([]);
+      }
     } catch (error) {
       console.error('Error fetching recent activity:', error);
+      setRecentMaterials([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
