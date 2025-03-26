@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -28,7 +29,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface UserStats {
   total_quizzes: number;
@@ -85,8 +85,6 @@ const UserDashboard = () => {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [booksProgress, setBooksProgress] = useState<BookProgress[]>([]);
-  const [expandedBook, setExpandedBook] = useState<number | null>(null);
-  const [expandedChapters, setExpandedChapters] = useState<{[key: number]: boolean}>({});
   
   useEffect(() => {
     if (!user) return;
@@ -235,11 +233,6 @@ const UserDashboard = () => {
           }));
           
           setRecentActivity(formattedActivity);
-          
-          // Auto-expand the most recent book
-          if (formattedActivity.length > 0) {
-            setExpandedBook(formattedActivity[0].book_id);
-          }
         }
       } catch (error) {
         console.error('Error in fetchUserStats:', error);
@@ -410,13 +403,6 @@ const UserDashboard = () => {
     }
   };
   
-  const toggleChapter = (chapterId: number) => {
-    setExpandedChapters(prev => ({
-      ...prev,
-      [chapterId]: !prev[chapterId]
-    }));
-  };
-  
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Nog geen quiz gemaakt';
     
@@ -429,6 +415,7 @@ const UserDashboard = () => {
     });
   };
   
+  // Check if there are actual books with progress
   const hasBooks = booksProgress && booksProgress.length > 0;
   
   if (loading) {
@@ -554,13 +541,13 @@ const UserDashboard = () => {
                     </AccordionTrigger>
                     <AccordionContent className="px-4 pb-4">
                       <div className="pl-7 space-y-3 mt-2">
-                        <Accordion type="multiple" className="space-y-2">
-                          {book.chaptersProgress.map((chapter) => (
-                            <AccordionItem 
-                              key={chapter.id}
-                              value={`${book.id}-${chapter.id}`} 
-                              className="border rounded-lg overflow-hidden"
-                            >
+                        {book.chaptersProgress.map((chapter) => (
+                          <Accordion 
+                            key={`${book.id}-${chapter.id}`}
+                            type="multiple"
+                            className="border rounded-lg overflow-hidden"
+                          >
+                            <AccordionItem value={`${book.id}-${chapter.id}`}>
                               <AccordionTrigger className="px-3 py-2 hover:bg-slate-50 [&[data-state=open]]:bg-slate-50">
                                 <div className="flex items-center text-left">
                                   <div>
@@ -594,8 +581,8 @@ const UserDashboard = () => {
                                 </div>
                               </AccordionContent>
                             </AccordionItem>
-                          ))}
-                        </Accordion>
+                          </Accordion>
+                        ))}
                       </div>
                       <div className="mt-3 pl-7">
                         <Button 
