@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -102,11 +101,24 @@ const UserDashboard = () => {
         }
         
         if (viewData) {
-          setStats(viewData as UserStats);
+          // Make sure viewData conforms to UserStats type
+          const userStats: UserStats = {
+            total_quizzes: viewData.total_quizzes || 0,
+            total_questions: viewData.total_questions || 0,
+            total_correct_answers: viewData.total_correct_answers || 0,
+            average_score: viewData.average_score || 0,
+            books_studied: viewData.books_studied || 0,
+            chapters_studied: viewData.chapters_studied || 0,
+            paragraphs_studied: viewData.paragraphs_studied || 0,
+            last_quiz_date: viewData.last_quiz_date || null,
+            book_ids: viewData.book_ids || []
+          };
+          
+          setStats(userStats);
           
           // If we have book IDs from the stats, fetch their progress data
-          if (viewData.book_ids && viewData.book_ids.length > 0) {
-            await fetchBooksProgress(viewData.book_ids);
+          if (userStats.book_ids && userStats.book_ids.length > 0) {
+            await fetchBooksProgress(userStats.book_ids);
           }
         } else {
           // Calculate stats manually if no data in view
