@@ -1,109 +1,96 @@
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Book, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import FileUploadCard from '@/components/FileUploadCard';
-import UploadSuccessCard from '@/components/UploadSuccessCard';
-import QuizContainer from '@/components/quiz/QuizContainer';
+import { BarChart, BookOpen, Award, ChevronRight } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import UserDashboard from '@/components/UserDashboard';
 
-const LearnPage = () => {
-  const navigate = useNavigate();
-  const [uploadedFile, setUploadedFile] = useState<{ id: string, name: string } | null>(null);
-
-  const handleFileUploaded = (documentId: string, fileName: string) => {
-    setUploadedFile({ id: documentId, name: fileName });
-    toast.success(`Bestand "${fileName}" is geüpload en verwerkt.`);
-  };
-
-  const handleContinueToQuizGenerator = (documentId: string) => {
-    toast.success("Samenvatting is geüpload! We bereiden je leermateriaal voor.");
-    setTimeout(() => navigate(`/quiz-generator?documentId=${documentId}`), 1500);
-  };
-
-  const handleChooseExisting = () => {
-    toast.success("Je gaat nu een van onze samenvattingen kiezen.");
-    navigate("/books");
-  };
+const Learn = () => {
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
-    <div className="min-h-screen bg-background pt-28 pb-20 px-6">
-      <div className="max-w-6xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-16"
-        >
-          <h1 className="heading-xl text-foreground mb-4">Begin met leren</h1>
-          <p className="subheading max-w-2xl mx-auto">
-            Kies hoe je wilt beginnen: upload je eigen samenvatting of kies een van onze voorbereidde materialen.
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Upload Option */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            {uploadedFile ? (
-              <UploadSuccessCard 
-                fileName={uploadedFile.name}
-                documentId={uploadedFile.id}
-                onContinue={handleContinueToQuizGenerator}
-              />
-            ) : (
-              <FileUploadCard onFileUploaded={handleFileUploaded} />
-            )}
-          </motion.div>
-
-          {/* Choose Existing Option */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-          >
-            <Card className="h-full">
-              <CardHeader className="text-center">
-                <div className="w-16 h-16 bg-study-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Book className="h-8 w-8 text-study-600" />
-                </div>
-                <CardTitle className="text-2xl">Kies een van onze samenvattingen</CardTitle>
-                <CardDescription>
-                  Selecteer uit onze uitgebreide bibliotheek van kant-en-klare samenvattingen en studiematerialen.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex items-center justify-center flex-1">
-                <div className="text-center space-y-6 py-8">
-                  <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="aspect-[3/4] bg-study-50 rounded-lg flex items-center justify-center p-4 border border-study-100">
-                        <Book className="h-12 w-12 text-study-300" />
-                      </div>
-                    ))}
+    <div className="container mx-auto py-10 px-4">
+      <h1 className="text-3xl font-bold mb-6">Mijn leerplatform</h1>
+      
+      <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid grid-cols-3 w-full max-w-md mb-8">
+          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <BarChart className="h-4 w-4" />
+            <span className="hidden sm:inline">Dashboard</span>
+          </TabsTrigger>
+          <TabsTrigger value="books" className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            <span className="hidden sm:inline">Studiemateriaal</span>
+          </TabsTrigger>
+          <TabsTrigger value="achievements" className="flex items-center gap-2">
+            <Award className="h-4 w-4" />
+            <span className="hidden sm:inline">Achievements</span>
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="dashboard">
+          <UserDashboard />
+        </TabsContent>
+        
+        <TabsContent value="books">
+          <Card>
+            <CardHeader>
+              <CardTitle>Mijn studiemateriaal</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Bekijk hier al je studiemateriaal en voortgang per boek.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="flex justify-between items-center p-4 hover:bg-gray-50 cursor-pointer">
+                  <div className="flex items-center">
+                    <BookOpen className="h-5 w-5 text-study-600 mr-2" />
+                    <div>
+                      <p className="font-medium">Bekijk alle boeken</p>
+                      <p className="text-sm text-muted-foreground">Toegang tot het complete studiemateriaal</p>
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    We hebben een grote selectie aan studiemateriaal voor verschillende onderwerpen.
-                  </p>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" variant="secondary" onClick={handleChooseExisting}>
-                  Ontdek onze samenvattingen
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </CardFooter>
-            </Card>
-          </motion.div>
-        </div>
-      </div>
+                  <ChevronRight className="h-4 w-4" />
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="achievements">
+          <Card>
+            <CardHeader>
+              <CardTitle>Achievements</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Bekijk hier je behaalde badges en prestaties.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="p-6 text-center">
+                  <Award className="h-16 w-16 mx-auto text-yellow-500 mb-4" />
+                  <p className="font-medium">Eerste Quiz</p>
+                  <p className="text-sm text-muted-foreground">Maak je eerste quiz</p>
+                </Card>
+                
+                <Card className="p-6 text-center bg-gray-50">
+                  <Award className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                  <p className="font-medium text-gray-500">10 Quizzen Voltooid</p>
+                  <p className="text-sm text-gray-400">Voltooi 10 quizzen</p>
+                </Card>
+                
+                <Card className="p-6 text-center bg-gray-50">
+                  <Award className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                  <p className="font-medium text-gray-500">Hoofdstuk Meester</p>
+                  <p className="text-sm text-gray-400">Voltooi alle paragrafen van een hoofdstuk</p>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
 
-export default LearnPage;
+export default Learn;

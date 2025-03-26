@@ -39,14 +39,8 @@ export default function Navbar() {
           <Link to="/" className="text-foreground hover:text-study-600 font-medium transition-colors">
             Home
           </Link>
-          <Link to="#features" className="text-foreground hover:text-study-600 font-medium transition-colors">
-            Functies
-          </Link>
-          <Link to="#quiz" className="text-foreground hover:text-study-600 font-medium transition-colors">
-            Quiz Demo
-          </Link>
           <Link to="/learn" className="text-foreground hover:text-study-600 font-medium transition-colors">
-            Leren
+            Dashboard
           </Link>
           <Link to="/books" className="text-foreground hover:text-study-600 font-medium transition-colors">
             Boeken
@@ -86,25 +80,11 @@ export default function Navbar() {
               Home
             </Link>
             <Link 
-              to="#features" 
-              className="text-foreground hover:text-study-600 font-medium transition-colors px-4 py-2"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Functies
-            </Link>
-            <Link 
-              to="#quiz" 
-              className="text-foreground hover:text-study-600 font-medium transition-colors px-4 py-2"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Quiz Demo
-            </Link>
-            <Link 
               to="/learn" 
               className="text-foreground hover:text-study-600 font-medium transition-colors px-4 py-2"
               onClick={() => setIsMenuOpen(false)}
             >
-              Leren
+              Dashboard
             </Link>
             <Link 
               to="/books" 
