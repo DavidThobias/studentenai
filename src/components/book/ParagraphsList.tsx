@@ -1,17 +1,33 @@
 
-import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle, BookOpen } from 'lucide-react';
+import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle, BookOpen, Trophy, RotateCcw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useEffect, useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from 'react-router-dom';
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from '@/context/AuthContext';
 
 interface ParagraphData {
   id: number;
   paragraph_number?: number;
   content?: string;
   chapter_number: number;
+}
+
+interface QuizHistoryItem {
+  id: string;
+  completed_date?: string;
+  created_at: string;
+  score: number;
+  total_questions: number;
+  percentage: number;
+  book_id: number;
+  chapter_id?: number | null;
+  paragraph_id?: number | null;
+  user_id: string;
+  completed: boolean;
 }
 
 // Define a specific type for table info params
@@ -29,16 +45,69 @@ interface ParagraphsListProps {
 const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedChapterId }: ParagraphsListProps) => {
   const navigate = useNavigate();
   const { id: bookId } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [directDbCount, setDirectDbCount] = useState<number | null>(null);
   const [isCheckingDb, setIsCheckingDb] = useState(false);
   const [edgeFunctionResult, setEdgeFunctionResult] = useState<any>(null);
   const [isTestingEdgeFunction, setIsTestingEdgeFunction] = useState(false);
+  const [quizHistory, setQuizHistory] = useState<{ [paragraphId: number]: QuizHistoryItem[] }>({});
+  const [loadingQuizHistory, setLoadingQuizHistory] = useState(false);
   
   useEffect(() => {
     console.log('ParagraphsList: paragraphs array updated:', paragraphs);
     console.log('ParagraphsList: loadingParagraphs:', loadingParagraphs);
     console.log('ParagraphsList: selectedChapterId:', selectedChapterId);
-  }, [paragraphs, loadingParagraphs, selectedChapterId]);
+    
+    // Fetch quiz history when paragraphs and user info are available
+    if (paragraphs.length > 0 && user && bookId && selectedChapterId) {
+      fetchQuizHistoryForAllParagraphs();
+    }
+  }, [paragraphs, loadingParagraphs, selectedChapterId, user, bookId]);
+
+  const fetchQuizHistoryForAllParagraphs = async () => {
+    if (!user || !bookId || !selectedChapterId) return;
+    
+    try {
+      setLoadingQuizHistory(true);
+      
+      const { data, error } = await supabase
+        .from('quiz_results')
+        .select('*')
+        .eq('book_id', parseInt(bookId)) 
+        .eq('chapter_id', selectedChapterId)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('Error fetching quiz history:', error);
+        return;
+      }
+      
+      // Group quiz results by paragraph id
+      const historyByParagraph: { [paragraphId: number]: QuizHistoryItem[] } = {};
+      
+      data?.forEach(item => {
+        if (item.paragraph_id) {
+          if (!historyByParagraph[item.paragraph_id]) {
+            historyByParagraph[item.paragraph_id] = [];
+          }
+          
+          historyByParagraph[item.paragraph_id].push({
+            ...item,
+            completed_date: item.created_at
+          });
+        }
+      });
+      
+      setQuizHistory(historyByParagraph);
+      console.log('Quiz history loaded:', historyByParagraph);
+      
+    } catch (err) {
+      console.error('Error in fetchQuizHistoryForAllParagraphs:', err);
+    } finally {
+      setLoadingQuizHistory(false);
+    }
+  };
 
   const checkDatabaseDirectly = async () => {
     if (!selectedChapterId) return;
@@ -149,6 +218,35 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     }
   };
 
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'Datum onbekend';
+    
+    try {
+      // Check if the string is a valid date before creating a Date object
+      if (!/^\d{4}-\d{2}-\d{2}/.test(dateString) && isNaN(Date.parse(dateString))) {
+        return 'Ongeldige datum';
+      }
+      
+      const date = new Date(dateString);
+      
+      // Extra validation to ensure date is valid
+      if (isNaN(date.getTime())) {
+        return 'Ongeldige datum';
+      }
+      
+      return new Intl.DateTimeFormat('nl-NL', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch (error) {
+      console.error('Error formatting date:', error, dateString);
+      return 'Datum fout';
+    }
+  };
+
   return (
     <div className="mb-12">
       <h2 className="text-2xl font-semibold mb-6">Paragrafen</h2>
@@ -160,55 +258,110 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         </div>
       ) : paragraphs.length > 0 ? (
         <div className="space-y-4">
-          {paragraphs.map((paragraph) => (
-            <Card key={paragraph.id} className="transition-all hover:shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  Paragraaf {paragraph.paragraph_number || "ID: " + paragraph.id}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground whitespace-pre-line">
-                  {paragraph.content ? 
-                    paragraph.content.substring(0, 150) + (paragraph.content.length > 150 ? "..." : "") : 
-                    'Geen inhoud beschikbaar'}
-                </p>
-              </CardContent>
-              <CardFooter className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2"
-                  onClick={() => handleViewSummary(paragraph.id)}
-                >
-                  <FileText className="h-4 w-4" />
-                  Bekijk samenvatting
-                </Button>
-              
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2"
-                  onClick={() => handleStartLearning(paragraph.id)}
-                >
-                  <BookOpen className="h-4 w-4" />
-                  Start leren
-                </Button>
-              
-                {onStartQuiz && selectedChapterId && (
-                  <Button 
-                    onClick={() => onStartQuiz(Number(selectedChapterId), paragraph.id)}
+          {paragraphs.map((paragraph) => {
+            const paragraphQuizHistory = quizHistory[paragraph.id] || [];
+            const hasPreviousQuizzes = paragraphQuizHistory.length > 0;
+            const latestQuiz = hasPreviousQuizzes ? paragraphQuizHistory[0] : null;
+            
+            return (
+              <Card key={paragraph.id} className="transition-all hover:shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-lg flex justify-between items-center">
+                    <span>Paragraaf {paragraph.paragraph_number || "ID: " + paragraph.id}</span>
+                    {latestQuiz && (
+                      <Badge 
+                        variant={latestQuiz.percentage >= 70 ? "success" : "outline"}
+                        className={latestQuiz.percentage >= 70 ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}
+                      >
+                        Laatste score: {Math.round(latestQuiz.percentage)}%
+                      </Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <p className="text-muted-foreground whitespace-pre-line">
+                      {paragraph.content ? 
+                        paragraph.content.substring(0, 150) + (paragraph.content.length > 150 ? "..." : "") : 
+                        'Geen inhoud beschikbaar'}
+                    </p>
+                    
+                    {/* Quiz History Section */}
+                    {hasPreviousQuizzes && (
+                      <div className="mt-4 border-t pt-4">
+                        <h4 className="text-sm font-medium mb-2 flex items-center">
+                          <Trophy className="h-4 w-4 text-yellow-500 mr-1" />
+                          Quiz Geschiedenis
+                        </h4>
+                        <div className="space-y-2">
+                          {paragraphQuizHistory.slice(0, 2).map((quiz) => (
+                            <div key={quiz.id} className="flex justify-between items-center text-sm p-2 rounded bg-slate-50">
+                              <div>
+                                <span className="font-medium">{quiz.score}/{quiz.total_questions}</span>
+                                <span className="text-muted-foreground ml-2 text-xs">
+                                  {formatDate(quiz.created_at)}
+                                </span>
+                              </div>
+                              {onStartQuiz && selectedChapterId && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => onStartQuiz(Number(selectedChapterId), paragraph.id)}
+                                  className="h-7 px-2"
+                                >
+                                  <RotateCcw className="h-3 w-3 mr-1" />
+                                  Opnieuw
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          
+                          {paragraphQuizHistory.length > 2 && (
+                            <div className="text-xs text-center text-muted-foreground">
+                              +{paragraphQuizHistory.length - 2} meer pogingen
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+                <CardFooter className="flex flex-wrap gap-2">
+                  <Button
                     variant="outline"
                     size="sm"
                     className="flex items-center gap-2"
+                    onClick={() => handleViewSummary(paragraph.id)}
                   >
-                    <ListChecks className="h-4 w-4" />
-                    Quiz over paragraaf
+                    <FileText className="h-4 w-4" />
+                    Bekijk samenvatting
                   </Button>
-                )}
-              </CardFooter>
-            </Card>
-          ))}
+                
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                    onClick={() => handleStartLearning(paragraph.id)}
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    Start leren
+                  </Button>
+                
+                  {onStartQuiz && selectedChapterId && (
+                    <Button 
+                      onClick={() => onStartQuiz(Number(selectedChapterId), paragraph.id)}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <ListChecks className="h-4 w-4" />
+                      Quiz over paragraaf
+                    </Button>
+                  )}
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <div className="space-y-4">

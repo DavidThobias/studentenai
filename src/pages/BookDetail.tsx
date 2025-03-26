@@ -8,33 +8,13 @@ import LoadingBookDetail from '@/components/book/LoadingBookDetail';
 import { useBookDetail } from '@/hooks/useBookDetail';
 import { toast } from "sonner";
 import Layout from '@/components/Layout';
-import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Brain, RotateCcw, Trophy } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-
-interface QuizHistoryItem {
-  id: string;
-  completed_date?: string;
-  created_at: string;
-  score: number;
-  total_questions: number;
-  percentage: number;
-  book_id: number;
-  chapter_id?: number | null;
-  paragraph_id?: number | null;
-  user_id: string;
-  completed: boolean;
-}
 
 const BookDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [quizHistory, setQuizHistory] = useState<QuizHistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const { 
     book, 
@@ -46,44 +26,6 @@ const BookDetail = () => {
     fetchParagraphs,
     selectedChapterId
   } = useBookDetail(id);
-
-  // Fetch quiz history for this book when component mounts
-  useEffect(() => {
-    if (user && id) {
-      fetchQuizHistory();
-    }
-  }, [user, id]);
-
-  const fetchQuizHistory = async () => {
-    if (!user || !id) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('quiz_results')
-        .select('*')
-        .eq('book_id', parseInt(id)) // Convert id string to number
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
-        
-      if (error) {
-        console.error('Error fetching quiz history:', error);
-        return;
-      }
-      
-      // Map the data to match the QuizHistoryItem interface
-      const formattedData: QuizHistoryItem[] = data?.map(item => ({
-        ...item,
-        completed_date: item.created_at // Use created_at as completed_date if not present
-      })) || [];
-      
-      setQuizHistory(formattedData);
-    } catch (err) {
-      console.error('Error in fetchQuizHistory:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleStartQuiz = (chapterId: number, paragraphId?: number) => {
     console.log(`Starting quiz for chapter ID: ${chapterId}${paragraphId ? `, paragraph ID: ${paragraphId}` : ''}`);
@@ -106,35 +48,6 @@ const BookDetail = () => {
     params.append('structured', 'true');
     
     navigate(`/quiz?${params.toString()}`);
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'Datum onbekend';
-    
-    try {
-      // Check if the string is a valid date before creating a Date object
-      if (!/^\d{4}-\d{2}-\d{2}/.test(dateString) && isNaN(Date.parse(dateString))) {
-        return 'Ongeldige datum';
-      }
-      
-      const date = new Date(dateString);
-      
-      // Extra validation to ensure date is valid
-      if (isNaN(date.getTime())) {
-        return 'Ongeldige datum';
-      }
-      
-      return new Intl.DateTimeFormat('nl-NL', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).format(date);
-    } catch (error) {
-      console.error('Error formatting date:', error, dateString);
-      return 'Datum fout';
-    }
   };
 
   // Check if this is the Sales book
@@ -166,51 +79,6 @@ const BookDetail = () => {
           )}
 
           <BookOverview book={book} />
-
-          {/* Quiz History Section */}
-          {quizHistory.length > 0 && (
-            <div className="mb-16">
-              <h2 className="text-2xl font-semibold mb-8">Jouw Quiz Geschiedenis</h2>
-              <div className="space-y-4">
-                {quizHistory.map((quiz) => (
-                  <Card key={quiz.id} className="border-l-4 border-study-500">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center justify-between">
-                        <div className="flex items-center">
-                          <Trophy className="mr-2 h-5 w-5 text-yellow-500" />
-                          Quiz Resultaat
-                        </div>
-                        <div className="text-sm font-normal text-muted-foreground">
-                          {formatDate(quiz.completed_date || quiz.created_at)}
-                        </div>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-lg font-medium">
-                            Score: {quiz.score}/{quiz.total_questions} ({Math.round(quiz.percentage)}%)
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {quiz.percentage >= 70 ? 'Geslaagd!' : 'Niet geslaagd'}
-                          </p>
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleStartQuiz(quiz.chapter_id || selectedChapterId || 1, quiz.paragraph_id)}
-                          className="flex items-center gap-1"
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                          Opnieuw proberen
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
 
           <UpcomingFeatures />
         </div>
