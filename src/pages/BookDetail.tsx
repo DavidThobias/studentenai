@@ -17,14 +17,14 @@ import { Button } from '@/components/ui/button';
 
 interface QuizHistoryItem {
   id: string;
-  completed_date?: string; // Make optional to accommodate the data format from Supabase
-  created_at: string; // Add created_at field from the database
+  completed_date?: string;
+  created_at: string;
   score: number;
   total_questions: number;
   percentage: number;
   book_id: number;
-  chapter_id?: number;
-  paragraph_id?: number;
+  chapter_id?: number | null;
+  paragraph_id?: number | null;
   user_id: string;
   completed: boolean;
 }
@@ -72,7 +72,7 @@ const BookDetail = () => {
       }
       
       // Map the data to match the QuizHistoryItem interface
-      const formattedData = data?.map(item => ({
+      const formattedData: QuizHistoryItem[] = data?.map(item => ({
         ...item,
         completed_date: item.created_at // Use created_at as completed_date if not present
       })) || [];
@@ -112,8 +112,14 @@ const BookDetail = () => {
     if (!dateString) return 'Datum onbekend';
     
     try {
+      // Check if the string is a valid date before creating a Date object
+      if (!/^\d{4}-\d{2}-\d{2}/.test(dateString) && isNaN(Date.parse(dateString))) {
+        return 'Ongeldige datum';
+      }
+      
       const date = new Date(dateString);
-      // Check if date is valid
+      
+      // Extra validation to ensure date is valid
       if (isNaN(date.getTime())) {
         return 'Ongeldige datum';
       }
@@ -192,7 +198,7 @@ const BookDetail = () => {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => handleStartQuiz(quiz.chapter_id || selectedChapterId || 1)}
+                          onClick={() => handleStartQuiz(quiz.chapter_id || selectedChapterId || 1, quiz.paragraph_id)}
                           className="flex items-center gap-1"
                         >
                           <RotateCcw className="h-4 w-4" />
