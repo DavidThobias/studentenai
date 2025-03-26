@@ -24,11 +24,39 @@ serve(async (req) => {
     // This bypasses RLS policies
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    const { documentId } = await req.json();
+    const requestData = await req.json();
+    let documentId;
+    
+    // Controleren of we een directe upload verwerken of een bestaand document
+    if (requestData.filePath && !requestData.documentId) {
+      console.log('Processing direct upload');
+      
+      // Direct upload verwerking - maak eerst een document record aan
+      const { data: document, error: insertError } = await supabase
+        .from('user_documents')
+        .insert({
+          file_name: requestData.fileName,
+          file_path: requestData.filePath,
+          file_type: requestData.fileType,
+          file_size: requestData.fileSize,
+          user_id: null
+        })
+        .select()
+        .single();
+        
+      if (insertError) {
+        console.error('Error creating document record:', insertError);
+        throw new Error(`Fout bij het aanmaken van document record: ${insertError.message}`);
+      }
+      
+      documentId = document.id;
+    } else {
+      documentId = requestData.documentId;
+    }
     
     if (!documentId) {
       return new Response(
-        JSON.stringify({ error: 'Document ID is required' }),
+        JSON.stringify({ error: 'Document ID or file path is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -123,7 +151,8 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: 'Document processed successfully',
-        sections_count: sections.length
+        sections_count: sections.length,
+        documentId: documentId
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

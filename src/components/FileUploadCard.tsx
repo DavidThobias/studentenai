@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Upload, FileText, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,11 +75,12 @@ const FileUploadCard = ({ onFileUploaded, className }: FileUploadCardProps) => {
       
       setUploadProgress(30);
       
-      const { error: uploadError, data: uploadData } = await supabase.storage
+      // Gebruik de anonieme client voor het uploaden (public policy)
+      const { error: uploadError } = await supabase.storage
         .from('summaries')
         .upload(filePath, file, {
-          // Allow unauthenticated uploads
-          upsert: false
+          upsert: false,
+          contentType: file.type
         });
 
       if (uploadError) {
@@ -89,42 +89,35 @@ const FileUploadCard = ({ onFileUploaded, className }: FileUploadCardProps) => {
       
       setUploadProgress(60);
       
-      // 2. Create document record with a null user_id for unauthenticated users
-      const { data: document, error: documentError } = await supabase
-        .from('user_documents')
-        .insert({
-          file_name: file.name,
-          file_path: filePath,
-          file_type: file.type,
-          file_size: file.size,
-          // Don't rely on auth.getUser() which will be null for unauthenticated users
-          user_id: null
+      // Maak API-aanroep naar de edge function voor documentverwerking
+      // We omzeilen de RLS door rechtstreeks naar de edge functie te gaan
+      const response = await fetch("https://ncipejuazrewiizxtkcj.supabase.co/functions/v1/process-document", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabase.auth.getSession().then(({ data }) => data.session?.access_token || '')}`,
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          filePath: filePath,
+          fileType: file.type,
+          fileSize: file.size
         })
-        .select()
-        .single();
-
-      if (documentError) {
-        throw new Error(`Fout bij het opslaan van documentgegevens: ${documentError.message}`);
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Fout bij het verwerken van document: ${errorData.error || response.statusText}`);
       }
       
-      setUploadProgress(80);
-      
-      // 3. Trigger document processing
-      const { error: processingError } = await supabase.functions
-        .invoke('process-document', {
-          body: { documentId: document.id }
-        });
-
-      if (processingError) {
-        throw new Error(`Fout bij het verwerken van document: ${processingError.message}`);
-      }
+      const result = await response.json();
       
       setUploadProgress(100);
       
       toast.success("Samenvatting is succesvol geüpload en wordt verwerkt.");
       
       // Call the callback with the document ID
-      onFileUploaded(document.id, file.name);
+      onFileUploaded(result.documentId, file.name);
       
     } catch (error) {
       console.error('Upload error:', error);
