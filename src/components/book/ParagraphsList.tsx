@@ -1,4 +1,3 @@
-
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle, BookOpen, Trophy, RotateCcw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +29,6 @@ interface QuizHistoryItem {
   completed: boolean;
 }
 
-// Define a specific type for table info params
 interface TableInfoParams {
   table_name: string;
 }
@@ -58,7 +56,6 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     console.log('ParagraphsList: loadingParagraphs:', loadingParagraphs);
     console.log('ParagraphsList: selectedChapterId:', selectedChapterId);
     
-    // Fetch quiz history when paragraphs and user info are available
     if (paragraphs.length > 0 && user && bookId && selectedChapterId) {
       fetchQuizHistoryForAllParagraphs();
     }
@@ -83,7 +80,6 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         return;
       }
       
-      // Group quiz results by paragraph id
       const historyByParagraph: { [paragraphId: number]: QuizHistoryItem[] } = {};
       
       data?.forEach(item => {
@@ -222,14 +218,12 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     if (!dateString) return 'Datum onbekend';
     
     try {
-      // Check if the string is a valid date before creating a Date object
       if (!/^\d{4}-\d{2}-\d{2}/.test(dateString) && isNaN(Date.parse(dateString))) {
         return 'Ongeldige datum';
       }
       
       const date = new Date(dateString);
       
-      // Extra validation to ensure date is valid
       if (isNaN(date.getTime())) {
         return 'Ongeldige datum';
       }
@@ -270,7 +264,7 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                     <span>Paragraaf {paragraph.paragraph_number || "ID: " + paragraph.id}</span>
                     {latestQuiz && (
                       <Badge 
-                        variant={latestQuiz.percentage >= 70 ? "success" : "outline"}
+                        variant={latestQuiz.percentage >= 70 ? "secondary" : "outline"}
                         className={latestQuiz.percentage >= 70 ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}
                       >
                         Laatste score: {Math.round(latestQuiz.percentage)}%
@@ -286,7 +280,6 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
                         'Geen inhoud beschikbaar'}
                     </p>
                     
-                    {/* Quiz History Section */}
                     {hasPreviousQuizzes && (
                       <div className="mt-4 border-t pt-4">
                         <h4 className="text-sm font-medium mb-2 flex items-center">
