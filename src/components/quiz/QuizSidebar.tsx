@@ -27,6 +27,10 @@ const QuizSidebar = ({
           <div className="p-2">
             {paragraphs.map((p) => {
               const progress = progressData.find(pr => pr.id === p.id);
+              
+              // Format the paragraph title to be consistent: "Paragraaf X.Y"
+              const paragraphTitle = `Paragraaf ${p.chapter_number}.${p.paragraph_number}`;
+              
               return (
                 <div 
                   key={p.id}
@@ -46,7 +50,7 @@ const QuizSidebar = ({
                   <div className="flex items-center space-x-2 flex-1">
                     <span className="font-medium min-w-[24px]">{p.paragraph_number}.</span>
                     <span className="truncate flex-1">
-                      {p.content?.substring(0, 30)}{p.content && p.content.length > 30 ? '...' : ''}
+                      {paragraphTitle}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">

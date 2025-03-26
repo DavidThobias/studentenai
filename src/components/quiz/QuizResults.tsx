@@ -70,7 +70,8 @@ const QuizResults = ({
           score: score,
           total_questions: totalQuestions,
           percentage: percentage,
-          completed: true
+          completed: true,
+          completed_date: new Date().toISOString() // Add completed date
         });
       
       if (error) {
@@ -119,6 +120,25 @@ const QuizResults = ({
             });
         }
       }
+      
+      // Let's also store the quiz state in localStorage so it can be retrieved later
+      const quizState = {
+        bookId,
+        chapterId,
+        paragraphId,
+        score,
+        totalQuestions,
+        percentage,
+        isPassing,
+        completedDate: new Date().toISOString()
+      };
+      
+      // Save with a unique key based on book, chapter, paragraph
+      const stateKey = `quizResult_${bookId}_${chapterId || 'all'}_${paragraphId || 'all'}`;
+      localStorage.setItem(stateKey, JSON.stringify(quizState));
+      
+      // Also save a reference to the most recent quiz
+      localStorage.setItem('lastCompletedQuiz', stateKey);
       
       toast.success("Quiz resultaten opgeslagen!");
       setIsSaved(true);
