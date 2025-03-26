@@ -20,6 +20,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Process document function called');
+    
     // Create Supabase client with service role key for admin privileges
     // This bypasses RLS policies
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -27,11 +29,11 @@ serve(async (req) => {
     const requestData = await req.json();
     let documentId;
     
-    // Controleren of we een directe upload verwerken of een bestaand document
+    // Check if we're processing a direct upload or an existing document
     if (requestData.filePath && !requestData.documentId) {
       console.log('Processing direct upload');
       
-      // Direct upload verwerking - maak eerst een document record aan
+      // Direct upload processing - create a document record first
       const { data: document, error: insertError } = await supabase
         .from('user_documents')
         .insert({
@@ -39,17 +41,19 @@ serve(async (req) => {
           file_path: requestData.filePath,
           file_type: requestData.fileType,
           file_size: requestData.fileSize,
-          user_id: null
+          user_id: null,  // Explicitly set to null to avoid RLS issues
+          processed: false
         })
         .select()
         .single();
         
       if (insertError) {
         console.error('Error creating document record:', insertError);
-        throw new Error(`Fout bij het aanmaken van document record: ${insertError.message}`);
+        throw new Error(`Error creating document record: ${insertError.message}`);
       }
       
       documentId = document.id;
+      console.log(`Created document with ID: ${documentId}`);
     } else {
       documentId = requestData.documentId;
     }
