@@ -236,6 +236,7 @@ export type Database = {
       user_quiz_stats: {
         Row: {
           average_score: number | null
+          book_ids: number[] | null
           books_studied: number | null
           chapters_studied: number | null
           last_quiz_date: string | null
