@@ -22,6 +22,12 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface UserStats {
@@ -423,6 +429,8 @@ const UserDashboard = () => {
     });
   };
   
+  const hasBooks = booksProgress && booksProgress.length > 0;
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
@@ -519,17 +527,22 @@ const UserDashboard = () => {
           <CardDescription>Je studievoortgang per boek en hoofdstuk</CardDescription>
         </CardHeader>
         <CardContent>
-          {booksProgress.length > 0 ? (
+          {hasBooks ? (
             <div className="space-y-4">
-              {booksProgress.map((book) => (
-                <div key={book.id} className="border rounded-lg overflow-hidden">
-                  <div 
-                    className={`p-4 cursor-pointer hover:bg-slate-50 ${expandedBook === book.id ? 'bg-slate-50' : ''}`}
-                    onClick={() => setExpandedBook(expandedBook === book.id ? null : book.id)}
+              <Accordion 
+                type="multiple" 
+                defaultValue={booksProgress.length > 0 ? [booksProgress[0].id.toString()] : []}
+                className="space-y-2"
+              >
+                {booksProgress.map((book) => (
+                  <AccordionItem 
+                    key={book.id}
+                    value={book.id.toString()} 
+                    className="border rounded-lg overflow-hidden"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <BookOpen className="h-5 w-5 text-study-600 mr-2" />
+                    <AccordionTrigger className="px-4 py-3 hover:bg-slate-50 [&[data-state=open]]:bg-slate-50">
+                      <div className="flex items-center text-left">
+                        <BookOpen className="h-5 w-5 text-study-600 mr-2 shrink-0" />
                         <div>
                           <p className="font-medium">{book.title}</p>
                           <div className="flex items-center mt-1">
@@ -538,25 +551,18 @@ const UserDashboard = () => {
                           </div>
                         </div>
                       </div>
-                      {expandedBook === book.id ? (
-                        <ChevronUp className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
-                      )}
-                    </div>
-                  </div>
-                  
-                  {expandedBook === book.id && (
-                    <div className="px-4 pb-4">
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4">
                       <div className="pl-7 space-y-3 mt-2">
-                        {book.chaptersProgress.map((chapter) => (
-                          <div key={chapter.id} className="border rounded-lg overflow-hidden">
-                            <div 
-                              className={`p-3 cursor-pointer hover:bg-slate-50 ${expandedChapters[chapter.id] ? 'bg-slate-50' : ''}`}
-                              onClick={() => toggleChapter(chapter.id)}
+                        <Accordion type="multiple" className="space-y-2">
+                          {book.chaptersProgress.map((chapter) => (
+                            <AccordionItem 
+                              key={chapter.id}
+                              value={`${book.id}-${chapter.id}`} 
+                              className="border rounded-lg overflow-hidden"
                             >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center">
+                              <AccordionTrigger className="px-3 py-2 hover:bg-slate-50 [&[data-state=open]]:bg-slate-50">
+                                <div className="flex items-center text-left">
                                   <div>
                                     <p className="font-medium text-sm">Hoofdstuk {chapter.id}: {chapter.title}</p>
                                     <div className="flex items-center mt-1">
@@ -565,16 +571,8 @@ const UserDashboard = () => {
                                     </div>
                                   </div>
                                 </div>
-                                {expandedChapters[chapter.id] ? (
-                                  <ChevronUp className="h-4 w-4 text-gray-400" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4 text-gray-400" />
-                                )}
-                              </div>
-                            </div>
-                            
-                            {expandedChapters[chapter.id] && (
-                              <div className="px-3 pb-3">
+                              </AccordionTrigger>
+                              <AccordionContent className="px-3 pb-3">
                                 <div className="pl-4 space-y-2 mt-2">
                                   {chapter.paragraphs.map((paragraph) => (
                                     <div key={paragraph.id} className="flex items-center justify-between p-2 border rounded-md">
@@ -594,10 +592,10 @@ const UserDashboard = () => {
                                     </div>
                                   ))}
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                              </AccordionContent>
+                            </AccordionItem>
+                          ))}
+                        </Accordion>
                       </div>
                       <div className="mt-3 pl-7">
                         <Button 
@@ -610,10 +608,10 @@ const UserDashboard = () => {
                           <ChevronRight className="h-4 w-4 ml-1" />
                         </Button>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
           ) : (
             <div className="text-center py-8">
