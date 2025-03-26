@@ -17,10 +17,16 @@ import { Button } from '@/components/ui/button';
 
 interface QuizHistoryItem {
   id: string;
-  completed_date: string;
+  completed_date?: string; // Make optional to accommodate the data format from Supabase
+  created_at: string; // Add created_at field from the database
   score: number;
   total_questions: number;
   percentage: number;
+  book_id: number;
+  chapter_id?: number;
+  paragraph_id?: number;
+  user_id: string;
+  completed: boolean;
 }
 
 const BookDetail = () => {
@@ -55,7 +61,7 @@ const BookDetail = () => {
       const { data, error } = await supabase
         .from('quiz_results')
         .select('*')
-        .eq('book_id', id)
+        .eq('book_id', parseInt(id)) // Convert id string to number
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5);
@@ -65,7 +71,13 @@ const BookDetail = () => {
         return;
       }
       
-      setQuizHistory(data || []);
+      // Map the data to match the QuizHistoryItem interface
+      const formattedData = data?.map(item => ({
+        ...item,
+        completed_date: item.created_at // Use created_at as completed_date if not present
+      })) || [];
+      
+      setQuizHistory(formattedData);
     } catch (err) {
       console.error('Error in fetchQuizHistory:', err);
     } finally {
@@ -97,14 +109,26 @@ const BookDetail = () => {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('nl-NL', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
+    if (!dateString) return 'Datum onbekend';
+    
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Ongeldige datum';
+      }
+      
+      return new Intl.DateTimeFormat('nl-NL', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch (error) {
+      console.error('Error formatting date:', error, dateString);
+      return 'Datum fout';
+    }
   };
 
   // Check if this is the Sales book
@@ -151,7 +175,7 @@ const BookDetail = () => {
                           Quiz Resultaat
                         </div>
                         <div className="text-sm font-normal text-muted-foreground">
-                          {formatDate(quiz.completed_date)}
+                          {formatDate(quiz.completed_date || quiz.created_at)}
                         </div>
                       </CardTitle>
                     </CardHeader>
@@ -168,7 +192,7 @@ const BookDetail = () => {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => handleStartQuiz(selectedChapterId || 1)}
+                          onClick={() => handleStartQuiz(quiz.chapter_id || selectedChapterId || 1)}
                           className="flex items-center gap-1"
                         >
                           <RotateCcw className="h-4 w-4" />
