@@ -39,6 +39,51 @@ export type Database = {
         }
         Relationships: []
       }
+      document_sections: {
+        Row: {
+          content: string
+          created_at: string | null
+          document_id: string
+          id: string
+          parent_section_id: string | null
+          section_number: string | null
+          title: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          document_id: string
+          id?: string
+          parent_section_id?: string | null
+          section_number?: string | null
+          title: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          document_id?: string
+          id?: string
+          parent_section_id?: string | null
+          section_number?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_sections_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "user_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_sections_parent_section_id_fkey"
+            columns: ["parent_section_id"]
+            isOneToOne: false
+            referencedRelation: "document_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       paragraph_progress: {
         Row: {
           book_id: number
@@ -140,6 +185,48 @@ export type Database = {
           percentage?: number
           score?: number
           total_questions?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_documents: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string
+          id: string
+          processed: boolean | null
+          processing_error: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          processed?: boolean | null
+          processing_error?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          processed?: boolean | null
+          processing_error?: string | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: []

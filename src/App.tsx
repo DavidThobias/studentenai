@@ -11,6 +11,7 @@ import Learn from "./pages/Learn";
 import Books from "./pages/Books";
 import BookDetail from "./pages/BookDetail";
 import QuizPage from "./pages/QuizPage";
+import QuizGeneratorPage from "./pages/QuizGeneratorPage";
 import SummaryPage from "./pages/SummaryPage";
 import Layout from "./components/Layout";
 
@@ -48,6 +49,11 @@ function App() {
               <Route path="/learn" element={
                 <Layout>
                   <Learn />
+                </Layout>
+              } />
+              <Route path="/quiz-generator" element={
+                <Layout>
+                  <QuizGeneratorPage />
                 </Layout>
               } />
               <Route path="/quiz" element={
