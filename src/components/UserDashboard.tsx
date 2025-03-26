@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -128,20 +127,10 @@ const UserDashboard = () => {
           }
         }
         
-        // Fetch recent activity
+        // Fetch recent activity - FIX: query books separately instead of using a join
         const { data: recentData, error: recentError } = await supabase
           .from('quiz_results')
-          .select(`
-            id,
-            book_id,
-            chapter_id,
-            paragraph_id,
-            score,
-            total_questions,
-            percentage,
-            created_at,
-            books!inner(book_title)
-          `)
+          .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(5);
@@ -151,11 +140,32 @@ const UserDashboard = () => {
           return;
         }
         
-        if (recentData) {
+        if (recentData && recentData.length > 0) {
+          // Fetch book titles for the book_ids we got from quiz_results
+          const bookIds = recentData.map(item => item.book_id);
+          const { data: booksData, error: booksError } = await supabase
+            .from('books')
+            .select('id, book_title')
+            .in('id', bookIds);
+            
+          if (booksError) {
+            console.error('Error fetching book titles:', booksError);
+          }
+          
+          // Create a map of book_id -> book_title for quick lookups
+          const bookTitleMap = new Map();
+          if (booksData) {
+            booksData.forEach(book => {
+              if (!bookTitleMap.has(book.id)) {
+                bookTitleMap.set(book.id, book.book_title);
+              }
+            });
+          }
+          
           const formattedActivity = recentData.map(item => ({
             id: item.id,
             book_id: item.book_id,
-            book_title: item.books?.book_title || 'Onbekend boek',
+            book_title: bookTitleMap.get(item.book_id) || 'Onbekend boek',
             chapter_id: item.chapter_id,
             paragraph_id: item.paragraph_id,
             score: item.score,
