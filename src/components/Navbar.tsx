@@ -3,10 +3,14 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { BookOpen, Menu, X } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import UserAvatar from '@/components/UserAvatar';
+import { Button } from '@/components/ui/button';
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -47,15 +51,27 @@ export default function Navbar() {
           <Link to="/books" className="text-foreground hover:text-study-600 font-medium transition-colors">
             Boeken
           </Link>
+          {user ? (
+            <UserAvatar />
+          ) : (
+            <Link to="/auth">
+              <Button size="sm" variant="outline">
+                Inloggen
+              </Button>
+            </Link>
+          )}
         </nav>
 
         {/* Mobile Menu Button */}
-        <button 
-          className="md:hidden text-foreground hover:text-study-600 transition-colors"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-        >
-          {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        <div className="md:hidden flex items-center space-x-4">
+          {user && <UserAvatar />}
+          <button 
+            className="text-foreground hover:text-study-600 transition-colors"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Navigation */}
@@ -97,6 +113,15 @@ export default function Navbar() {
             >
               Boeken
             </Link>
+            {!user && (
+              <Link 
+                to="/auth" 
+                className="text-foreground hover:text-study-600 font-medium transition-colors px-4 py-2"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Inloggen
+              </Link>
+            )}
           </nav>
         </div>
       )}

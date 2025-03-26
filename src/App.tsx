@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
+import { AuthProvider } from "@/context/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Learn from "./pages/Learn";
@@ -13,6 +15,7 @@ import BookDetail from "./pages/BookDetail";
 import QuizPage from "./pages/QuizPage";
 import QuizGeneratorPage from "./pages/QuizGeneratorPage";
 import SummaryPage from "./pages/SummaryPage";
+import Auth from "./pages/Auth";
 import Layout from "./components/Layout";
 
 const queryClient = new QueryClient();
@@ -33,38 +36,57 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AnimatePresence mode="wait">
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/books" element={
-                <Layout>
-                  <Books />
-                </Layout>
-              } />
-              <Route path="/books/:id" element={<BookDetail />} />
-              <Route path="/books/:id/summary" element={<SummaryPage />} />
-              <Route path="/learn" element={
-                <Layout>
-                  <Learn />
-                </Layout>
-              } />
-              <Route path="/quiz-generator" element={
-                <Layout>
-                  <QuizGeneratorPage />
-                </Layout>
-              } />
-              <Route path="/quiz" element={
-                <Layout>
-                  <QuizPage />
-                </Layout>
-              } />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AnimatePresence>
-        </BrowserRouter>
+        <AuthProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AnimatePresence mode="wait">
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/books" element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <Books />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/books/:id" element={
+                  <ProtectedRoute>
+                    <BookDetail />
+                  </ProtectedRoute>
+                } />
+                <Route path="/books/:id/summary" element={
+                  <ProtectedRoute>
+                    <SummaryPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/learn" element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <Learn />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/quiz-generator" element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <QuizGeneratorPage />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/quiz" element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <QuizPage />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AnimatePresence>
+          </BrowserRouter>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
