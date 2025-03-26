@@ -13,7 +13,8 @@ SELECT
   COUNT(DISTINCT book_id) AS books_studied,
   COUNT(DISTINCT chapter_id) AS chapters_studied,
   COUNT(DISTINCT paragraph_id) AS paragraphs_studied,
-  MAX(created_at) AS last_quiz_date
+  MAX(created_at) AS last_quiz_date,
+  array_agg(DISTINCT book_id) AS book_ids
 FROM
   public.quiz_results
 GROUP BY

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -5,24 +6,24 @@ import {
   Card, 
   CardContent, 
   CardDescription, 
-  CardFooter, 
   CardHeader, 
   CardTitle 
 } from '@/components/ui/card';
 import { 
   BarChart, 
   BookOpen, 
-  BookOpenCheck, 
-  Clock, 
-  Award, 
   Loader2,
   ChevronRight,
-  CheckCircle2
+  ChevronDown,
+  ChevronUp,
+  BookOpenCheck, 
+  Clock, 
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface UserStats {
   total_quizzes: number;
@@ -33,6 +34,7 @@ interface UserStats {
   chapters_studied: number;
   paragraphs_studied: number;
   last_quiz_date: string | null;
+  book_ids: number[];
 }
 
 interface RecentActivity {
@@ -47,12 +49,39 @@ interface RecentActivity {
   created_at: string;
 }
 
+interface BookProgress {
+  id: number;
+  title: string;
+  overallProgress: number;
+  chaptersProgress: ChapterProgress[];
+  lastActive?: string;
+}
+
+interface ChapterProgress {
+  id: number;
+  title: string | null;
+  progress: number;
+  paragraphs: ParagraphProgress[];
+}
+
+interface ParagraphProgress {
+  id: number;
+  number: number;
+  completed: boolean;
+  score?: number;
+  totalQuestions?: number;
+  percentage?: number;
+}
+
 const UserDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [booksProgress, setBooksProgress] = useState<BookProgress[]>([]);
+  const [expandedBook, setExpandedBook] = useState<number | null>(null);
+  const [expandedChapters, setExpandedChapters] = useState<{[key: number]: boolean}>({});
   
   useEffect(() => {
     if (!user) return;
@@ -74,6 +103,11 @@ const UserDashboard = () => {
         
         if (viewData) {
           setStats(viewData as UserStats);
+          
+          // If we have book IDs from the stats, fetch their progress data
+          if (viewData.book_ids && viewData.book_ids.length > 0) {
+            await fetchBooksProgress(viewData.book_ids);
+          }
         } else {
           // Calculate stats manually if no data in view
           const { data: quizData, error: quizError } = await supabase
@@ -93,7 +127,8 @@ const UserDashboard = () => {
             const averageScore = totalQuestions > 0 ? (totalCorrectAnswers / totalQuestions) * 100 : 0;
             
             // Get unique books, chapters, paragraphs
-            const booksStudied = new Set(quizData.map(q => q.book_id)).size;
+            const bookIds = quizData.map(q => q.book_id);
+            const booksStudied = new Set(bookIds).size;
             const chaptersStudied = new Set(quizData.filter(q => q.chapter_id).map(q => q.chapter_id)).size;
             const paragraphsStudied = new Set(quizData.filter(q => q.paragraph_id).map(q => q.paragraph_id)).size;
             
@@ -110,8 +145,14 @@ const UserDashboard = () => {
               books_studied: booksStudied,
               chapters_studied: chaptersStudied,
               paragraphs_studied: paragraphsStudied,
-              last_quiz_date: lastQuizDate
+              last_quiz_date: lastQuizDate,
+              book_ids: Array.from(new Set(bookIds))
             });
+            
+            // Fetch book progress
+            if (bookIds.length > 0) {
+              await fetchBooksProgress(Array.from(new Set(bookIds)));
+            }
           } else {
             // No quiz data yet
             setStats({
@@ -122,12 +163,13 @@ const UserDashboard = () => {
               books_studied: 0,
               chapters_studied: 0,
               paragraphs_studied: 0,
-              last_quiz_date: null
+              last_quiz_date: null,
+              book_ids: []
             });
           }
         }
         
-        // Fetch recent activity - FIX: query books separately instead of using a join
+        // Fetch recent activity
         const { data: recentData, error: recentError } = await supabase
           .from('quiz_results')
           .select('*')
@@ -175,6 +217,11 @@ const UserDashboard = () => {
           }));
           
           setRecentActivity(formattedActivity);
+          
+          // Auto-expand the most recent book
+          if (formattedActivity.length > 0) {
+            setExpandedBook(formattedActivity[0].book_id);
+          }
         }
       } catch (error) {
         console.error('Error in fetchUserStats:', error);
@@ -186,6 +233,172 @@ const UserDashboard = () => {
     fetchUserStats();
   }, [user]);
   
+  const fetchBooksProgress = async (bookIds: number[]) => {
+    try {
+      // First, get book titles
+      const { data: booksData, error: booksError } = await supabase
+        .from('books')
+        .select('id, book_title')
+        .in('id', bookIds);
+        
+      if (booksError) {
+        console.error('Error fetching books:', booksError);
+        return;
+      }
+      
+      if (!booksData || booksData.length === 0) {
+        return;
+      }
+      
+      // Create a map for book titles
+      const bookMap = new Map();
+      booksData.forEach(book => {
+        if (!bookMap.has(book.id)) {
+          bookMap.set(book.id, book.book_title);
+        }
+      });
+      
+      // Now fetch progress data for each book
+      const booksProgressData = await Promise.all(
+        bookIds.map(async (bookId) => {
+          // Get chapters for this book
+          const { data: chaptersData, error: chaptersError } = await supabase
+            .from('books')
+            .select('chapter_number, chapter_title')
+            .eq('book_id', bookId)
+            .order('chapter_number');
+            
+          if (chaptersError) {
+            console.error(`Error fetching chapters for book ${bookId}:`, chaptersError);
+            return null;
+          }
+          
+          // Deduplicate chapters
+          const uniqueChapters = Array.from(
+            new Map(chaptersData.map(ch => [ch.chapter_number, ch])).values()
+          );
+          
+          // For each chapter, get paragraphs and their progress
+          const chaptersProgress = await Promise.all(
+            uniqueChapters.map(async (chapter) => {
+              // Get paragraphs for this chapter
+              const { data: paragraphsData, error: paragraphsError } = await supabase
+                .from('books')
+                .select('id, paragraph_number')
+                .eq('book_id', bookId)
+                .eq('chapter_number', chapter.chapter_number)
+                .order('paragraph_number');
+                
+              if (paragraphsError) {
+                console.error(`Error fetching paragraphs for chapter ${chapter.chapter_number}:`, paragraphsError);
+                return null;
+              }
+              
+              // Get progress for these paragraphs
+              const { data: progressData, error: progressError } = await supabase
+                .from('paragraph_progress')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('book_id', bookId)
+                .eq('chapter_id', chapter.chapter_number);
+                
+              if (progressError) {
+                console.error(`Error fetching progress for chapter ${chapter.chapter_number}:`, progressError);
+              }
+              
+              // Map progress data to paragraphs
+              const paragraphsProgress = paragraphsData.map(paragraph => {
+                const progress = progressData?.find(p => p.paragraph_id === paragraph.id);
+                return {
+                  id: paragraph.id,
+                  number: paragraph.paragraph_number,
+                  completed: progress?.completed || false,
+                  score: progress?.score,
+                  totalQuestions: progress?.total_questions,
+                  percentage: progress?.percentage
+                };
+              });
+              
+              // Calculate chapter progress
+              const completedParagraphs = paragraphsProgress.filter(p => p.completed).length;
+              const chapterProgress = paragraphsData.length > 0 
+                ? Math.round((completedParagraphs / paragraphsData.length) * 100) 
+                : 0;
+              
+              return {
+                id: chapter.chapter_number,
+                title: chapter.chapter_title,
+                progress: chapterProgress,
+                paragraphs: paragraphsProgress
+              };
+            })
+          );
+          
+          // Filter out null chapters
+          const validChaptersProgress = chaptersProgress.filter(Boolean) as ChapterProgress[];
+          
+          // Calculate overall book progress
+          const completedParagraphs = validChaptersProgress.reduce(
+            (sum, chapter) => sum + chapter.paragraphs.filter(p => p.completed).length, 
+            0
+          );
+          
+          const totalParagraphs = validChaptersProgress.reduce(
+            (sum, chapter) => sum + chapter.paragraphs.length, 
+            0
+          );
+          
+          const overallProgress = totalParagraphs > 0 
+            ? Math.round((completedParagraphs / totalParagraphs) * 100) 
+            : 0;
+          
+          // Get last activity for this book
+          const { data: lastActivity, error: lastActivityError } = await supabase
+            .from('quiz_results')
+            .select('created_at')
+            .eq('user_id', user.id)
+            .eq('book_id', bookId)
+            .order('created_at', { ascending: false })
+            .limit(1);
+            
+          if (lastActivityError) {
+            console.error(`Error fetching last activity for book ${bookId}:`, lastActivityError);
+          }
+          
+          return {
+            id: bookId,
+            title: bookMap.get(bookId) || `Boek ${bookId}`,
+            overallProgress,
+            chaptersProgress: validChaptersProgress,
+            lastActive: lastActivity && lastActivity.length > 0 ? lastActivity[0].created_at : undefined
+          };
+        })
+      );
+      
+      // Filter out null books and sort by last activity
+      const validBooksProgress = booksProgressData
+        .filter(Boolean) as BookProgress[];
+        
+      // Sort by last activity, most recent first
+      validBooksProgress.sort((a, b) => {
+        if (!a.lastActive) return 1;
+        if (!b.lastActive) return -1;
+        return new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime();
+      });
+      
+      setBooksProgress(validBooksProgress);
+    } catch (error) {
+      console.error('Error in fetchBooksProgress:', error);
+    }
+  };
+  
+  const toggleChapter = (chapterId: number) => {
+    setExpandedChapters(prev => ({
+      ...prev,
+      [chapterId]: !prev[chapterId]
+    }));
+  };
+  
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Nog geen quiz gemaakt';
     
@@ -196,19 +409,6 @@ const UserDashboard = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-  
-  const getAchievementLevel = () => {
-    if (!stats) return 'Beginner';
-    
-    const { total_quizzes, average_score } = stats;
-    
-    if (total_quizzes >= 20 && average_score >= 85) return 'Expert';
-    if (total_quizzes >= 10 && average_score >= 75) return 'Gevorderd';
-    if (total_quizzes >= 5 && average_score >= 60) return 'Competent';
-    if (total_quizzes >= 1) return 'Beginner';
-    
-    return 'Nieuw';
   };
   
   if (loading) {
@@ -284,24 +484,140 @@ const UserDashboard = () => {
           </CardContent>
         </Card>
         
-        {/* Achievement Card */}
+        {/* Last Activity Card */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium">Achievement niveau</CardTitle>
+            <CardTitle className="text-base font-medium">Laatste activiteit</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center">
-              <Award className="h-10 w-10 text-yellow-500 mr-3" />
+              <Clock className="h-10 w-10 text-blue-500 mr-3" />
               <div>
-                <div className="text-xl font-bold">{getAchievementLevel()}</div>
-                <p className="text-xs text-muted-foreground">
-                  Laatste activiteit: {formatDate(stats?.last_quiz_date || null)}
-                </p>
+                <div className="text-sm">{formatDate(stats?.last_quiz_date || null)}</div>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+      
+      {/* Books Progress */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Voortgang per boek</CardTitle>
+          <CardDescription>Je studievoortgang per boek en hoofdstuk</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {booksProgress.length > 0 ? (
+            <div className="space-y-4">
+              {booksProgress.map((book) => (
+                <div key={book.id} className="border rounded-lg overflow-hidden">
+                  <div 
+                    className={`p-4 cursor-pointer hover:bg-slate-50 ${expandedBook === book.id ? 'bg-slate-50' : ''}`}
+                    onClick={() => setExpandedBook(expandedBook === book.id ? null : book.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <BookOpen className="h-5 w-5 text-study-600 mr-2" />
+                        <div>
+                          <p className="font-medium">{book.title}</p>
+                          <div className="flex items-center mt-1">
+                            <Progress value={book.overallProgress} className="h-2 w-24 mr-2" />
+                            <span className="text-xs text-muted-foreground">{book.overallProgress}% voltooid</span>
+                          </div>
+                        </div>
+                      </div>
+                      {expandedBook === book.id ? (
+                        <ChevronUp className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                      )}
+                    </div>
+                  </div>
+                  
+                  {expandedBook === book.id && (
+                    <div className="px-4 pb-4">
+                      <div className="pl-7 space-y-3 mt-2">
+                        {book.chaptersProgress.map((chapter) => (
+                          <div key={chapter.id} className="border rounded-lg overflow-hidden">
+                            <div 
+                              className={`p-3 cursor-pointer hover:bg-slate-50 ${expandedChapters[chapter.id] ? 'bg-slate-50' : ''}`}
+                              onClick={() => toggleChapter(chapter.id)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <div>
+                                    <p className="font-medium text-sm">Hoofdstuk {chapter.id}: {chapter.title}</p>
+                                    <div className="flex items-center mt-1">
+                                      <Progress value={chapter.progress} className="h-1.5 w-20 mr-2" />
+                                      <span className="text-xs text-muted-foreground">{chapter.progress}% voltooid</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                {expandedChapters[chapter.id] ? (
+                                  <ChevronUp className="h-4 w-4 text-gray-400" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                                )}
+                              </div>
+                            </div>
+                            
+                            {expandedChapters[chapter.id] && (
+                              <div className="px-3 pb-3">
+                                <div className="pl-4 space-y-2 mt-2">
+                                  {chapter.paragraphs.map((paragraph) => (
+                                    <div key={paragraph.id} className="flex items-center justify-between p-2 border rounded-md">
+                                      <div className="flex items-center">
+                                        {paragraph.completed ? (
+                                          <div className="h-4 w-4 rounded-full bg-green-500 mr-2"></div>
+                                        ) : (
+                                          <div className="h-4 w-4 rounded-full bg-gray-200 mr-2"></div>
+                                        )}
+                                        <p className="text-sm">Paragraaf {paragraph.number}</p>
+                                      </div>
+                                      {paragraph.completed && paragraph.percentage !== undefined && (
+                                        <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
+                                          {Math.round(paragraph.percentage)}%
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 pl-7">
+                        <Button 
+                          size="sm" 
+                          onClick={() => navigate(`/books/${book.id}`)}
+                          variant="outline"
+                          className="mt-2"
+                        >
+                          Ga naar boek
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <BookOpenCheck className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">Je hebt nog geen boeken bestudeerd</p>
+              <Button 
+                className="mt-4" 
+                onClick={() => navigate('/books')}
+                variant="outline"
+              >
+                Bekijk boeken
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       
       {/* Recent Activity */}
       <Card>
@@ -389,7 +705,7 @@ const UserDashboard = () => {
               
               {recentActivity.length > 0 && (
                 <div className="flex items-start p-4 border rounded-md bg-green-50 border-green-200">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-1 mr-3 flex-shrink-0" />
+                  <BookOpenCheck className="h-5 w-5 text-green-600 mt-1 mr-3 flex-shrink-0" />
                   <div>
                     <p className="font-medium text-green-800">Ga verder waar je gebleven bent</p>
                     <p className="text-sm text-green-700 mt-1">

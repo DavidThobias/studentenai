@@ -1,11 +1,11 @@
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { RotateCcw, ArrowLeft, ChevronRight, Trophy, Save, Share } from "lucide-react";
+import { RotateCcw, ArrowLeft, ChevronRight, Trophy, Share } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface QuizResultsProps {
   score: number;
@@ -37,6 +37,11 @@ const QuizResults = ({
   
   const percentage = Math.round((score / totalQuestions) * 100);
   const isPassing = percentage >= 70;
+  
+  // Automatically save results when component mounts
+  useEffect(() => {
+    saveResultsToDatabase();
+  }, []);
   
   const saveResultsToDatabase = async () => {
     try {
@@ -115,7 +120,7 @@ const QuizResults = ({
         }
       }
       
-      toast.success("Quiz resultaten succesvol opgeslagen!");
+      toast.success("Quiz resultaten opgeslagen!");
       setIsSaved(true);
     } catch (error) {
       console.error('Error in saveResultsToDatabase:', error);
@@ -134,7 +139,6 @@ const QuizResults = ({
       navigator.share({
         title: 'Mijn Quiz Resultaten',
         text: shareText,
-        // url: window.location.href, // Uncomment if you want to include the URL
       }).catch((error) => {
         console.error('Error sharing:', error);
         toast.error("Delen is niet gelukt");
@@ -188,16 +192,6 @@ const QuizResults = ({
       )}
       
       <div className="flex gap-3 mt-4">
-        <Button 
-          onClick={saveResultsToDatabase} 
-          variant="outline" 
-          disabled={isSaving || isSaved}
-          className="flex items-center gap-1"
-        >
-          <Save className="h-4 w-4" />
-          {isSaving ? 'Opslaan...' : isSaved ? 'Opgeslagen' : 'Resultaat opslaan'}
-        </Button>
-        
         <Button 
           onClick={handleShareResults} 
           variant="outline"
