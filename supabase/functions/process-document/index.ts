@@ -20,7 +20,8 @@ serve(async (req) => {
   }
 
   try {
-    // Create Supabase client
+    // Create Supabase client with service role key for admin privileges
+    // This bypasses RLS policies
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     const { documentId } = await req.json();
@@ -34,7 +35,7 @@ serve(async (req) => {
     
     console.log(`Processing document with ID: ${documentId}`);
 
-    // Fetch the document from the database
+    // Fetch the document from the database using service role which bypasses RLS
     const { data: document, error: docError } = await supabase
       .from('user_documents')
       .select('*')
@@ -49,7 +50,7 @@ serve(async (req) => {
       );
     }
     
-    // Download the file from storage
+    // Download the file from storage using service role which bypasses RLS
     const { data: fileData, error: fileError } = await supabase
       .storage
       .from('summaries')

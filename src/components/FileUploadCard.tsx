@@ -76,9 +76,12 @@ const FileUploadCard = ({ onFileUploaded, className }: FileUploadCardProps) => {
       
       setUploadProgress(30);
       
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from('summaries')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          // Allow unauthenticated uploads
+          upsert: false
+        });
 
       if (uploadError) {
         throw new Error(`Fout bij het uploaden: ${uploadError.message}`);
@@ -86,7 +89,7 @@ const FileUploadCard = ({ onFileUploaded, className }: FileUploadCardProps) => {
       
       setUploadProgress(60);
       
-      // 2. Create document record
+      // 2. Create document record with a null user_id for unauthenticated users
       const { data: document, error: documentError } = await supabase
         .from('user_documents')
         .insert({
@@ -94,7 +97,8 @@ const FileUploadCard = ({ onFileUploaded, className }: FileUploadCardProps) => {
           file_path: filePath,
           file_type: file.type,
           file_size: file.size,
-          user_id: (await supabase.auth.getUser()).data.user?.id
+          // Don't rely on auth.getUser() which will be null for unauthenticated users
+          user_id: null
         })
         .select()
         .single();
