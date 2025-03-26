@@ -1,10 +1,136 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Brain, BookOpen, Trophy } from "lucide-react";
+import { Brain, BookOpen, Trophy, Calendar } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from '@/context/AuthContext';
+import { Link } from 'react-router-dom';
 
 const UserDashboard = () => {
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState({
+    studyProgress: 0,
+    quizScore: 0,
+    learningGoals: { completed: 0, total: 5 }
+  });
+  const [recentMaterials, setRecentMaterials] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserStats();
+      fetchRecentActivity();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  const fetchUserStats = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch quiz results to calculate average score
+      const { data: quizData, error: quizError } = await supabase
+        .from('quiz_results')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+      
+      if (quizError) throw quizError;
+      
+      // Calculate average score from quiz results
+      let averageScore = 0;
+      if (quizData && quizData.length > 0) {
+        const totalPercentage = quizData.reduce((sum, quiz) => sum + quiz.percentage, 0);
+        averageScore = Math.round(totalPercentage / quizData.length);
+      }
+      
+      // Fetch paragraph progress for study progress calculation
+      const { data: progressData, error: progressError } = await supabase
+        .from('paragraph_progress')
+        .select('*')
+        .eq('user_id', user?.id);
+      
+      if (progressError) throw progressError;
+      
+      // Calculate study progress
+      let studyProgress = 0;
+      if (progressData && progressData.length > 0) {
+        const completedParagraphs = progressData.filter(p => p.completed).length;
+        const totalParagraphs = progressData.length;
+        studyProgress = Math.round((completedParagraphs / totalParagraphs) * 100) || 0;
+      }
+      
+      // Fetch learning goals (simplified for now)
+      const completedGoals = progressData ? 
+        Math.min(Math.floor(progressData.filter(p => p.completed).length / 2), 5) : 0;
+      
+      setStats({
+        studyProgress: studyProgress || 0,
+        quizScore: averageScore || 0,
+        learningGoals: { completed: completedGoals, total: 5 }
+      });
+      
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchRecentActivity = async () => {
+    try {
+      // Get recent quiz results
+      const { data: quizResults, error: quizError } = await supabase
+        .from('quiz_results')
+        .select(`
+          id,
+          created_at,
+          book_id,
+          chapter_id,
+          paragraph_id,
+          books:book_id(book_title),
+          percentage
+        `)
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+      
+      if (quizError) throw quizError;
+      
+      // Format the data for display
+      const formattedResults = quizResults?.map(result => {
+        const daysDiff = calculateDaysDifference(new Date(result.created_at));
+        const daysText = daysDiff === 0 
+          ? 'vandaag' 
+          : daysDiff === 1 
+            ? 'gisteren' 
+            : `${daysDiff} dagen geleden`;
+        
+        return {
+          id: result.id,
+          title: result.books?.book_title || 'Basisboek Sales',
+          subtitle: `Hoofdstuk ${result.chapter_id}: Paragraaf ${result.paragraph_id}`,
+          date: daysText,
+          type: 'quiz',
+          score: result.percentage
+        };
+      }) || [];
+      
+      setRecentMaterials(formattedResults);
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+    }
+  };
+
+  const calculateDaysDifference = (date: Date): number => {
+    const today = new Date();
+    const diffTime = Math.abs(today.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
   return (
     <div className="grid gap-4 md:gap-8">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -16,11 +142,11 @@ const UserDashboard = () => {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">70%</div>
+            <div className="text-2xl font-bold">{stats.studyProgress}%</div>
             <p className="text-xs text-muted-foreground">
               van het studiemateriaal doorgenomen
             </p>
-            <Progress value={70} className="mt-3" />
+            <Progress value={stats.studyProgress} className="mt-3" />
           </CardContent>
         </Card>
         
@@ -30,11 +156,11 @@ const UserDashboard = () => {
             <Trophy className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">85%</div>
+            <div className="text-2xl font-bold">{stats.quizScore}%</div>
             <p className="text-xs text-muted-foreground">
               gemiddelde score op quizzen
             </p>
-            <Progress value={85} className="mt-3" />
+            <Progress value={stats.quizScore} className="mt-3" />
           </CardContent>
         </Card>
         
@@ -46,11 +172,11 @@ const UserDashboard = () => {
             <Brain className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3/5</div>
+            <div className="text-2xl font-bold">{stats.learningGoals.completed}/{stats.learningGoals.total}</div>
             <p className="text-xs text-muted-foreground">
               leerdoelen behaald
             </p>
-            <Progress value={60} className="mt-3" />
+            <Progress value={(stats.learningGoals.completed / stats.learningGoals.total) * 100} className="mt-3" />
           </CardContent>
         </Card>
       </div>
@@ -63,40 +189,55 @@ const UserDashboard = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b pb-4">
-              <div className="flex items-center space-x-3">
-                <BookOpen className="h-5 w-5 text-study-600" />
-                <div>
-                  <p className="font-medium">Basisboek Sales</p>
-                  <p className="text-sm text-muted-foreground">Hoofdstuk 3: Verkoopkanalen</p>
-                </div>
-              </div>
-              <span className="text-sm text-muted-foreground">2 dagen geleden</span>
+          {isLoading ? (
+            <div className="flex items-center justify-center p-4">
+              <div className="animate-spin h-5 w-5 border-2 border-primary rounded-full border-t-transparent"></div>
+              <span className="ml-2">Laden...</span>
             </div>
-            
-            <div className="flex items-center justify-between border-b pb-4">
-              <div className="flex items-center space-x-3">
-                <BookOpen className="h-5 w-5 text-study-600" />
-                <div>
-                  <p className="font-medium">Marketing Fundamentals</p>
-                  <p className="text-sm text-muted-foreground">Hoofdstuk 2: Doelgroepanalyse</p>
+          ) : recentMaterials.length > 0 ? (
+            <div className="space-y-4">
+              {recentMaterials.map((item) => (
+                <div key={item.id} className="flex items-center justify-between border-b pb-4">
+                  <div className="flex items-center space-x-3">
+                    {item.type === 'quiz' ? (
+                      <Trophy className="h-5 w-5 text-yellow-500" />
+                    ) : (
+                      <BookOpen className="h-5 w-5 text-study-600" />
+                    )}
+                    <div>
+                      <p className="font-medium">{item.title}</p>
+                      <p className="text-sm text-muted-foreground">{item.subtitle}</p>
+                      {item.score !== undefined && (
+                        <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
+                          Score: {Math.round(item.score)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-sm text-muted-foreground flex items-center">
+                    <Calendar className="h-3 w-3 mr-1 opacity-70" />
+                    {item.date}
+                  </span>
                 </div>
-              </div>
-              <span className="text-sm text-muted-foreground">5 dagen geleden</span>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <BookOpen className="h-5 w-5 text-study-600" />
-                <div>
-                  <p className="font-medium">Economie Basisprincipes</p>
-                  <p className="text-sm text-muted-foreground">Hoofdstuk 1: Introductie</p>
+              ))}
+              
+              {recentMaterials.length === 0 && (
+                <div className="text-center py-6">
+                  <p className="text-muted-foreground mb-4">Je hebt nog geen recente activiteit</p>
+                  <Link to="/books" className="text-primary hover:underline">
+                    Bekijk beschikbare boeken
+                  </Link>
                 </div>
-              </div>
-              <span className="text-sm text-muted-foreground">1 week geleden</span>
+              )}
             </div>
-          </div>
+          ) : (
+            <div className="text-center py-6">
+              <p className="text-muted-foreground mb-4">Je hebt nog geen recente activiteit</p>
+              <Link to="/books" className="text-primary hover:underline">
+                Bekijk beschikbare boeken
+              </Link>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -60,6 +60,17 @@ const QuizResults = ({
         return;
       }
       
+      console.log('Saving quiz results to database:', {
+        user_id: session.user.id,
+        book_id: bookId,
+        chapter_id: chapterId,
+        paragraph_id: paragraphId,
+        score,
+        total_questions: totalQuestions,
+        percentage,
+        completed: true
+      });
+      
       const { error } = await supabase
         .from('quiz_results')
         .insert({
@@ -71,7 +82,7 @@ const QuizResults = ({
           total_questions: totalQuestions,
           percentage: percentage,
           completed: true,
-          completed_date: new Date().toISOString() // Add completed date
+          completed_date: new Date().toISOString()
         });
       
       if (error) {
@@ -92,7 +103,7 @@ const QuizResults = ({
           
         if (existingProgress) {
           // Update existing record
-          await supabase
+          const { error: updateError } = await supabase
             .from('paragraph_progress')
             .update({
               completed: isPassing,
@@ -103,9 +114,13 @@ const QuizResults = ({
               completed_date: isPassing ? new Date().toISOString() : existingProgress.completed_date
             })
             .eq('id', existingProgress.id);
+            
+          if (updateError) {
+            console.error('Error updating paragraph progress:', updateError);
+          }
         } else {
           // Insert new record
-          await supabase
+          const { error: insertError } = await supabase
             .from('paragraph_progress')
             .insert({
               user_id: session.user.id,
@@ -118,10 +133,14 @@ const QuizResults = ({
               percentage: percentage,
               completed_date: isPassing ? new Date().toISOString() : null
             });
+            
+          if (insertError) {
+            console.error('Error inserting paragraph progress:', insertError);
+          }
         }
       }
       
-      // Let's also store the quiz state in localStorage so it can be retrieved later
+      // Let's also store the quiz state in localStorage with a CONSISTENT key pattern
       const quizState = {
         bookId,
         chapterId,
@@ -133,12 +152,15 @@ const QuizResults = ({
         completedDate: new Date().toISOString()
       };
       
-      // Save with a unique key based on book, chapter, paragraph
-      const stateKey = `quizResult_${bookId}_${chapterId || 'all'}_${paragraphId || 'all'}`;
+      // Use consistent key format: quizResult_bookId_chapterId_paragraphId
+      // This ensures we can reliably find saved quizzes later
+      const stateKey = `quizResult_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}`;
       localStorage.setItem(stateKey, JSON.stringify(quizState));
       
       // Also save a reference to the most recent quiz
       localStorage.setItem('lastCompletedQuiz', stateKey);
+      
+      console.log('Saved quiz results with key:', stateKey);
       
       toast.success("Quiz resultaten opgeslagen!");
       setIsSaved(true);

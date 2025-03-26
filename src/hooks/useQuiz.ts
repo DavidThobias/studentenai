@@ -69,9 +69,11 @@ export const useQuiz = (
         paragraphId,
       };
       
-      // Save to localStorage with a key that includes the context
-      const stateKey = `quizState_${bookId}_${chapterId || 'all'}_${paragraphId || 'all'}`;
+      // Use consistent key format: quizState_bookId_chapterId_paragraphId
+      // This ensures we can reliably find saved quizzes later
+      const stateKey = `quizState_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}`;
       localStorage.setItem(stateKey, JSON.stringify(quizState));
+      
       // Also save a reference to the last active quiz
       localStorage.setItem('lastActiveQuiz', stateKey);
       
@@ -88,10 +90,10 @@ export const useQuiz = (
       stateKey = `quizState_${bookIdParam}_${chapterIdParam}_${paragraphIdParam}`;
     } else if (bookIdParam && chapterIdParam) {
       // If we have book and chapter, try to load that quiz
-      stateKey = `quizState_${bookIdParam}_${chapterIdParam}_all`;
+      stateKey = `quizState_${bookIdParam}_${chapterIdParam}_none`;
     } else if (bookIdParam) {
       // If we only have the book, try to load that quiz
-      stateKey = `quizState_${bookIdParam}_all_all`;
+      stateKey = `quizState_${bookIdParam}_none_none`;
     } else {
       // If no parameters, try to load the last active quiz
       stateKey = localStorage.getItem('lastActiveQuiz');
@@ -402,9 +404,9 @@ export const useQuiz = (
     setShowExplanation(false);
     setQuizError(null);
     
-    // Remove from localStorage
+    // Remove from localStorage using consistent key format
     if (bookId) {
-      const stateKey = `quizState_${bookId}_${chapterId || 'all'}_${paragraphId || 'all'}`;
+      const stateKey = `quizState_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}`;
       localStorage.removeItem(stateKey);
       localStorage.removeItem('lastActiveQuiz');
       addLog(`Removed quiz state from localStorage with key: ${stateKey}`);

@@ -1,3 +1,4 @@
+
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle, BookOpen, Trophy, RotateCcw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -228,13 +229,24 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
         return 'Ongeldige datum';
       }
       
-      return new Intl.DateTimeFormat('nl-NL', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).format(date);
+      // Calculate days difference for a more human-readable format
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - date.getTime());
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) {
+        return 'Vandaag';
+      } else if (diffDays === 1) {
+        return 'Gisteren';
+      } else if (diffDays < 7) {
+        return `${diffDays} dagen geleden`;
+      } else {
+        return new Intl.DateTimeFormat('nl-NL', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        }).format(date);
+      }
     } catch (error) {
       console.error('Error formatting date:', error, dateString);
       return 'Datum fout';
