@@ -152,33 +152,37 @@ export const useChaptersAndParagraphs = (
   }, [chapterId, lastRefreshTime]);
 
   useEffect(() => {
-    const { data: { session } } = supabase.auth.getSession();
-    if (!session?.user || !bookId) return;
-    
-    const userId = session.user.id;
-    log(`Setting up real-time subscription for paragraph progress updates for user ${userId}`);
-    
-    const channel = supabase
-      .channel('chapter-paragraph-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'paragraph_progress',
-          filter: `user_id=eq.${userId}`
-        },
-        (payload) => {
-          log(`Real-time update received for paragraph_progress: ${JSON.stringify(payload)}`);
-          fetchParagraphProgressData();
-        }
-      )
-      .subscribe();
+    const fetchSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.user || !bookId) return;
       
-    return () => {
-      log('Cleaning up real-time subscription');
-      supabase.removeChannel(channel);
+      const userId = data.session.user.id;
+      log(`Setting up real-time subscription for paragraph progress updates for user ${userId}`);
+      
+      const channel = supabase
+        .channel('chapter-paragraph-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'paragraph_progress',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => {
+            log(`Real-time update received for paragraph_progress: ${JSON.stringify(payload)}`);
+            fetchParagraphProgressData();
+          }
+        )
+        .subscribe();
+        
+      return () => {
+        log('Cleaning up real-time subscription');
+        supabase.removeChannel(channel);
+      };
     };
+    
+    fetchSession();
   }, [bookId]);
 
   const fetchParagraphs = async (chapterId: number) => {

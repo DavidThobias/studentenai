@@ -4,6 +4,18 @@ import { useQuiz } from '@/hooks/useQuiz';
 import { useChaptersAndParagraphs } from '@/hooks/useChaptersAndParagraphs';
 import { supabase } from "@/integrations/supabase/client";
 
+import QuizSidebar from '@/components/quiz/QuizSidebar';
+import QuizStudyMode from '@/components/quiz/QuizStudyMode';
+import QuizParagraphSelector from '@/components/quiz/QuizParagraphSelector';
+import QuizLoading from '@/components/quiz/QuizLoading';
+import QuizError from '@/components/quiz/QuizError';
+import QuizEmpty from '@/components/quiz/QuizEmpty';
+import QuizQuestion from '@/components/quiz/QuizQuestion';
+import QuizResults from '@/components/quiz/QuizResults';
+import QuizHeader from '@/components/quiz/QuizHeader';
+import QuizContainer from '@/components/quiz/QuizContainer';
+import QuizDebug from '@/components/quiz/QuizDebug';
+
 const QuizPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -510,32 +522,36 @@ const QuizPage = () => {
   }, [isQuizComplete, paragraphId, fetchParagraphProgressData]);
 
   useEffect(() => {
-    const { data: { session } } = supabase.auth.getSession();
-    if (!session?.user) return;
-    
-    const userId = session.user.id;
-    
-    const channel = supabase
-      .channel('quiz-page-progress-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'paragraph_progress',
-          filter: `user_id=eq.${userId}`
-        },
-        (payload) => {
-          addLog(`Real-time paragraph progress update: ${JSON.stringify(payload)}`);
-          fetchParagraphProgressData();
-          setForceRefreshTrigger(Date.now());
-        }
-      )
-      .subscribe();
+    const setupRealtimeListener = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.user) return;
       
-    return () => {
-      supabase.removeChannel(channel);
+      const userId = data.session.user.id;
+      
+      const channel = supabase
+        .channel('quiz-page-progress-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'paragraph_progress',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => {
+            addLog(`Real-time paragraph progress update: ${JSON.stringify(payload)}`);
+            fetchParagraphProgressData();
+            setForceRefreshTrigger(Date.now());
+          }
+        )
+        .subscribe();
+        
+      return () => {
+        supabase.removeChannel(channel);
+      };
     };
+    
+    setupRealtimeListener();
   }, [fetchParagraphProgressData]);
 
   return (
