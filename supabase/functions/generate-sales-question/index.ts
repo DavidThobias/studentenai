@@ -196,7 +196,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${openAIApiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Using gpt-4o-mini as a more affordable alternative to gpt-4
+        model: 'gpt-4o', // Upgraded from gpt-4o-mini to gpt-4o for better quality
         messages: [
           {
             role: 'system',
@@ -208,7 +208,7 @@ serve(async (req) => {
           }
         ],
         temperature: 0.7,
-        max_tokens: 2000, // Increased to allow for more questions and explanations
+        max_tokens: 3000, // Increased max tokens to accommodate for more detailed responses
       }),
     });
 
