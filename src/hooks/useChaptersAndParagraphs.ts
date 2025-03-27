@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ChapterData {
@@ -39,6 +38,7 @@ export const useChaptersAndParagraphs = (
   const [currentParagraphContent, setCurrentParagraphContent] = useState<string | null>(null);
   const [isLoadingChapters, setIsLoadingChapters] = useState(false);
   const [isFetchingParagraphs, setIsFetchingParagraphs] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now());
 
   // Helper function for logging if available
   const log = (message: string) => {
@@ -48,6 +48,12 @@ export const useChaptersAndParagraphs = (
       console.log(message);
     }
   };
+
+  // Add a function to manually trigger a refresh
+  const refreshData = useCallback(() => {
+    log('Manual refresh triggered in useChaptersAndParagraphs');
+    setLastRefreshTime(Date.now());
+  }, []);
 
   useEffect(() => {
     const fetchChapters = async () => {
@@ -110,7 +116,7 @@ export const useChaptersAndParagraphs = (
     };
 
     fetchChapters();
-  }, [bookId]);
+  }, [bookId, lastRefreshTime]);
 
   useEffect(() => {
     // If chapterId is provided in the constructor, fetch its paragraphs
@@ -118,7 +124,7 @@ export const useChaptersAndParagraphs = (
       log(`Initial chapterId provided: ${chapterId}, fetching paragraphs`);
       fetchParagraphs(chapterId);
     }
-  }, [chapterId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chapterId, lastRefreshTime]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchParagraphs = async (chapterId: number) => {
     try {
@@ -149,6 +155,9 @@ export const useChaptersAndParagraphs = (
       
       setParagraphs(typedParagraphs);
       log(`Fetched ${typedParagraphs.length} paragraphs for chapter ${chapterId}`);
+      
+      // After fetching paragraphs, also fetch progress data
+      fetchParagraphProgressData();
     } catch (error) {
       console.error('Error fetching paragraphs:', error);
     } finally {
@@ -156,7 +165,53 @@ export const useChaptersAndParagraphs = (
     }
   };
 
-  // New methods required by QuizPage
+  // Add a new function to fetch paragraph progress data
+  const fetchParagraphProgressData = useCallback(async () => {
+    try {
+      if (!bookId || !selectedChapterId) return;
+      
+      log(`Fetching paragraph progress data for chapter ${selectedChapterId}`);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        log('No session found, cannot fetch paragraph progress');
+        return;
+      }
+      
+      const numericBookId = typeof bookId === 'string' ? Number(bookId) : bookId;
+      
+      const { data, error } = await supabase
+        .from('paragraph_progress')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .eq('book_id', numericBookId)
+        .eq('chapter_id', selectedChapterId);
+        
+      if (error) {
+        console.error('Error fetching paragraph progress:', error);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        // Convert to the expected format
+        const mappedProgressData: ParagraphProgress[] = data.map(item => ({
+          id: item.paragraph_id,
+          completed: item.completed,
+          score: item.score,
+          totalQuestions: item.total_questions
+        }));
+        
+        log(`Fetched progress for ${mappedProgressData.length} paragraphs`);
+        setProgressData(mappedProgressData);
+      } else {
+        log('No paragraph progress data found');
+        setProgressData([]);
+      }
+    } catch (error) {
+      console.error('Error in fetchParagraphProgressData:', error);
+    }
+  }, [bookId, selectedChapterId]);
+
   const fetchChaptersForBook = async (bookId: number) => {
     setIsLoadingChapters(true);
     try {
@@ -296,6 +351,8 @@ export const useChaptersAndParagraphs = (
     getNextParagraphId,
     setCurrentParagraph,
     // For compatibility with QuizEmpty component
-    availableChapters: chapters
+    availableChapters: chapters,
+    // New method to trigger a refresh
+    refreshData
   };
 };

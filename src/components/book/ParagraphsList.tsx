@@ -1,9 +1,8 @@
-
 import { ListChecks, FileText, Loader2, DatabaseIcon, RefreshCcw, AlertTriangle, BookOpen, Trophy, RotateCcw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from 'react-router-dom';
 import { Badge } from "@/components/ui/badge";
@@ -51,18 +50,9 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
   const [isTestingEdgeFunction, setIsTestingEdgeFunction] = useState(false);
   const [quizHistory, setQuizHistory] = useState<{ [paragraphId: number]: QuizHistoryItem[] }>({});
   const [loadingQuizHistory, setLoadingQuizHistory] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now());
   
-  useEffect(() => {
-    console.log('ParagraphsList: paragraphs array updated:', paragraphs);
-    console.log('ParagraphsList: loadingParagraphs:', loadingParagraphs);
-    console.log('ParagraphsList: selectedChapterId:', selectedChapterId);
-    
-    if (paragraphs.length > 0 && user && bookId && selectedChapterId) {
-      fetchQuizHistoryForAllParagraphs();
-    }
-  }, [paragraphs, loadingParagraphs, selectedChapterId, user, bookId]);
-
-  const fetchQuizHistoryForAllParagraphs = async () => {
+  const fetchQuizHistoryForAllParagraphs = useCallback(async () => {
     if (!user || !bookId || !selectedChapterId) return;
     
     try {
@@ -104,7 +94,97 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
     } finally {
       setLoadingQuizHistory(false);
     }
-  };
+  }, [user, bookId, selectedChapterId]);
+
+  const fetchParagraphProgressData = useCallback(async () => {
+    if (!user || !bookId || !selectedChapterId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('paragraph_progress')
+        .select('*')
+        .eq('book_id', parseInt(bookId))
+        .eq('chapter_id', selectedChapterId)
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.error('Error fetching paragraph progress:', error);
+        return;
+      }
+      
+      console.log('Paragraph progress loaded:', data);
+      // We don't need to store this as it's mostly for logging/confirmation
+      
+    } catch (err) {
+      console.error('Error in fetchParagraphProgressData:', err);
+    }
+  }, [user, bookId, selectedChapterId]);
+  
+  const manualRefresh = useCallback(() => {
+    console.log('Manual refresh triggered');
+    setLastRefreshTime(Date.now());
+  }, []);
+  
+  useEffect(() => {
+    console.log('ParagraphsList: paragraphs array updated:', paragraphs);
+    console.log('ParagraphsList: loadingParagraphs:', loadingParagraphs);
+    console.log('ParagraphsList: selectedChapterId:', selectedChapterId);
+    
+    if (paragraphs.length > 0 && user && bookId && selectedChapterId) {
+      fetchQuizHistoryForAllParagraphs();
+      fetchParagraphProgressData();
+    }
+  }, [paragraphs, loadingParagraphs, selectedChapterId, user, bookId, lastRefreshTime, fetchQuizHistoryForAllParagraphs, fetchParagraphProgressData]);
+
+  useEffect(() => {
+    if (!user || !bookId || !selectedChapterId) return;
+    
+    const channel = supabase
+      .channel('paragraph-quiz-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'quiz_results',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Received real-time update for quiz_results:', payload);
+          manualRefresh();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, bookId, selectedChapterId, manualRefresh]);
+  
+  useEffect(() => {
+    if (!user || !bookId || !selectedChapterId) return;
+    
+    const channel = supabase
+      .channel('paragraph-progress-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'paragraph_progress',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Received real-time update for paragraph_progress:', payload);
+          manualRefresh();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, bookId, selectedChapterId, manualRefresh]);
 
   const checkDatabaseDirectly = async () => {
     if (!selectedChapterId) return;
@@ -260,7 +340,18 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
 
   return (
     <div className="mb-12">
-      <h2 className="text-2xl font-semibold mb-6">Paragrafen</h2>
+      <h2 className="text-2xl font-semibold mb-6 flex justify-between items-center">
+        <span>Paragrafen</span>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={manualRefresh} 
+          className="flex items-center gap-1"
+        >
+          <RefreshCcw className={`h-4 w-4 ${loadingQuizHistory ? 'animate-spin' : ''}`} />
+          Vernieuwen
+        </Button>
+      </h2>
       
       {loadingParagraphs ? (
         <div className="flex flex-col items-center justify-center py-8">

@@ -22,11 +22,12 @@ const QuizSidebar = ({
   const { user } = useAuth();
   const [completedParagraphs, setCompletedParagraphs] = useState<{[key: number]: boolean}>({});
   
+  // Add a dependency on progressData to ensure we refresh when it changes
   useEffect(() => {
     if (user && paragraphs.length > 0) {
       fetchParagraphCompletionStatus();
     }
-  }, [user, paragraphs]);
+  }, [user, paragraphs, progressData]); // Added progressData as a dependency
   
   const fetchParagraphCompletionStatus = async () => {
     if (!user) return;
@@ -52,6 +53,7 @@ const QuizSidebar = ({
         completionMap[item.paragraph_id] = item.completed;
       });
       
+      console.log('Completion status updated from DB:', completionMap);
       setCompletedParagraphs(completionMap);
     } catch (error) {
       console.error('Error in fetchParagraphCompletionStatus:', error);

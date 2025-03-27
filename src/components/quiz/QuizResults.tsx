@@ -129,6 +129,9 @@ const QuizResults = ({
       
       console.log('Saved quiz results with key:', stateKey);
       
+      // Invalidate any cache keys that might be using this data
+      invalidateLocalCache();
+      
       toast.success("Quiz resultaten opgeslagen!");
       setIsSaved(true);
     } catch (error) {
@@ -136,6 +139,25 @@ const QuizResults = ({
       toast.error(`Er is een onverwachte fout opgetreden: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+  
+  // Add function to invalidate relevant caches
+  const invalidateLocalCache = () => {
+    try {
+      // Clear any cached quiz state
+      if (bookId) {
+        const progressCacheKey = `paragraph_progress_${bookId}`;
+        localStorage.removeItem(progressCacheKey);
+        
+        // Also clear any active quiz state
+        const quizStateKey = `quizState_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}`;
+        localStorage.removeItem(quizStateKey);
+        
+        console.log('Invalidated cache keys:', progressCacheKey, quizStateKey);
+      }
+    } catch (err) {
+      console.error('Error invalidating cache:', err);
     }
   };
   
