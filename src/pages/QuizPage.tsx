@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuiz } from '@/hooks/useQuiz';
 import { useChaptersAndParagraphs } from '@/hooks/useChaptersAndParagraphs';
@@ -30,6 +30,38 @@ const QuizPage = () => {
   const paragraphIdParam = searchParams.get('paragraphId');
   const structuredParam = searchParams.get('structured');
   
+  useEffect(() => {
+    if (bookIdParam) sessionStorage.setItem('quizBookId', bookIdParam);
+    if (chapterIdParam) sessionStorage.setItem('quizChapterId', chapterIdParam);
+    if (paragraphIdParam) sessionStorage.setItem('quizParagraphId', paragraphIdParam);
+    if (structuredParam) sessionStorage.setItem('quizStructured', structuredParam);
+  }, [bookIdParam, chapterIdParam, paragraphIdParam, structuredParam]);
+  
+  const restoreStateFromStorage = useCallback(() => {
+    if (!bookIdParam && sessionStorage.getItem('quizBookId')) {
+      const storedBook = sessionStorage.getItem('quizBookId');
+      addLog(`Restoring bookId from session storage: ${storedBook}`);
+      navigate({
+        pathname: location.pathname,
+        search: `?bookId=${storedBook}${
+          sessionStorage.getItem('quizChapterId') ? `&chapterId=${sessionStorage.getItem('quizChapterId')}` : ''
+        }${
+          sessionStorage.getItem('quizParagraphId') ? `&paragraphId=${sessionStorage.getItem('quizParagraphId')}` : ''
+        }${
+          sessionStorage.getItem('quizStructured') ? `&structured=${sessionStorage.getItem('quizStructured')}` : ''
+        }`
+      });
+      return true;
+    }
+    return false;
+  }, [bookIdParam, navigate]);
+  
+  useEffect(() => {
+    if (!bookIdParam && !chapterIdParam && !paragraphIdParam) {
+      restoreStateFromStorage();
+    }
+  }, [restoreStateFromStorage, bookIdParam, chapterIdParam, paragraphIdParam]);
+  
   const [quizTitle, setQuizTitle] = useState<string>("Quiz");
   const [isStructuredLearning, setIsStructuredLearning] = useState(false);
   const [questionCount, setQuestionCount] = useState(5);
@@ -38,6 +70,25 @@ const QuizPage = () => {
   const [showingParagraphContent, setShowingParagraphContent] = useState(false);
   const [selectedParagraphForStudy, setSelectedParagraphForStudy] = useState<number | null>(null);
   const [hasExistingQuiz, setHasExistingQuiz] = useState(false);
+  const [forceRefreshTrigger, setForceRefreshTrigger] = useState<number>(Date.now());
+
+  const initialBookId = bookIdParam 
+    ? parseInt(bookIdParam) 
+    : sessionStorage.getItem('quizBookId') 
+      ? parseInt(sessionStorage.getItem('quizBookId')!) 
+      : null;
+      
+  const initialChapterId = chapterIdParam 
+    ? parseInt(chapterIdParam) 
+    : sessionStorage.getItem('quizChapterId') 
+      ? parseInt(sessionStorage.getItem('quizChapterId')!) 
+      : null;
+      
+  const initialParagraphId = paragraphIdParam 
+    ? parseInt(paragraphIdParam) 
+    : sessionStorage.getItem('quizParagraphId') 
+      ? parseInt(sessionStorage.getItem('quizParagraphId')!) 
+      : null;
 
   const {
     questions,
@@ -66,9 +117,9 @@ const QuizPage = () => {
     toggleExplanation,
     clearQuizState
   } = useQuiz(
-    bookIdParam ? parseInt(bookIdParam) : null,
-    chapterIdParam ? parseInt(chapterIdParam) : null,
-    paragraphIdParam ? parseInt(paragraphIdParam) : null,
+    initialBookId,
+    initialChapterId,
+    initialParagraphId,
     addLog
   );
 
@@ -86,7 +137,9 @@ const QuizPage = () => {
     calculateChapterProgress,
     toggleParagraphContent,
     getNextParagraphId,
-    setCurrentParagraph
+    setCurrentParagraph,
+    refreshData,
+    fetchParagraphProgressData
   } = useChaptersAndParagraphs(
     bookId,
     chapterId,
@@ -106,15 +159,15 @@ const QuizPage = () => {
       
       fetchChaptersForBook(numericBookId);
     } else {
-      const savedBookId = localStorage.getItem('quizBookId');
+      const savedBookId = localStorage.getItem('quizBookId') || sessionStorage.getItem('quizBookId');
       if (savedBookId) {
         const numericBookId = parseInt(savedBookId);
         setBookId(numericBookId);
-        addLog(`Setting bookId from localStorage fallback: ${numericBookId}`);
+        addLog(`Setting bookId from storage fallback: ${numericBookId}`);
         
         fetchChaptersForBook(numericBookId);
       } else {
-        addLog('No bookId found in URL or localStorage');
+        addLog('No bookId found in URL or storage');
       }
     }
     
@@ -138,20 +191,16 @@ const QuizPage = () => {
           const numericParagraphId = parseInt(paragraphIdParam);
           setParagraphId(numericParagraphId);
           
-          // Check if there's a saved quiz state for this paragraph
           const stateKey = `quizState_${bookIdParam}_${chapterIdParam}_${paragraphIdParam}`;
           const savedQuiz = localStorage.getItem(stateKey);
           
           if (savedQuiz && JSON.parse(savedQuiz).questions?.length > 0) {
-            // If there's a saved quiz and it has questions, set flag to show continue button
             setHasExistingQuiz(true);
             addLog(`Found existing quiz for paragraph ${paragraphIdParam}`);
           } else {
-            // If no saved quiz, generate a new one
             generateQuizForParagraph(numericParagraphId);
           }
         } else {
-          // Check if there's a saved quiz state for this chapter
           const stateKey = `quizState_${bookIdParam}_${chapterIdParam}_all`;
           const savedQuiz = localStorage.getItem(stateKey);
           
@@ -175,7 +224,7 @@ const QuizPage = () => {
         setHasExistingQuiz(true);
       }
     }
-  }, [searchParams]);
+  }, [searchParams, forceRefreshTrigger]);
 
   const handleBackToBook = () => {
     if (bookId) {
@@ -225,7 +274,6 @@ const QuizPage = () => {
     const selectedParagraph = paragraphs.find(p => p.id === paragraphId);
     setQuizTitle(`Paragraaf ${selectedParagraph?.paragraph_number || '?'}`);
     
-    // Check if there's an existing quiz for this paragraph
     const stateKey = `quizState_${bookId}_${chapterId}_${paragraphId}`;
     const savedQuiz = localStorage.getItem(stateKey);
     
@@ -235,6 +283,18 @@ const QuizPage = () => {
     } else {
       setHasExistingQuiz(false);
     }
+    
+    if (bookId && chapterId) {
+      navigate({
+        pathname: location.pathname,
+        search: `?bookId=${bookId}&chapterId=${chapterId}&paragraphId=${paragraphId}&structured=true`
+      });
+      
+      sessionStorage.setItem('quizBookId', bookId.toString());
+      sessionStorage.setItem('quizChapterId', chapterId.toString());
+      sessionStorage.setItem('quizParagraphId', paragraphId.toString());
+      sessionStorage.setItem('quizStructured', 'true');
+    }
   };
 
   const handleStartQuiz = () => {
@@ -242,10 +302,8 @@ const QuizPage = () => {
       const selectedParagraph = paragraphs.find(p => p.id === selectedParagraphForStudy);
       setQuizTitle(`Quiz over paragraaf ${selectedParagraph?.paragraph_number || '?'}`);
       
-      // Clear any existing quiz state first
       clearQuizState();
       
-      // Start a new quiz
       generateQuizForParagraph(selectedParagraphForStudy);
       
       setShowingParagraphContent(false);
@@ -256,7 +314,6 @@ const QuizPage = () => {
     addLog('Continuing existing quiz');
     
     if (selectedParagraphForStudy) {
-      // For paragraph-specific quizzes
       const stateKey = `quizState_${bookId}_${chapterId}_${selectedParagraphForStudy}`;
       const savedQuiz = localStorage.getItem(stateKey);
       
@@ -266,11 +323,9 @@ const QuizPage = () => {
           if (quizState.questions && quizState.questions.length > 0) {
             setParagraphId(selectedParagraphForStudy);
             
-            // Update state based on saved quiz
             const selectedParagraph = paragraphs.find(p => p.id === selectedParagraphForStudy);
             setQuizTitle(`Quiz over paragraaf ${selectedParagraph?.paragraph_number || '?'}`);
             
-            // Load the saved state
             loadSavedQuizState(
               bookId?.toString() || null, 
               chapterId?.toString() || null, 
@@ -283,22 +338,18 @@ const QuizPage = () => {
           console.error('Error continuing quiz:', error);
           addLog(`Error continuing quiz: ${error instanceof Error ? error.message : String(error)}`);
           
-          // Start a new quiz if there was an error
           handleStartQuiz();
         }
       } else {
-        // Start a new quiz if no saved state was found
         handleStartQuiz();
       }
     } else if (paragraphId) {
-      // For URL-parameter based quizzes
       loadSavedQuizState(
         bookId?.toString() || null, 
         chapterId?.toString() || null, 
         paragraphId.toString()
       );
     } else if (chapterId) {
-      // For chapter-level quizzes
       loadSavedQuizState(
         bookId?.toString() || null, 
         chapterId.toString(), 
@@ -456,6 +507,47 @@ const QuizPage = () => {
     
     return null;
   };
+
+  useEffect(() => {
+    if (isQuizComplete && paragraphId) {
+      const timer = setTimeout(() => {
+        addLog('Quiz completed, refreshing paragraph data');
+        fetchParagraphProgressData();
+        setForceRefreshTrigger(Date.now());
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isQuizComplete, paragraphId, fetchParagraphProgressData]);
+
+  useEffect(() => {
+    const { data: { session } } = supabase.auth.getSession();
+    if (!session?.user) return;
+    
+    const userId = session.user.id;
+    
+    const channel = supabase
+      .channel('quiz-page-progress-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'paragraph_progress',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          addLog(`Real-time paragraph progress update: ${JSON.stringify(payload)}`);
+          fetchParagraphProgressData();
+          setForceRefreshTrigger(Date.now());
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchParagraphProgressData]);
 
   return (
     <div className="min-h-screen bg-background pt-28 pb-20 px-6">

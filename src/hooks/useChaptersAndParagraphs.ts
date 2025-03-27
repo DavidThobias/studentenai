@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 
@@ -55,6 +56,28 @@ export const useChaptersAndParagraphs = (
     setLastRefreshTime(Date.now());
   }, []);
 
+  // Persist chapter selection to session storage to survive page refresh
+  useEffect(() => {
+    // If chapterId is provided via props, it takes precedence
+    if (chapterId) {
+      setSelectedChapterId(chapterId);
+      
+      // Save to session storage for persistence
+      if (bookId) {
+        sessionStorage.setItem(`selectedChapterId_${bookId}`, String(chapterId));
+      }
+    } else {
+      // Try to restore from session storage if no chapterId prop
+      if (bookId) {
+        const savedChapterId = sessionStorage.getItem(`selectedChapterId_${bookId}`);
+        if (savedChapterId) {
+          setSelectedChapterId(Number(savedChapterId));
+          log(`Restored selectedChapterId ${savedChapterId} from session storage`);
+        }
+      }
+    }
+  }, [bookId, chapterId]);
+
   useEffect(() => {
     const fetchChapters = async () => {
       try {
@@ -104,9 +127,25 @@ export const useChaptersAndParagraphs = (
         const chaptersArray = Array.from(uniqueChapters.values());
         setChapters(chaptersArray);
         
-        if (chaptersArray.length > 0) {
+        // Restore chapter selection or default to first chapter
+        let restoredChapterId: number | null = null;
+        
+        if (bookId) {
+          const savedChapterId = sessionStorage.getItem(`selectedChapterId_${bookId}`);
+          if (savedChapterId && chaptersArray.some(c => c.id === Number(savedChapterId))) {
+            restoredChapterId = Number(savedChapterId);
+            setSelectedChapterId(restoredChapterId);
+            log(`Using restored chapter ID: ${restoredChapterId}`);
+          }
+        }
+        
+        // If no saved chapter or saved chapter not found, use first chapter
+        if (!restoredChapterId && chaptersArray.length > 0 && !selectedChapterId) {
           setSelectedChapterId(chaptersArray[0].id);
           await fetchParagraphs(chaptersArray[0].id);
+        } else if (restoredChapterId) {
+          // Fetch paragraphs for the restored chapter
+          await fetchParagraphs(restoredChapterId);
         }
       } catch (error) {
         console.error('Error fetching chapters:', error);
@@ -126,10 +165,48 @@ export const useChaptersAndParagraphs = (
     }
   }, [chapterId, lastRefreshTime]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Setup real-time subscription to paragraph_progress changes
+  useEffect(() => {
+    const { data: { session } } = supabase.auth.getSession();
+    if (!session?.user || !bookId) return;
+    
+    const userId = session.user.id;
+    log(`Setting up real-time subscription for paragraph progress updates for user ${userId}`);
+    
+    const channel = supabase
+      .channel('chapter-paragraph-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'paragraph_progress',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          log(`Real-time update received for paragraph_progress: ${JSON.stringify(payload)}`);
+          // Refresh progress data when changes occur
+          fetchParagraphProgressData();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      log('Cleaning up real-time subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [bookId]);
+
   const fetchParagraphs = async (chapterId: number) => {
     try {
       setLoadingParagraphs(true);
       setSelectedChapterId(chapterId);
+      
+      // Save selected chapter ID to session storage for persistence across refreshes
+      if (bookId) {
+        sessionStorage.setItem(`selectedChapterId_${bookId}`, String(chapterId));
+        log(`Saved selectedChapterId ${chapterId} to session storage`);
+      }
       
       log(`Fetching paragraphs for chapter ${chapterId}`);
       
@@ -353,6 +430,8 @@ export const useChaptersAndParagraphs = (
     // For compatibility with QuizEmpty component
     availableChapters: chapters,
     // New method to trigger a refresh
-    refreshData
+    refreshData,
+    // Direct access to fetch progress data
+    fetchParagraphProgressData
   };
 };

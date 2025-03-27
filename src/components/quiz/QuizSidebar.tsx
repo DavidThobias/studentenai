@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 interface QuizSidebarProps {
   paragraphs: ParagraphData[];
@@ -21,19 +22,54 @@ const QuizSidebar = ({
 }: QuizSidebarProps) => {
   const { user } = useAuth();
   const [completedParagraphs, setCompletedParagraphs] = useState<{[key: number]: boolean}>({});
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(Date.now());
   
   // Add a dependency on progressData to ensure we refresh when it changes
   useEffect(() => {
     if (user && paragraphs.length > 0) {
       fetchParagraphCompletionStatus();
     }
-  }, [user, paragraphs, progressData]); // Added progressData as a dependency
+  }, [user, paragraphs, progressData, refreshTrigger]); // Added refreshTrigger as a dependency
+  
+  // Subscribe to real-time updates on paragraph_progress table
+  useEffect(() => {
+    if (!user) return;
+    
+    const channel = supabase
+      .channel('quiz-sidebar-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'paragraph_progress',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Realtime update in paragraph_progress:', payload);
+          // Force refresh of completion data
+          setRefreshTrigger(Date.now());
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
   
   const fetchParagraphCompletionStatus = async () => {
     if (!user) return;
     
     try {
       const paragraphIds = paragraphs.map(p => p.id);
+      
+      if (paragraphIds.length === 0) {
+        console.log('No paragraphs to fetch completion status for');
+        return;
+      }
+      
+      console.log('Fetching completion status for paragraphs:', paragraphIds);
       
       // Fetch completion status from paragraph_progress table
       const { data, error } = await supabase
@@ -71,12 +107,26 @@ const QuizSidebar = ({
     return progressData.some(p => p.id === paragraphId && p.completed);
   };
 
+  // Manual refresh function
+  const refreshCompletionStatus = () => {
+    setRefreshTrigger(Date.now());
+  };
+
   return (
     <div className="lg:w-72 w-full shrink-0">
       <div className="sticky top-28 border rounded-lg overflow-hidden bg-card shadow-sm">
-        <div className="bg-primary/10 p-4 font-medium flex items-center">
-          <BookOpen className="h-5 w-5 mr-2" />
-          <span>Paragrafen</span>
+        <div className="bg-primary/10 p-4 font-medium flex items-center justify-between">
+          <span className="flex items-center">
+            <BookOpen className="h-5 w-5 mr-2" />
+            <span>Paragrafen</span>
+          </span>
+          <button 
+            onClick={refreshCompletionStatus} 
+            className="text-xs text-primary hover:text-primary/80 transition-colors"
+            aria-label="Refresh completion status"
+          >
+            Vernieuwen
+          </button>
         </div>
         <ScrollArea className="h-[500px]">
           <div className="p-2">

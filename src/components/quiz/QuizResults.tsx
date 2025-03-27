@@ -107,7 +107,11 @@ const QuizResults = ({
         await updateParagraphProgress(session.user.id, isPassing, score, totalQuestions, percentage);
       }
       
-      // Store the quiz state in localStorage with a CONSISTENT key pattern
+      // Use consistent key format: quizResult_bookId_chapterId_paragraphId
+      // Make sure we capture the current state in URL params as well
+      // This ensures we can reliably find saved quizzes later and maintain the session state
+      const urlParams = new URLSearchParams(window.location.search);
+      
       const quizState = {
         bookId,
         chapterId,
@@ -116,16 +120,22 @@ const QuizResults = ({
         totalQuestions,
         percentage,
         isPassing,
-        completedDate: new Date().toISOString()
+        completedDate: new Date().toISOString(),
+        urlParams: urlParams.toString()
       };
       
-      // Use consistent key format: quizResult_bookId_chapterId_paragraphId
-      // This ensures we can reliably find saved quizzes later
+      // Store the quiz state in localStorage with a CONSISTENT key pattern
       const stateKey = `quizResult_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}`;
       localStorage.setItem(stateKey, JSON.stringify(quizState));
       
       // Also save a reference to the most recent quiz
       localStorage.setItem('lastCompletedQuiz', stateKey);
+      localStorage.setItem('currentQuizState', JSON.stringify({
+        bookId,
+        chapterId,
+        paragraphId,
+        urlParams: urlParams.toString()
+      }));
       
       console.log('Saved quiz results with key:', stateKey);
       
@@ -154,7 +164,13 @@ const QuizResults = ({
         const quizStateKey = `quizState_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}`;
         localStorage.removeItem(quizStateKey);
         
-        console.log('Invalidated cache keys:', progressCacheKey, quizStateKey);
+        // Clear any other cache keys that might be related to paragraphs or progress
+        if (chapterId) {
+          localStorage.removeItem(`chapter_paragraphs_${chapterId}`);
+          localStorage.removeItem(`chapter_progress_${chapterId}`);
+        }
+        
+        console.log('Invalidated cache keys for quiz completion');
       }
     } catch (err) {
       console.error('Error invalidating cache:', err);
