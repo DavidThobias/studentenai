@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -6,6 +5,7 @@ import { Brain, BookOpen, Trophy, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/context/AuthContext';
 import { Link } from 'react-router-dom';
+import { formatRelativeDate } from '@/lib/utils';
 
 interface RecentMaterial {
   id: string;
@@ -127,20 +127,15 @@ const UserDashboard = () => {
         });
         
         // Format the data for display
-        const formattedResults = quizResults.map(result => {
-          const daysDiff = calculateDaysDifference(new Date(result.created_at));
-          const daysText = daysDiff === 0 
-            ? 'vandaag' 
-            : daysDiff === 1 
-              ? 'gisteren' 
-              : `${daysDiff} dagen geleden`;
+        const formattedResults: RecentMaterial[] = quizResults.map(result => {
+          const dateText = formatRelativeDate(result.created_at);
           
           return {
             id: result.id,
             title: bookTitleMap[result.book_id] || 'Basisboek Sales',
             subtitle: `Hoofdstuk ${result.chapter_id || '?'}: Paragraaf ${result.paragraph_id || '?'}`,
-            date: daysText,
-            type: 'quiz',
+            date: dateText,
+            type: 'quiz' as const,
             score: result.percentage
           };
         });
@@ -155,18 +150,6 @@ const UserDashboard = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const calculateDaysDifference = (date: Date): number => {
-    const today = new Date();
-    // Reset time part for accurate day comparison
-    today.setHours(0, 0, 0, 0);
-    const compareDate = new Date(date);
-    compareDate.setHours(0, 0, 0, 0);
-    
-    const diffTime = Math.abs(today.getTime() - compareDate.getTime());
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
   };
 
   return (
