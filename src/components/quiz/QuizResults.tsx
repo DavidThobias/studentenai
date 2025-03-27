@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { RotateCcw, ArrowLeft, ChevronRight, Trophy, Share } from "lucide-react";
@@ -37,10 +38,16 @@ const QuizResults = ({
   const percentage = Math.round((score / totalQuestions) * 100);
   const isPassing = percentage >= 70;
   
-  // Automatically save results when component mounts
+  // Add a debounce flag to prevent multiple saves
+  const [hasTriedSaving, setHasTriedSaving] = useState(false);
+  
+  // Automatically save results when component mounts - but only once
   useEffect(() => {
-    saveResultsToDatabase();
-  }, []);
+    if (!hasTriedSaving) {
+      saveResultsToDatabase();
+      setHasTriedSaving(true);
+    }
+  }, [hasTriedSaving]);
   
   const saveResultsToDatabase = async () => {
     try {
@@ -50,11 +57,13 @@ const QuizResults = ({
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
+        console.error('No session found, cannot save quiz results');
         toast.error("Je moet ingelogd zijn om resultaten op te slaan");
         return;
       }
       
       if (!bookId) {
+        console.error('Missing bookId, cannot save quiz results');
         toast.error("Boek-ID ontbreekt");
         return;
       }
@@ -70,9 +79,8 @@ const QuizResults = ({
         completed: true
       });
       
-      const completed_date = new Date().toISOString();
-      
-      const { error } = await supabase
+      // Let Supabase handle the created_at timestamp automatically
+      const { data, error } = await supabase
         .from('quiz_results')
         .insert({
           user_id: session.user.id,
@@ -82,64 +90,21 @@ const QuizResults = ({
           score: score,
           total_questions: totalQuestions,
           percentage: percentage,
-          completed: true,
-          created_at: completed_date
-        });
+          completed: true
+        })
+        .select();
       
       if (error) {
         console.error('Error saving quiz results:', error);
-        toast.error("Er is een fout opgetreden bij het opslaan van je resultaten");
+        toast.error(`Er is een fout opgetreden bij het opslaan van je resultaten: ${error.message}`);
         return;
       }
       
+      console.log('Successfully saved quiz results:', data);
+      
       // If paragraph progress should be tracked
       if (isStructuredLearning && paragraphId) {
-        // Check if there's an existing record
-        const { data: existingProgress } = await supabase
-          .from('paragraph_progress')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .eq('paragraph_id', paragraphId)
-          .maybeSingle();
-          
-        if (existingProgress) {
-          // Update existing record
-          const { error: updateError } = await supabase
-            .from('paragraph_progress')
-            .update({
-              completed: isPassing,
-              score: score,
-              total_questions: totalQuestions,
-              percentage: percentage,
-              last_attempted: completed_date,
-              completed_date: isPassing ? completed_date : existingProgress.completed_date
-            })
-            .eq('id', existingProgress.id);
-            
-          if (updateError) {
-            console.error('Error updating paragraph progress:', updateError);
-          }
-        } else {
-          // Insert new record
-          const { error: insertError } = await supabase
-            .from('paragraph_progress')
-            .insert({
-              user_id: session.user.id,
-              paragraph_id: paragraphId,
-              chapter_id: chapterId,
-              book_id: bookId,
-              completed: isPassing,
-              score: score,
-              total_questions: totalQuestions,
-              percentage: percentage,
-              completed_date: isPassing ? completed_date : null,
-              last_attempted: completed_date
-            });
-            
-          if (insertError) {
-            console.error('Error inserting paragraph progress:', insertError);
-          }
-        }
+        await updateParagraphProgress(session.user.id, isPassing, score, totalQuestions, percentage);
       }
       
       // Store the quiz state in localStorage with a CONSISTENT key pattern
@@ -151,7 +116,7 @@ const QuizResults = ({
         totalQuestions,
         percentage,
         isPassing,
-        completedDate: completed_date
+        completedDate: new Date().toISOString()
       };
       
       // Use consistent key format: quizResult_bookId_chapterId_paragraphId
@@ -168,9 +133,87 @@ const QuizResults = ({
       setIsSaved(true);
     } catch (error) {
       console.error('Error in saveResultsToDatabase:', error);
-      toast.error("Er is een onverwachte fout opgetreden");
+      toast.error(`Er is een onverwachte fout opgetreden: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+  
+  const updateParagraphProgress = async (userId: string, isPassing: boolean, score: number, totalQuestions: number, percentage: number) => {
+    try {
+      if (!paragraphId || !chapterId || !bookId) {
+        console.error('Missing IDs for paragraph progress update', { paragraphId, chapterId, bookId });
+        return;
+      }
+      
+      console.log('Updating paragraph progress:', { 
+        userId, 
+        paragraphId, 
+        isPassing, 
+        score, 
+        totalQuestions 
+      });
+      
+      const completed_date = isPassing ? new Date().toISOString() : null;
+      const last_attempted = new Date().toISOString();
+      
+      // Check if there's an existing record
+      const { data: existingProgress, error: fetchError } = await supabase
+        .from('paragraph_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('paragraph_id', paragraphId)
+        .maybeSingle();
+      
+      if (fetchError) {
+        console.error('Error fetching paragraph progress:', fetchError);
+        return;
+      }
+        
+      if (existingProgress) {
+        // Update existing record
+        const { error: updateError } = await supabase
+          .from('paragraph_progress')
+          .update({
+            completed: isPassing,
+            score: score,
+            total_questions: totalQuestions,
+            percentage: percentage,
+            last_attempted: last_attempted,
+            completed_date: isPassing ? completed_date : existingProgress.completed_date
+          })
+          .eq('id', existingProgress.id);
+          
+        if (updateError) {
+          console.error('Error updating paragraph progress:', updateError);
+        } else {
+          console.log('Successfully updated paragraph progress');
+        }
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+          .from('paragraph_progress')
+          .insert({
+            user_id: userId,
+            paragraph_id: paragraphId,
+            chapter_id: chapterId,
+            book_id: bookId,
+            completed: isPassing,
+            score: score,
+            total_questions: totalQuestions,
+            percentage: percentage,
+            completed_date: completed_date,
+            last_attempted: last_attempted
+          });
+          
+        if (insertError) {
+          console.error('Error inserting paragraph progress:', insertError);
+        } else {
+          console.log('Successfully inserted paragraph progress');
+        }
+      }
+    } catch (error) {
+      console.error('Error in updateParagraphProgress:', error);
     }
   };
   
