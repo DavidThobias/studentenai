@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { RotateCcw, ArrowLeft, ChevronRight, Trophy, Share } from "lucide-react";
@@ -71,6 +70,8 @@ const QuizResults = ({
         completed: true
       });
       
+      const completed_date = new Date().toISOString();
+      
       const { error } = await supabase
         .from('quiz_results')
         .insert({
@@ -82,7 +83,7 @@ const QuizResults = ({
           total_questions: totalQuestions,
           percentage: percentage,
           completed: true,
-          completed_date: new Date().toISOString()
+          created_at: completed_date
         });
       
       if (error) {
@@ -110,8 +111,8 @@ const QuizResults = ({
               score: score,
               total_questions: totalQuestions,
               percentage: percentage,
-              last_attempted: new Date().toISOString(),
-              completed_date: isPassing ? new Date().toISOString() : existingProgress.completed_date
+              last_attempted: completed_date,
+              completed_date: isPassing ? completed_date : existingProgress.completed_date
             })
             .eq('id', existingProgress.id);
             
@@ -131,7 +132,8 @@ const QuizResults = ({
               score: score,
               total_questions: totalQuestions,
               percentage: percentage,
-              completed_date: isPassing ? new Date().toISOString() : null
+              completed_date: isPassing ? completed_date : null,
+              last_attempted: completed_date
             });
             
           if (insertError) {
@@ -140,7 +142,7 @@ const QuizResults = ({
         }
       }
       
-      // Let's also store the quiz state in localStorage with a CONSISTENT key pattern
+      // Store the quiz state in localStorage with a CONSISTENT key pattern
       const quizState = {
         bookId,
         chapterId,
@@ -149,7 +151,7 @@ const QuizResults = ({
         totalQuestions,
         percentage,
         isPassing,
-        completedDate: new Date().toISOString()
+        completedDate: completed_date
       };
       
       // Use consistent key format: quizResult_bookId_chapterId_paragraphId

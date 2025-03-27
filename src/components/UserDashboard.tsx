@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -5,6 +6,15 @@ import { Brain, BookOpen, Trophy, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/context/AuthContext';
 import { Link } from 'react-router-dom';
+
+interface RecentMaterial {
+  id: string;
+  title: string;
+  subtitle: string;
+  date: string;
+  type: 'quiz' | 'study';
+  score?: number;
+}
 
 const UserDashboard = () => {
   const { user } = useAuth();
@@ -14,7 +24,7 @@ const UserDashboard = () => {
     quizScore: 0,
     learningGoals: { completed: 0, total: 5 }
   });
-  const [recentMaterials, setRecentMaterials] = useState<any[]>([]);
+  const [recentMaterials, setRecentMaterials] = useState<RecentMaterial[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -128,7 +138,7 @@ const UserDashboard = () => {
           return {
             id: result.id,
             title: bookTitleMap[result.book_id] || 'Basisboek Sales',
-            subtitle: `Hoofdstuk ${result.chapter_id}: Paragraaf ${result.paragraph_id}`,
+            subtitle: `Hoofdstuk ${result.chapter_id || '?'}: Paragraaf ${result.paragraph_id || '?'}`,
             date: daysText,
             type: 'quiz',
             score: result.percentage
@@ -149,7 +159,12 @@ const UserDashboard = () => {
 
   const calculateDaysDifference = (date: Date): number => {
     const today = new Date();
-    const diffTime = Math.abs(today.getTime() - date.getTime());
+    // Reset time part for accurate day comparison
+    today.setHours(0, 0, 0, 0);
+    const compareDate = new Date(date);
+    compareDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = Math.abs(today.getTime() - compareDate.getTime());
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };

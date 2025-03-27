@@ -231,7 +231,12 @@ const ParagraphsList = ({ paragraphs, loadingParagraphs, onStartQuiz, selectedCh
       
       // Calculate days difference for a more human-readable format
       const now = new Date();
-      const diffTime = Math.abs(now.getTime() - date.getTime());
+      // Reset time part for accurate day comparison
+      now.setHours(0, 0, 0, 0);
+      const compareDate = new Date(date);
+      compareDate.setHours(0, 0, 0, 0);
+      
+      const diffTime = Math.abs(now.getTime() - compareDate.getTime());
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       
       if (diffDays === 0) {
