@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 
@@ -41,7 +40,6 @@ export const useChaptersAndParagraphs = (
   const [isFetchingParagraphs, setIsFetchingParagraphs] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now());
 
-  // Helper function for logging if available
   const log = (message: string) => {
     if (addLog) {
       addLog(message);
@@ -50,24 +48,19 @@ export const useChaptersAndParagraphs = (
     }
   };
 
-  // Add a function to manually trigger a refresh
   const refreshData = useCallback(() => {
     log('Manual refresh triggered in useChaptersAndParagraphs');
     setLastRefreshTime(Date.now());
   }, []);
 
-  // Persist chapter selection to session storage to survive page refresh
   useEffect(() => {
-    // If chapterId is provided via props, it takes precedence
     if (chapterId) {
       setSelectedChapterId(chapterId);
       
-      // Save to session storage for persistence
       if (bookId) {
         sessionStorage.setItem(`selectedChapterId_${bookId}`, String(chapterId));
       }
     } else {
-      // Try to restore from session storage if no chapterId prop
       if (bookId) {
         const savedChapterId = sessionStorage.getItem(`selectedChapterId_${bookId}`);
         if (savedChapterId) {
@@ -86,7 +79,6 @@ export const useChaptersAndParagraphs = (
 
         const numericBookId = typeof bookId === 'string' ? Number(bookId) : bookId;
         
-        // Get book title first
         const { data: bookData, error: bookError } = await supabase
           .from('books')
           .select('book_title')
@@ -98,7 +90,6 @@ export const useChaptersAndParagraphs = (
           return;
         }
         
-        // Get chapters using book title
         const { data: chapterData, error: chapterError } = await supabase
           .from('books')
           .select('id, chapter_number, chapter_title')
@@ -111,7 +102,6 @@ export const useChaptersAndParagraphs = (
           throw chapterError;
         }
 
-        // Deduplicate chapters
         const uniqueChapters = new Map<number, ChapterData>();
         chapterData?.forEach(ch => {
           if (!uniqueChapters.has(ch.chapter_number)) {
@@ -127,7 +117,6 @@ export const useChaptersAndParagraphs = (
         const chaptersArray = Array.from(uniqueChapters.values());
         setChapters(chaptersArray);
         
-        // Restore chapter selection or default to first chapter
         let restoredChapterId: number | null = null;
         
         if (bookId) {
@@ -139,12 +128,10 @@ export const useChaptersAndParagraphs = (
           }
         }
         
-        // If no saved chapter or saved chapter not found, use first chapter
         if (!restoredChapterId && chaptersArray.length > 0 && !selectedChapterId) {
           setSelectedChapterId(chaptersArray[0].id);
           await fetchParagraphs(chaptersArray[0].id);
         } else if (restoredChapterId) {
-          // Fetch paragraphs for the restored chapter
           await fetchParagraphs(restoredChapterId);
         }
       } catch (error) {
@@ -158,14 +145,12 @@ export const useChaptersAndParagraphs = (
   }, [bookId, lastRefreshTime]);
 
   useEffect(() => {
-    // If chapterId is provided in the constructor, fetch its paragraphs
     if (chapterId) {
       log(`Initial chapterId provided: ${chapterId}, fetching paragraphs`);
       fetchParagraphs(chapterId);
     }
-  }, [chapterId, lastRefreshTime]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chapterId, lastRefreshTime]);
 
-  // Setup real-time subscription to paragraph_progress changes
   useEffect(() => {
     const { data: { session } } = supabase.auth.getSession();
     if (!session?.user || !bookId) return;
@@ -178,14 +163,13 @@ export const useChaptersAndParagraphs = (
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+          event: '*',
           schema: 'public',
           table: 'paragraph_progress',
           filter: `user_id=eq.${userId}`
         },
         (payload) => {
           log(`Real-time update received for paragraph_progress: ${JSON.stringify(payload)}`);
-          // Refresh progress data when changes occur
           fetchParagraphProgressData();
         }
       )
@@ -202,7 +186,6 @@ export const useChaptersAndParagraphs = (
       setLoadingParagraphs(true);
       setSelectedChapterId(chapterId);
       
-      // Save selected chapter ID to session storage for persistence across refreshes
       if (bookId) {
         sessionStorage.setItem(`selectedChapterId_${bookId}`, String(chapterId));
         log(`Saved selectedChapterId ${chapterId} to session storage`);
@@ -222,7 +205,6 @@ export const useChaptersAndParagraphs = (
         throw paragraphsError;
       }
       
-      // Map to ParagraphData type
       const typedParagraphs: ParagraphData[] = paragraphsData.map(p => ({
         id: p.id,
         paragraph_number: p.paragraph_number,
@@ -233,8 +215,7 @@ export const useChaptersAndParagraphs = (
       setParagraphs(typedParagraphs);
       log(`Fetched ${typedParagraphs.length} paragraphs for chapter ${chapterId}`);
       
-      // After fetching paragraphs, also fetch progress data
-      fetchParagraphProgressData();
+      await fetchParagraphProgressData();
     } catch (error) {
       console.error('Error fetching paragraphs:', error);
     } finally {
@@ -242,14 +223,15 @@ export const useChaptersAndParagraphs = (
     }
   };
 
-  // Add a new function to fetch paragraph progress data
   const fetchParagraphProgressData = useCallback(async () => {
     try {
       if (!bookId || !selectedChapterId) return;
       
       log(`Fetching paragraph progress data for chapter ${selectedChapterId}`);
       
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      
       if (!session) {
         log('No session found, cannot fetch paragraph progress');
         return;
@@ -270,7 +252,6 @@ export const useChaptersAndParagraphs = (
       }
       
       if (data && data.length > 0) {
-        // Convert to the expected format
         const mappedProgressData: ParagraphProgress[] = data.map(item => ({
           id: item.paragraph_id,
           completed: item.completed,
@@ -296,7 +277,6 @@ export const useChaptersAndParagraphs = (
       
       log(`Fetching chapters for book ${bookId}`);
       
-      // Get book title first
       const { data: bookData, error: bookError } = await supabase
         .from('books')
         .select('book_title')
@@ -308,7 +288,6 @@ export const useChaptersAndParagraphs = (
         return;
       }
       
-      // Get chapters using book title
       const { data: chapterData, error: chapterError } = await supabase
         .from('books')
         .select('id, chapter_number, chapter_title')
@@ -321,7 +300,6 @@ export const useChaptersAndParagraphs = (
         return;
       }
 
-      // Deduplicate chapters
       const uniqueChapters = new Map<number, ChapterData>();
       chapterData?.forEach(ch => {
         if (!uniqueChapters.has(ch.chapter_number)) {
@@ -378,7 +356,6 @@ export const useChaptersAndParagraphs = (
     }
     
     setProgressData(updatedProgressData);
-    // In a real app, we might save this to localStorage or a database
   };
 
   const calculateChapterProgress = () => {
@@ -414,7 +391,6 @@ export const useChaptersAndParagraphs = (
     error,
     fetchParagraphs,
     selectedChapterId,
-    // Added properties for QuizPage.tsx
     progressData,
     currentParagraphContent,
     showParagraphContent,
@@ -427,11 +403,8 @@ export const useChaptersAndParagraphs = (
     toggleParagraphContent,
     getNextParagraphId,
     setCurrentParagraph,
-    // For compatibility with QuizEmpty component
     availableChapters: chapters,
-    // New method to trigger a refresh
     refreshData,
-    // Direct access to fetch progress data
     fetchParagraphProgressData
   };
 };

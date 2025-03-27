@@ -2,18 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuiz } from '@/hooks/useQuiz';
 import { useChaptersAndParagraphs } from '@/hooks/useChaptersAndParagraphs';
-
-import QuizLoading from '@/components/quiz/QuizLoading';
-import QuizError from '@/components/quiz/QuizError';
-import QuizEmpty from '@/components/quiz/QuizEmpty';
-import QuizQuestion from '@/components/quiz/QuizQuestion';
-import QuizResults from '@/components/quiz/QuizResults';
-import QuizSidebar from '@/components/quiz/QuizSidebar';
-import QuizDebug from '@/components/quiz/QuizDebug';
-import QuizHeader from '@/components/quiz/QuizHeader';
-import QuizStudyMode from '@/components/quiz/QuizStudyMode';
-import QuizParagraphSelector from '@/components/quiz/QuizParagraphSelector';
-import QuizContainer from '@/components/quiz/QuizContainer';
+import { supabase } from "@/integrations/supabase/client";
 
 const QuizPage = () => {
   const navigate = useNavigate();
