@@ -1,5 +1,5 @@
 
-import { ArrowRight, BookOpen, Brain, Lightbulb } from "lucide-react";
+import { ArrowRight, BookOpen, Lightbulb } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 
@@ -25,18 +25,10 @@ export default function Hero() {
 
             <div className="flex flex-col gap-4 max-w-md">
               <Link 
-                to="/learn" 
+                to="/books" 
                 className="btn-primary group inline-flex items-center justify-center py-4 px-6 text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                Upload je eigen samenvatting
-                <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Link>
-              
-              <Link 
-                to="/books" 
-                className="btn-secondary inline-flex items-center justify-center py-4 px-6 text-lg font-medium shadow-md hover:shadow-lg transition-all duration-300"
-              >
-                Koop onze leermethodes
+                Start met leren
                 <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
