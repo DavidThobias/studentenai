@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +23,14 @@ interface QuizState {
   selectedParagraphForStudy?: number | null;
 }
 
+interface BatchProgress {
+  currentBatch: number;
+  totalBatches: number;
+  processedTerms: number;
+  totalTerms: number;
+  startTime: number;
+}
+
 export const useQuiz = (
   initialBookId: number | null, 
   initialChapterId: number | null, 
@@ -44,17 +51,25 @@ export const useQuiz = (
   const [chapterId, setChapterId] = useState<number | null>(initialChapterId);
   const [paragraphId, setParagraphId] = useState<number | null>(initialParagraphId);
   
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
+  const [allQuestions, setAllQuestions] = useState<QuizQuestion[]>([]);
+  
   const [debugData, setDebugData] = useState<{
     prompt: string | null;
     response: any | null;
     apiResponse: any | null;
+    extractedTerms?: string[];
+    batchTerms?: string[];
+    tokenEstimates?: {
+      promptTokens?: number;
+      requestedMaxTokens?: number;
+    };
   }>({
     prompt: null,
     response: null,
     apiResponse: null
   });
 
-  // Save quiz state whenever important values change
   useEffect(() => {
     if (bookId !== null) {
       const quizState: QuizState = {
@@ -69,12 +84,8 @@ export const useQuiz = (
         paragraphId,
       };
       
-      // Use consistent key format: quizState_bookId_chapterId_paragraphId
-      // This ensures we can reliably find saved quizzes later
       const stateKey = `quizState_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}`;
       localStorage.setItem(stateKey, JSON.stringify(quizState));
-      
-      // Also save a reference to the last active quiz
       localStorage.setItem('lastActiveQuiz', stateKey);
       
       addLog(`Saved quiz state to localStorage with key: ${stateKey}`);
@@ -82,20 +93,15 @@ export const useQuiz = (
   }, [questions, currentQuestionIndex, selectedAnswer, isAnswerSubmitted, score, isQuizComplete, bookId, chapterId, paragraphId, addLog]);
 
   const loadSavedQuizState = (bookIdParam: string | null, chapterIdParam: string | null, paragraphIdParam: string | null) => {
-    // Determine which quiz state to load
     let stateKey: string | null = null;
     
     if (bookIdParam && chapterIdParam && paragraphIdParam) {
-      // If we have all parameters, try to load that specific quiz
       stateKey = `quizState_${bookIdParam}_${chapterIdParam}_${paragraphIdParam}`;
     } else if (bookIdParam && chapterIdParam) {
-      // If we have book and chapter, try to load that quiz
       stateKey = `quizState_${bookIdParam}_${chapterIdParam}_none`;
     } else if (bookIdParam) {
-      // If we only have the book, try to load that quiz
       stateKey = `quizState_${bookIdParam}_none_none`;
     } else {
-      // If no parameters, try to load the last active quiz
       stateKey = localStorage.getItem('lastActiveQuiz');
     }
     
@@ -145,114 +151,229 @@ export const useQuiz = (
     return { hasValidContext, hasQuestions };
   };
 
-  const generateQuiz = async (customQuestionCount?: number) => {
+  const processBatch = async (batchIndex: number, batchSize: number = 5) => {
+    if (!bookId) {
+      setQuizError('Geen boek geselecteerd om quiz te genereren');
+      return null;
+    }
+
+    try {
+      addLog(`Processing batch ${batchIndex} with size ${batchSize}`);
+      
+      const payload: any = { 
+        batchIndex,
+        batchSize,
+        debug: true
+      };
+      
+      if (bookId) payload.bookId = bookId;
+      if (chapterId) payload.chapterId = chapterId;
+      if (paragraphId) payload.paragraphId = paragraphId;
+      
+      addLog(`Sending batch payload to generate-sales-question: ${JSON.stringify(payload)}`);
+      
+      const { data, error } = await supabase.functions.invoke('generate-sales-question', {
+        body: payload
+      });
+      
+      if (error) {
+        console.error('Error calling generate-sales-question for batch:', error);
+        addLog(`Error with batch ${batchIndex}: ${error.message}`);
+        return null;
+      }
+      
+      if (!data || !data.success) {
+        addLog(`No valid data returned for batch ${batchIndex}`);
+        return null;
+      }
+      
+      if (data.debug) {
+        setDebugData(prev => ({
+          ...prev,
+          prompt: data.debug.prompt,
+          response: data.debug.response,
+          batchTerms: data.debug.batchTerms,
+          extractedTerms: data.debug.extractedTerms || prev.extractedTerms,
+          tokenEstimates: data.debug.tokenEstimates
+        }));
+      }
+      
+      const formattedQuestions = formatQuestions(data.questions);
+      
+      return {
+        questions: formattedQuestions,
+        metadata: data.metadata,
+        context: data.context
+      };
+    } catch (err) {
+      console.error(`Error processing batch ${batchIndex}:`, err);
+      addLog(`Error in batch ${batchIndex}: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  };
+
+  const formatQuestions = (rawQuestions: any[]): QuizQuestion[] => {
+    if (!Array.isArray(rawQuestions)) return [];
+    
+    return rawQuestions.map((q: any) => {
+      let correctAnswerIndex;
+      
+      if (typeof q.correct === 'string' && q.correct.length === 1) {
+        correctAnswerIndex = q.correct.charCodeAt(0) - 65;
+      } else if (typeof q.correct === 'number') {
+        correctAnswerIndex = q.correct;
+      } else if (q.correctAnswer !== undefined) {
+        correctAnswerIndex = q.correctAnswer;  
+      } else {
+        correctAnswerIndex = 0;
+      }
+      
+      return {
+        question: q.question,
+        options: q.options,
+        correctAnswer: correctAnswerIndex,
+        explanation: q.explanation || "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
+      };
+    });
+  };
+
+  const generateQuiz = async (batchSize: number = 5) => {
     if (!bookId) {
       setQuizError('Geen boek geselecteerd om quiz te genereren');
       return;
     }
     
-    const count = customQuestionCount || 0; // 0 means unlimited, will generate questions for all bolded terms
-    
     setIsGenerating(true);
     setQuizError(null);
     setQuestions([]);
+    setAllQuestions([]);
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
     setIsAnswerSubmitted(false);
     setScore(0);
     setIsQuizComplete(false);
     
-    addLog(`Generating quiz questions for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}`);
+    setBatchProgress({
+      currentBatch: 0,
+      totalBatches: 1,
+      processedTerms: 0,
+      totalTerms: 0,
+      startTime: Date.now()
+    });
     
-    const payload: any = { 
-      count: count, 
-      debug: true,
-      showProcessDetails: true // Enable detailed process information
-    };
-    
-    if (bookId) payload.bookId = bookId;
-    if (chapterId) payload.chapterId = chapterId;
-    if (paragraphId) payload.paragraphId = paragraphId;
-    
-    addLog(`Sending payload to generate-sales-question: ${JSON.stringify(payload)}`);
+    addLog(`Starting batch processing for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}`);
     
     try {
-      // First try using the generate-sales-question function
-      const { data, error } = await supabase.functions.invoke('generate-sales-question', {
-        body: payload
-      });
+      const firstBatchResult = await processBatch(0, batchSize);
       
-      if (error) {
-        console.error('Error calling generate-sales-question:', error);
-        addLog(`Error with generate-sales-question: ${error.message}`);
-        
-        // Fallback to generate-quiz function
-        addLog('Trying fallback to generate-quiz function');
-        const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke('generate-quiz', {
-          body: payload
-        });
-        
-        if (fallbackError) {
-          console.error('Error with fallback generate-quiz:', fallbackError);
-          setQuizError(`Er is een fout opgetreden: ${fallbackError.message}`);
-          addLog(`Fallback error: ${fallbackError.message}`);
-          return;
-        }
-        
-        if (fallbackData) {
-          processQuizResponse(fallbackData);
-          return;
-        }
-        
-        setQuizError(`Er is een fout opgetreden: ${error.message}`);
-        addLog(`Error: ${error.message}`);
+      if (!firstBatchResult) {
+        setQuizError('Er is een fout opgetreden bij het genereren van de eerste batch vragen');
+        setIsGenerating(false);
         return;
       }
       
-      if (data) {
-        processQuizResponse(data);
+      const { metadata, questions: firstBatchQuestions } = firstBatchResult;
+      
+      addLog(`First batch complete: ${firstBatchQuestions.length} questions, ${metadata.totalTerms} total terms`);
+      
+      setBatchProgress({
+        currentBatch: 0,
+        totalBatches: metadata.totalBatches,
+        processedTerms: firstBatchQuestions.length,
+        totalTerms: metadata.totalTerms,
+        startTime: Date.now()
+      });
+      
+      setAllQuestions(firstBatchQuestions);
+      
+      if (metadata.isLastBatch) {
+        setQuestions(firstBatchQuestions);
+        setIsGenerating(false);
+        addLog(`Quiz generation complete with ${firstBatchQuestions.length} questions (single batch)`);
+        return;
       }
+      
+      let currentBatch = 1;
+      let allProcessedQuestions = [...firstBatchQuestions];
+      
+      while (currentBatch < metadata.totalBatches) {
+        addLog(`Processing batch ${currentBatch + 1} of ${metadata.totalBatches}`);
+        
+        setBatchProgress(prev => prev ? {
+          ...prev,
+          currentBatch,
+          processedTerms: allProcessedQuestions.length
+        } : null);
+        
+        const batchResult = await processBatch(currentBatch, batchSize);
+        
+        if (!batchResult) {
+          addLog(`Batch ${currentBatch} failed, continuing with ${allProcessedQuestions.length} questions`);
+          break;
+        }
+        
+        allProcessedQuestions = [...allProcessedQuestions, ...batchResult.questions];
+        
+        setBatchProgress(prev => prev ? {
+          ...prev,
+          currentBatch,
+          processedTerms: allProcessedQuestions.length
+        } : null);
+        
+        addLog(`Added ${batchResult.questions.length} questions from batch ${currentBatch}, total now: ${allProcessedQuestions.length}`);
+        
+        setAllQuestions(allProcessedQuestions);
+        
+        currentBatch++;
+        
+        if (batchResult.metadata.isLastBatch) {
+          addLog(`Last batch complete, total questions: ${allProcessedQuestions.length}`);
+          break;
+        }
+      }
+      
+      setQuestions(allProcessedQuestions);
+      addLog(`Quiz generation complete with ${allProcessedQuestions.length} total questions across ${currentBatch} batches`);
+      
     } catch (err) {
-      console.error('Error in generateQuiz:', err);
+      console.error('Error in generateQuiz with batches:', err);
       setQuizError(`Er is een onverwachte fout opgetreden: ${err instanceof Error ? err.message : 'Onbekende fout'}`);
+      addLog(`Fatal error in batch processing: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsGenerating(false);
+      setBatchProgress(null);
+    }
+  };
+
+  const generateQuizForParagraph = async (paragraphId: number, paragraphContent?: string, paragraphNumber?: number) => {
+    if (!bookId || !chapterId) {
+      setQuizError('Boek of hoofdstuk informatie ontbreekt');
+      return;
+    }
+    
+    try {
+      setParagraphId(paragraphId);
+      
+      await generateQuiz(5);
+      
+    } catch (err) {
+      console.error('Error in generateQuizForParagraph:', err);
+      setQuizError(`Er is een onverwachte fout opgetreden: ${err instanceof Error ? err.message : 'Onbekende fout'}`);
     }
   };
 
   const processQuizResponse = (data: any) => {
     setDebugData({...debugData, apiResponse: data});
     addLog(`Full API response received: ${JSON.stringify(data).substring(0, 100)}...`);
-    console.log('Full API response:', data);
     
     if (data.success && data.questions && Array.isArray(data.questions)) {
-      // Add metrics to the log
       if (data.context) {
         addLog(`Generated ${data.questions.length} questions for ${data.context.boldedTermsCount || 'unknown'} bolded terms`);
       }
       
-      const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
-        let correctAnswerIndex;
-        
-        if (typeof q.correct === 'string' && q.correct.length === 1) {
-          correctAnswerIndex = q.correct.charCodeAt(0) - 65;
-        } else if (typeof q.correct === 'number') {
-          correctAnswerIndex = q.correct;
-        } else if (q.correctAnswer !== undefined) {
-          correctAnswerIndex = q.correctAnswer;  
-        } else {
-          correctAnswerIndex = 0;
-        }
-        
-        return {
-          question: q.question,
-          options: q.options,
-          correctAnswer: correctAnswerIndex,
-          explanation: q.explanation || "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
-        };
-      });
-      
+      const formattedQuestions = formatQuestions(data.questions);
       setQuestions(formattedQuestions);
+      
       addLog(`Created ${formattedQuestions.length} questions from the API response`);
       
       if (data.debug) {
@@ -269,85 +390,13 @@ export const useQuiz = (
           addLog(`Terms found in content: ${data.debug.extractedTerms.length}`);
         }
       }
+      
+      return formattedQuestions;
     } else {
       setQuizError('Geen vragen konden worden gegenereerd. Controleer of er content beschikbaar is voor dit boek/hoofdstuk.');
       addLog(`Failed to generate questions: Invalid response format or no questions returned`);
       console.error('Invalid response format or no questions:', data);
-    }
-  };
-
-  const generateQuizForParagraph = async (paragraphId: number, paragraphContent?: string, paragraphNumber?: number) => {
-    if (!bookId || !chapterId) {
-      setQuizError('Boek of hoofdstuk informatie ontbreekt');
-      return;
-    }
-    
-    try {
-      setIsGenerating(true);
-      setQuizError(null);
-      setQuestions([]);
-      setCurrentQuestionIndex(0);
-      setSelectedAnswer(null);
-      setIsAnswerSubmitted(false);
-      setScore(0);
-      setIsQuizComplete(false);
-      
-      setParagraphId(paragraphId);
-      
-      addLog(`Generating quiz questions for paragraph ${paragraphId}`);
-      
-      // Pass all relevant IDs
-      const payload = { 
-        bookId: bookId,
-        chapterId: chapterId,
-        paragraphId: paragraphId,
-        count: 5,
-        debug: true 
-      };
-      
-      // Log the payload to help debug
-      console.log('Generate quiz payload:', payload);
-      addLog(`Paragraph quiz payload: ${JSON.stringify(payload)}`);
-      
-      // First try using the generate-sales-question function
-      const { data, error } = await supabase.functions.invoke('generate-sales-question', {
-        body: payload
-      });
-      
-      if (error) {
-        console.error('Error calling generate-sales-question for paragraph:', error);
-        addLog(`Error with generate-sales-question for paragraph: ${error.message}`);
-        
-        // Fallback to generate-quiz function
-        addLog('Trying fallback to generate-quiz function for paragraph');
-        const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke('generate-quiz', {
-          body: payload
-        });
-        
-        if (fallbackError) {
-          console.error('Error with fallback generate-quiz for paragraph:', fallbackError);
-          setQuizError(`Er is een fout opgetreden: ${fallbackError.message}`);
-          addLog(`Fallback error for paragraph: ${fallbackError.message}`);
-          return;
-        }
-        
-        if (fallbackData) {
-          processQuizResponse(fallbackData);
-          return;
-        }
-        
-        setQuizError(`Er is een fout opgetreden: ${error.message}`);
-        return;
-      }
-      
-      if (data) {
-        processQuizResponse(data);
-      }
-    } catch (err) {
-      console.error('Error in generateQuizForParagraph:', err);
-      setQuizError(`Er is een onverwachte fout opgetreden: ${err instanceof Error ? err.message : 'Onbekende fout'}`);
-    } finally {
-      setIsGenerating(false);
+      return [];
     }
   };
 
@@ -415,8 +464,8 @@ export const useQuiz = (
     setIsQuizComplete(false);
     setShowExplanation(false);
     setQuizError(null);
+    setBatchProgress(null);
     
-    // Remove from localStorage using consistent key format
     if (bookId) {
       const stateKey = `quizState_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}`;
       localStorage.removeItem(stateKey);
@@ -439,6 +488,8 @@ export const useQuiz = (
     chapterId,
     paragraphId,
     debugData,
+    batchProgress,
+    allQuestions,
     setBookId,
     setChapterId,
     setParagraphId,

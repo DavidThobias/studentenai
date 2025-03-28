@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, Bug, Terminal, Code, Braces } from "lucide-react";
+import { Eye, EyeOff, Bug, Terminal, Code, Braces, Database, Clock } from "lucide-react";
 
 interface QuizDebugProps {
   stateLog: string[];
@@ -16,6 +16,7 @@ interface QuizDebugProps {
       requestedMaxTokens?: number;
     };
     extractedTerms?: string[];
+    batchTerms?: string[];
   };
   bookId: number | null;
   chapterId: number | null;
@@ -25,6 +26,13 @@ interface QuizDebugProps {
   currentQuestionIndex: number;
   isGenerating: boolean;
   paragraphsCount: number;
+  batchProgress?: {
+    currentBatch: number;
+    totalBatches: number;
+    processedTerms: number;
+    totalTerms: number;
+    startTime?: number;
+  };
 }
 
 const QuizDebug = ({
@@ -37,7 +45,8 @@ const QuizDebug = ({
   questionsCount,
   currentQuestionIndex,
   isGenerating,
-  paragraphsCount
+  paragraphsCount,
+  batchProgress
 }: QuizDebugProps) => {
   const [showDebug, setShowDebug] = useState(false);
   const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
@@ -52,6 +61,32 @@ const QuizDebug = ({
 
   const toggleDebug = () => {
     setShowDebug(!showDebug);
+  };
+
+  // Calculate elapsed time if we have batch progress with start time
+  const getElapsedTime = () => {
+    if (!batchProgress?.startTime) return null;
+    
+    const elapsedMs = Date.now() - batchProgress.startTime;
+    const seconds = Math.floor(elapsedMs / 1000);
+    const minutes = Math.floor(seconds / 60);
+    
+    return `${minutes}m ${seconds % 60}s`;
+  };
+
+  // Estimate remaining time based on current progress
+  const getEstimatedRemainingTime = () => {
+    if (!batchProgress?.startTime || batchProgress.processedTerms === 0) return null;
+    
+    const elapsedMs = Date.now() - batchProgress.startTime;
+    const msPerTerm = elapsedMs / batchProgress.processedTerms;
+    const remainingTerms = batchProgress.totalTerms - batchProgress.processedTerms;
+    const estimatedRemainingMs = msPerTerm * remainingTerms;
+    
+    const seconds = Math.floor(estimatedRemainingMs / 1000);
+    const minutes = Math.floor(seconds / 60);
+    
+    return `~${minutes}m ${seconds % 60}s`;
   };
 
   return (
@@ -111,16 +146,60 @@ const QuizDebug = ({
             </div>
           </div>
           
+          {/* Batch Progress Information */}
+          {batchProgress && (
+            <div className="mb-4 border rounded-md p-3 bg-amber-50">
+              <h4 className="font-semibold flex items-center text-amber-700">
+                <Database className="mr-1 h-3 w-3" /> 
+                Batch Processing Information
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                <div className="bg-amber-100 p-2 rounded-md text-amber-800">
+                  <span className="font-semibold">Current Batch:</span> {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}
+                </div>
+                <div className="bg-amber-100 p-2 rounded-md text-amber-800">
+                  <span className="font-semibold">Terms Processed:</span> {batchProgress.processedTerms}/{batchProgress.totalTerms}
+                </div>
+                {batchProgress.startTime && (
+                  <div className="bg-amber-100 p-2 rounded-md text-amber-800 flex items-center">
+                    <Clock className="mr-1 h-3 w-3" />
+                    <span className="font-semibold">Elapsed:</span> {getElapsedTime()}
+                  </div>
+                )}
+                {batchProgress.startTime && batchProgress.processedTerms > 0 && (
+                  <div className="bg-amber-100 p-2 rounded-md text-amber-800">
+                    <span className="font-semibold">Est. Remaining:</span> {getEstimatedRemainingTime()}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
           {/* Extracted Terms */}
           {debugData.extractedTerms && debugData.extractedTerms.length > 0 && (
             <div className="mb-4">
               <h4 className="font-semibold mb-1 flex items-center">
                 <Code className="mr-1 h-3 w-3" /> 
-                Extracted Terms ({debugData.extractedTerms.length})
+                All Terms ({debugData.extractedTerms.length})
               </h4>
               <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-2 bg-white border rounded">
                 {debugData.extractedTerms.map((term, index) => (
                   <Badge key={index} variant="outline" className="text-xs">{term}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Current Batch Terms */}
+          {debugData.batchTerms && debugData.batchTerms.length > 0 && (
+            <div className="mb-4">
+              <h4 className="font-semibold mb-1 flex items-center">
+                <Code className="mr-1 h-3 w-3" /> 
+                Current Batch Terms ({debugData.batchTerms.length})
+              </h4>
+              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-2 bg-white border border-amber-200 rounded bg-amber-50">
+                {debugData.batchTerms.map((term, index) => (
+                  <Badge key={index} variant="outline" className="text-xs bg-amber-100 border-amber-300">{term}</Badge>
                 ))}
               </div>
             </div>

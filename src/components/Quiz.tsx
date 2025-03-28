@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import QuizLoading from "./quiz/QuizLoading";
 
 export interface QuizQuestion {
   question: string;
@@ -33,6 +33,12 @@ interface QuizProps {
   handleSubmitAnswer: () => void;
   handleNextQuestion: () => void;
   restartQuiz: () => void;
+  batchProgress?: {
+    currentBatch: number;
+    totalBatches: number;
+    processedTerms: number;
+    totalTerms: number;
+  };
 }
 
 const Quiz = ({ 
@@ -50,7 +56,8 @@ const Quiz = ({
   handleAnswerSelect,
   handleSubmitAnswer,
   handleNextQuestion,
-  restartQuiz
+  restartQuiz,
+  batchProgress
 }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(false);
   
@@ -82,6 +89,17 @@ const Quiz = ({
   };
 
   const renderLoadingContent = () => {
+    if (batchProgress) {
+      return (
+        <QuizLoading 
+          currentBatch={batchProgress.currentBatch}
+          totalBatches={batchProgress.totalBatches}
+          processedTerms={batchProgress.processedTerms}
+          totalTerms={batchProgress.totalTerms}
+        />
+      );
+    }
+    
     return (
       <div className="flex flex-col items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
@@ -287,7 +305,8 @@ const Quiz = ({
       questionsCount: questions?.length || 0,
       currentQuestionIndex,
       isQuizComplete,
-      sheetOpen
+      sheetOpen,
+      batchProgress
     });
     
     if (isGenerating) {
@@ -341,7 +360,10 @@ const Quiz = ({
              title}
           </SheetTitle>
           <SheetDescription>
-            {isGenerating ? "Even geduld terwijl we je quiz voorbereiden." :
+            {isGenerating ? 
+              batchProgress ? 
+                `Bezig met genereren van vragen (Batch ${batchProgress.currentBatch + 1}/${batchProgress.totalBatches})` :
+                "Even geduld terwijl we je quiz voorbereiden." :
              error ? "Er is een probleem opgetreden bij het genereren van de quiz." :
              isQuizComplete ? "Bekijk hieronder je resultaten" :
              questions.length > 0 ? 
@@ -360,6 +382,12 @@ const Quiz = ({
               <div>Debug: isQuizComplete: {String(isQuizComplete)}</div>
               <div>Debug: sheetOpen: {String(sheetOpen)}</div>
               <div>Debug: parent open: {String(open)}</div>
+              {batchProgress && (
+                <>
+                  <div>Debug: batch: {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}</div>
+                  <div>Debug: terms: {batchProgress.processedTerms}/{batchProgress.totalTerms}</div>
+                </>
+              )}
             </div>
           )}
           {renderContent()}

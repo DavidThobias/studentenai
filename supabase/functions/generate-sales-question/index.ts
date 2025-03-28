@@ -21,6 +21,15 @@ function extractBoldedTerms(content: string): string[] {
     .filter(term => term.length > 0);
 }
 
+// Split an array into chunks of a specified size
+function chunkArray<T>(array: T[], chunkSize: number): T[][] {
+  const chunks = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -36,26 +45,30 @@ serve(async (req) => {
     // Parse request body
     const requestData = await req.json();
     const { 
-      count = 0, // Setting count to 0 means no limit - we'll generate questions for all bolded terms
       bookId,
       chapterId,
       paragraphId,
+      batchSize = 5, // Default batch size of 5 terms
+      batchIndex = 0, // Which batch to process (0-based index)
       debug = false,
-      showProcessDetails = false // New parameter to control streaming process details
+      showProcessDetails = false // Parameter to control streaming process details
     } = requestData;
     
     console.log(`Generating sales questions with context:`, {
       bookId: bookId || 'not specified',
       chapterId: chapterId || 'not specified',
       paragraphId: paragraphId || 'not specified',
-      requestedCount: count
+      batchSize,
+      batchIndex
     });
     
     // Fetch book content if bookId is provided
     let bookContent = "";
     let bookTitle = "";
     let contextDescription = "";
-    let boldedTerms: string[] = [];
+    let allBoldedTerms: string[] = [];
+    let totalBatches = 0;
+    let boldedTermsToProcess: string[] = [];
     
     if (bookId) {
       // Create Supabase client to fetch book content
@@ -101,7 +114,7 @@ serve(async (req) => {
         contextDescription = `hoofdstuk ${chapterId} van ${contextDescription}`;
       }
       
-      // IMPORTANT FIX: If paragraphId is specified, we need to query by ID, not by paragraph_number
+      // If paragraphId is specified, query by ID, not by paragraph_number
       let paragraphs;
       let paragraphsError;
       
@@ -166,20 +179,48 @@ serve(async (req) => {
     }
     
     // Extract bolded terms from the content
-    boldedTerms = extractBoldedTerms(bookContent);
-    console.log(`Extracted ${boldedTerms.length} bolded terms from content`);
+    allBoldedTerms = extractBoldedTerms(bookContent);
+    console.log(`Extracted ${allBoldedTerms.length} bolded terms from content`);
     
     // Check if we extracted a reasonable number of terms
-    if (boldedTerms.length > 30) {
-      console.log(`Warning: Large number of bolded terms (${boldedTerms.length}), performance may be affected`);
+    if (allBoldedTerms.length > 30) {
+      console.log(`Processing large number of bolded terms (${allBoldedTerms.length}) in batches`);
     }
+    
+    // Process terms in batches
+    const termBatches = chunkArray(allBoldedTerms, batchSize);
+    totalBatches = termBatches.length;
+    
+    // Get the terms for the requested batch
+    boldedTermsToProcess = termBatches[batchIndex] || [];
+    
+    if (boldedTermsToProcess.length === 0) {
+      console.log(`No terms found for batch ${batchIndex}. Total batches: ${totalBatches}`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          questions: [],
+          metadata: {
+            batchIndex,
+            totalBatches,
+            totalTerms: allBoldedTerms.length,
+            processedTerms: 0,
+            batchSize,
+            isLastBatch: batchIndex >= totalBatches - 1
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log(`Processing batch ${batchIndex + 1}/${totalBatches} with ${boldedTermsToProcess.length} terms`);
     
     // Updated system prompt with more educational focus
     const systemPrompt = `Je bent een AI gespecialiseerd in het genereren van educatieve meerkeuzevragen om gebruikers volledig inzicht te geven in sales en marketing concepten. 
     Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen.
     Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.`;
     
-    // Completely revised user prompt based on user's analysis
+    // Revised user prompt
     const userPrompt = `
     Invoer:
     ${bookTitle ? `Boektitel: ${bookTitle}\n` : ''}
@@ -187,10 +228,10 @@ serve(async (req) => {
     
     Inhoud: ${bookContent}
     
-    Genereer een uitgebreide set vragen op basis van de meegeleverde tekst. Identificeer alle gemarkeerde kernbegrippen (aangeduid met ** ** ) en maak voor elk begrip minimaal één vraag. Zorg ervoor dat de vragen zowel kennis als begrip en toepassing testen, en niet alleen maar feiten reproduceren.
+    Genereer een uitgebreide set vragen over de volgende specifieke begrippen uit de tekst.
     
     Vereisten voor de vragen:
-    1. Volledige dekking: Identificeer en verwerk ALLE gemarkeerde begrippen (** ** ), zonder limiet aan het aantal vragen. 
+    1. Maak voor ELK van deze termen minimaal één vraag: ${boldedTermsToProcess.join(', ')}
     2. HBO-niveau: Maak uitdagende vragen die begrip en toepassing testen, niet alleen feitenkennis.
     3. Variatie in vraagtypen:
        - Kennisvragen: "Wat betekent [begrip]?"
@@ -201,8 +242,7 @@ serve(async (req) => {
     5. Opties: Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
     6. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
     
-    Zorg dat je zeker een vraag maakt voor elk van deze gemarkeerde begrippen:
-    ${boldedTerms.join(', ')}
+    Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
     
     Retourneer de vragen in een JSON array met de volgende structuur:
     [
@@ -217,7 +257,7 @@ serve(async (req) => {
     
     Belangrijk:
     - Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
-    - Beperk het aantal vragen NIET; genereer zoveel vragen als nodig om alle gemarkeerde begrippen (** ** ) te dekken.
+    - Maak alleen vragen voor de specifiek genoemde begrippen in deze batch.
     - Zorg dat elke vraag nauwkeurig past bij het niveau en de context van het lesmateriaal.
     - Gebruik de begrippen zoals ze zijn gedefinieerd in de tekst, maar formuleer de vragen in je eigen woorden.`;
     
@@ -225,14 +265,13 @@ serve(async (req) => {
     const estimatedPromptTokens = (systemPrompt.length + userPrompt.length) / 4;
     console.log(`Estimated prompt tokens: ${Math.ceil(estimatedPromptTokens)}`);
     
-    // Dynamically adjust max tokens based on content size
-    const numberOfTerms = boldedTerms.length;
+    // Dynamically adjust max tokens based on batch size
     // Base token count + additional tokens per term
-    const requiredTokens = 2000 + (numberOfTerms * 300);
+    const requiredTokens = 1000 + (boldedTermsToProcess.length * 500);
     // Cap at OpenAI's max limit for gpt-4o
-    const maxTokens = Math.min(requiredTokens, 8000);
+    const maxTokens = Math.min(requiredTokens, 4000);
     
-    console.log(`Using max_tokens: ${maxTokens} for ${numberOfTerms} terms`);
+    console.log(`Using max_tokens: ${maxTokens} for batch of ${boldedTermsToProcess.length} terms`);
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -306,7 +345,7 @@ serve(async (req) => {
       throw new Error('No questions were generated');
     }
     
-    console.log(`Generated ${questions.length} questions for ${boldedTerms.length} bolded terms`);
+    console.log(`Generated ${questions.length} questions for batch of ${boldedTermsToProcess.length} terms`);
     
     // Validate and format each question
     questions = questions.filter(q => {
@@ -330,13 +369,21 @@ serve(async (req) => {
     const responseObj: any = {
       success: true,
       questions: questions,
+      metadata: {
+        batchIndex,
+        totalBatches,
+        totalTerms: allBoldedTerms.length,
+        processedTerms: boldedTermsToProcess.length,
+        batchSize,
+        isLastBatch: batchIndex >= totalBatches - 1
+      },
       context: {
         bookId,
         chapterId,
         paragraphId,
         bookTitle,
         contextDescription,
-        boldedTermsCount: boldedTerms.length
+        boldedTermsCount: allBoldedTerms.length
       }
     };
     
@@ -345,7 +392,8 @@ serve(async (req) => {
       responseObj.debug = {
         prompt: userPrompt,
         response: data.choices[0].message,
-        extractedTerms: boldedTerms,
+        extractedTerms: allBoldedTerms,
+        batchTerms: boldedTermsToProcess,
         tokenEstimates: {
           promptTokens: Math.ceil(estimatedPromptTokens),
           requestedMaxTokens: maxTokens
