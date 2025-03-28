@@ -1,0 +1,6 @@
+
+project_id = "ncipejuazrewiizxtkcj"
+[global.env]
+OPENAI_API_KEY = "{{env.OPENAI_API_KEY}}"
+SUPABASE_URL = "{{env.SUPABASE_URL}}"
+SUPABASE_SERVICE_ROLE_KEY = "{{env.SUPABASE_SERVICE_ROLE_KEY}}"

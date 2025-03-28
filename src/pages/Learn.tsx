@@ -1,58 +1,93 @@
-
 import { useState } from 'react';
-import { BarChart, BookOpen, ChevronRight } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useNavigate } from 'react-router-dom';
+import { Book, FileText } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import FileUploadCard from '@/components/FileUploadCard';
+import UploadSuccessCard from '@/components/UploadSuccessCard';
+import QuizResultsAccordion from '@/components/QuizResultsAccordion';
 import UserDashboard from '@/components/UserDashboard';
+import PdfExtractor from '@/components/PdfExtractor';
 
 const Learn = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
-
+  const navigate = useNavigate();
+  const [documentId, setDocumentId] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  
+  const handleFileUploaded = (newDocumentId: string, newFileName: string) => {
+    setDocumentId(newDocumentId);
+    setFileName(newFileName);
+  };
+  
   return (
-    <div className="container mx-auto py-10 px-4">
-      <h1 className="text-3xl font-bold mb-6">Mijn leerplatform</h1>
-      
-      <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-2 w-full max-w-md mb-8">
-          <TabsTrigger value="dashboard" className="flex items-center gap-2">
-            <BarChart className="h-4 w-4" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </TabsTrigger>
-          <TabsTrigger value="books" className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            <span className="hidden sm:inline">Studiemateriaal</span>
-          </TabsTrigger>
-        </TabsList>
+    <div className="min-h-screen bg-background pt-28 pb-20 px-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Leren</h1>
+          <p className="text-muted-foreground">
+            Upload je studiemateriaal, genereer quizzen en verbeter je resultaten
+          </p>
+        </div>
         
-        <TabsContent value="dashboard">
-          <UserDashboard />
-        </TabsContent>
-        
-        <TabsContent value="books">
-          <Card>
-            <CardHeader>
-              <CardTitle>Mijn studiemateriaal</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-4">
-                Bekijk hier al je studiemateriaal en voortgang per boek.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card className="flex justify-between items-center p-4 hover:bg-gray-50 cursor-pointer">
-                  <div className="flex items-center">
-                    <BookOpen className="h-5 w-5 text-study-600 mr-2" />
-                    <div>
-                      <p className="font-medium">Bekijk alle boeken</p>
-                      <p className="text-sm text-muted-foreground">Toegang tot het complete studiemateriaal</p>
-                    </div>
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="md:col-span-2 space-y-8">
+            <UserDashboard />
+            
+            <Tabs defaultValue="upload" className="w-full">
+              <TabsList>
+                <TabsTrigger value="upload">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Studiemateriaal upload
+                </TabsTrigger>
+                <TabsTrigger value="results">
+                  <Book className="h-4 w-4 mr-2" />
+                  Mijn resultaten
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="upload" className="mt-6">
+                {documentId ? (
+                  <UploadSuccessCard
+                    documentId={documentId}
+                    fileName={fileName || ''}
+                    onReset={() => {
+                      setDocumentId(null);
+                      setFileName(null);
+                    }}
+                    onGenerateQuiz={() => navigate(`/quiz-generator?documentId=${documentId}`)}
+                  />
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <FileUploadCard onFileUploaded={handleFileUploaded} />
+                    <PdfExtractor />
                   </div>
-                  <ChevronRight className="h-4 w-4" />
+                )}
+              </TabsContent>
+              
+              <TabsContent value="results" className="mt-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Book className="h-5 w-5 text-primary mr-2" />
+                      Mijn quiz resultaten
+                    </CardTitle>
+                    <CardDescription>
+                      Bekijk je voortgang en behaalde resultaten per hoofdstuk en paragraaf
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <QuizResultsAccordion />
+                  </CardContent>
                 </Card>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              </TabsContent>
+            </Tabs>
+          </div>
+          
+          <div className="md:col-span-1">
+            
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
