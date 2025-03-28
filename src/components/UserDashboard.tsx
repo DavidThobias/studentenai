@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -6,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/context/AuthContext';
 import { Link } from 'react-router-dom';
 import { formatRelativeDate } from '@/lib/utils';
+import QuizResultsAccordion from './QuizResultsAccordion';
 
 interface RecentMaterial {
   id: string;
@@ -204,7 +206,7 @@ const UserDashboard = () => {
       
       <Card className="col-span-full">
         <CardHeader>
-          <CardTitle>Recent Studiemateriaal</CardTitle>
+          <CardTitle>Recente Activiteiten</CardTitle>
           <CardDescription>
             Bekijk je recent bekeken studiemateriaal
           </CardDescription>
@@ -259,6 +261,18 @@ const UserDashboard = () => {
               </Link>
             </div>
           )}
+        </CardContent>
+      </Card>
+      
+      <Card className="col-span-full">
+        <CardHeader>
+          <CardTitle>Quiz Resultaten</CardTitle>
+          <CardDescription>
+            Bekijk je resultaten per hoofdstuk en paragraaf
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <QuizResultsAccordion />
         </CardContent>
       </Card>
     </div>
