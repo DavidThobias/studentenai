@@ -9,6 +9,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to extract all bolded terms from content
+function extractBoldedTerms(content: string): string[] {
+  const boldPattern = /\*\*(.*?)\*\*/g;
+  const terms: string[] = [];
+  let match;
+  
+  while ((match = boldPattern.exec(content)) !== null) {
+    // Add the captured term (the text between ** and **)
+    if (match[1] && match[1].trim() !== '') {
+      terms.push(match[1].trim());
+    }
+  }
+  
+  // Return unique terms only
+  return [...new Set(terms)];
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -150,6 +167,10 @@ serve(async (req) => {
       }
     }
     
+    // Extract all bolded terms from content
+    const boldedTerms = extractBoldedTerms(bookContent);
+    console.log(`Extracted ${boldedTerms.length} bolded terms from content`);
+    
     // Updated system prompt with more educational focus
     const systemPrompt = `Je bent een AI gespecialiseerd in het genereren van educatieve meerkeuzevragen om gebruikers volledig inzicht te geven in sales en marketing concepten. 
     Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen.
@@ -176,6 +197,9 @@ serve(async (req) => {
     4. Geen letterlijke kopie: Gebruik de tekst als context, maar neem geen zinnen letterlijk over.
     5. Opties: Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
     6. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
+    
+    Zorg dat je zeker een vraag maakt voor elk van deze gemarkeerde begrippen:
+    ${boldedTerms.join(', ')}
     
     Retourneer de vragen in een JSON array met de volgende structuur:
     [
@@ -213,7 +237,7 @@ serve(async (req) => {
           }
         ],
         temperature: 0.7,
-        max_tokens: 3000, // Increased max tokens to accommodate for more detailed responses
+        max_tokens: 4000, // Increased max tokens to accommodate for more detailed responses with many questions
       }),
     });
 
@@ -299,7 +323,8 @@ serve(async (req) => {
     if (debug) {
       responseObj.debug = {
         prompt: userPrompt,
-        response: data.choices[0].message
+        response: data.choices[0].message,
+        boldedTerms: boldedTerms
       };
     }
 
