@@ -59,7 +59,7 @@ const Quiz = ({
   restartQuiz,
   batchProgress
 }: QuizProps) => {
-  const [showExplanation, setShowExplanation] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(true);
   
   const [sheetOpen, setSheetOpen] = useState(open);
   
@@ -73,7 +73,7 @@ const Quiz = ({
 
   useEffect(() => {
     if (isAnswerSubmitted) {
-      setShowExplanation(false);
+      setShowExplanation(true);
     }
   }, [currentQuestionIndex, isAnswerSubmitted]);
 
@@ -81,11 +81,6 @@ const Quiz = ({
     console.log('Explicitly closing quiz via handler');
     setSheetOpen(false);
     onClose();
-  };
-
-  const handleToggleExplanation = () => {
-    console.log(`${showExplanation ? 'Hiding' : 'Showing'} explanation`);
-    setShowExplanation(!showExplanation);
   };
 
   const renderLoadingContent = () => {
@@ -223,7 +218,7 @@ const Quiz = ({
           >
             {currentQuestion.options.map((option, index) => (
               <div
-                key={index}
+                key={`question-${currentQuestionIndex}-option-${index}`}
                 className={`flex items-center space-x-2 rounded-lg border p-4 ${
                   isAnswerSubmitted
                     ? index === currentQuestion.correctAnswer
@@ -234,8 +229,8 @@ const Quiz = ({
                     : 'hover:border-primary'
                 }`}
               >
-                <RadioGroupItem value={index.toString()} id={`option-${index}`} />
-                <Label htmlFor={`option-${index}`} className="flex-grow cursor-pointer">
+                <RadioGroupItem value={index.toString()} id={`option-${currentQuestionIndex}-${index}`} />
+                <Label htmlFor={`option-${currentQuestionIndex}-${index}`} className="flex-grow cursor-pointer">
                   {option}
                 </Label>
                 {isAnswerSubmitted && (
@@ -251,7 +246,7 @@ const Quiz = ({
             ))}
           </RadioGroup>
 
-          {isAnswerSubmitted && showExplanation && (
+          {isAnswerSubmitted && (
             <Alert className="mt-4">
               <HelpCircle className="h-4 w-4" />
               <AlertTitle>Uitleg</AlertTitle>
@@ -263,14 +258,6 @@ const Quiz = ({
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0">
           <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleToggleExplanation}
-              disabled={!isAnswerSubmitted}
-            >
-              {showExplanation ? 'Verberg uitleg' : 'Toon uitleg'}
-            </Button>
           </div>
           <div className="flex items-center space-x-2">
             {!isAnswerSubmitted ? (

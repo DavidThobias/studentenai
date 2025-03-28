@@ -1,4 +1,3 @@
-
 // @deno-types="https://deno.land/x/xhr@0.1.0/mod.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -215,9 +214,12 @@ serve(async (req) => {
     
     console.log(`Processing batch ${batchIndex + 1}/${totalBatches} with ${boldedTermsToProcess.length} terms`);
     
-    // Updated system prompt with more educational focus
+    // Updated system prompt with more educational focus and balanced answer distribution
     const systemPrompt = `Je bent een AI gespecialiseerd in het genereren van educatieve meerkeuzevragen om gebruikers volledig inzicht te geven in sales en marketing concepten. 
     Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen.
+    
+    BELANGRIJK: Zorg voor een evenwichtige verdeling van juiste antwoorden - ongeveer 25% A, 25% B, 25% C en 25% D. Wissel de correcte antwoorden door elkaar zodat er geen voorspelbaar patroon is, maar houd de distributie zo gelijk mogelijk.
+    
     Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.`;
     
     // Revised user prompt
@@ -240,7 +242,8 @@ serve(async (req) => {
        - Scenariovragen: "Een bedrijf heeft te maken met [situatie]. Welk [begrip] is hier van toepassing?"
     4. Geen letterlijke kopie: Gebruik de tekst als context, maar neem geen zinnen letterlijk over.
     5. Opties: Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
-    6. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
+    6. Evenwichtige verdeling: Zorg voor een gelijke verdeling van correcte antwoorden (A, B, C, D) over alle vragen.
+    7. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
     
     Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
     
@@ -259,7 +262,8 @@ serve(async (req) => {
     - Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
     - Maak alleen vragen voor de specifiek genoemde begrippen in deze batch.
     - Zorg dat elke vraag nauwkeurig past bij het niveau en de context van het lesmateriaal.
-    - Gebruik de begrippen zoals ze zijn gedefinieerd in de tekst, maar formuleer de vragen in je eigen woorden.`;
+    - Gebruik de begrippen zoals ze zijn gedefinieerd in de tekst, maar formuleer de vragen in je eigen woorden.
+    - Verdeel de juiste antwoorden (A, B, C, D) gelijkmatig over alle vragen.`;
     
     // Calculate estimated token count to help debug potential OpenAI token limit issues
     const estimatedPromptTokens = (systemPrompt.length + userPrompt.length) / 4;

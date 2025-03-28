@@ -415,6 +415,7 @@ export const useQuiz = (
 
     addLog(`Submitting answer: ${selectedAnswer}`);
     setIsAnswerSubmitted(true);
+    setShowExplanation(true);
     
     if (questions.length > 0) {
       const currentQuestion = questions[currentQuestionIndex];

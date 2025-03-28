@@ -45,7 +45,7 @@ const QuizQuestionComponent = ({
   onToggleExplanation,
   onToggleParagraphContent
 }: QuizQuestionProps) => {
-  // Reset focus on radio buttons when moving to new question
+  // Reset focus on radio buttons when moving to next question
   useEffect(() => {
     // When the question changes or when the answer is reset, clear any active focus
     const activeElement = document.activeElement as HTMLElement;
@@ -136,7 +136,7 @@ const QuizQuestionComponent = ({
           ))}
         </RadioGroup>
 
-        {isAnswerSubmitted && showExplanation && (
+        {isAnswerSubmitted && (
           <Alert className="mt-4">
             <HelpCircle className="h-4 w-4" />
             <AlertTitle>Uitleg</AlertTitle>
@@ -158,14 +158,6 @@ const QuizQuestionComponent = ({
               Toon paragraaf
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onToggleExplanation}
-            disabled={!isAnswerSubmitted}
-          >
-            {showExplanation ? 'Verberg uitleg' : 'Toon uitleg'}
-          </Button>
         </div>
         <div className="flex items-center space-x-2">
           {!isAnswerSubmitted ? (
