@@ -56,7 +56,9 @@ const QuizStudyMode = ({
         <CardContent className="p-6">
           <div className="prose prose-sm sm:prose-base max-w-none study-content">
             {formattedContent ? (
-              <ReactMarkdown className="react-markdown-content">{formattedContent}</ReactMarkdown>
+              <div className="react-markdown-content">
+                <ReactMarkdown>{formattedContent}</ReactMarkdown>
+              </div>
             ) : (
               <p className="text-muted-foreground">Geen inhoud beschikbaar voor deze paragraaf.</p>
             )}

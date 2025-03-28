@@ -85,7 +85,9 @@ const QuizQuestionComponent = ({
           <div className="mb-6 p-4 bg-gray-50 rounded-md border">
             <h3 className="font-medium mb-2">Paragraaf inhoud:</h3>
             <div className="text-sm study-content overflow-y-auto max-h-60">
-              <ReactMarkdown className="react-markdown-content">{formattedParagraphContent}</ReactMarkdown>
+              <div className="react-markdown-content">
+                <ReactMarkdown>{formattedParagraphContent}</ReactMarkdown>
+              </div>
             </div>
             <Button 
               variant="outline"
