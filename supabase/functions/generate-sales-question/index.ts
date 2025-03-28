@@ -155,7 +155,7 @@ serve(async (req) => {
     Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen.
     Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.`;
     
-    // Updated user prompt to emphasize comprehensive coverage without specific numbers
+    // Completely revised user prompt based on user's analysis
     const userPrompt = `
     Invoer:
     ${bookTitle ? `Boektitel: ${bookTitle}\n` : ''}
@@ -163,14 +163,19 @@ serve(async (req) => {
     
     Inhoud: ${bookContent}
     
+    Genereer een uitgebreide set vragen op basis van de meegeleverde tekst. Identificeer alle gemarkeerde kernbegrippen (aangeduid met ** ** ) en maak voor elk begrip minimaal één vraag. Zorg ervoor dat de vragen zowel kennis als begrip en toepassing testen, en niet alleen maar feiten reproduceren.
+    
     Vereisten voor de vragen:
-    1. Uitgebreide dekking: Zorg ervoor dat ALLE concepten, subconcepten en details uit de tekst worden behandeld. Genereer zoveel vragen als nodig om de stof volledig te dekken, zonder limiet. Maak veel vragen die samen alle aspecten van de stof behandelen.
-    2. Relevantie: De vragen moeten relevant zijn voor het onderwerp sales${bookContent ? ` en specifiek gaan over de inhoud van ${contextDescription}` : ''}
-    3. Diepgang: De vragen moeten zowel feitelijke kennis als begrip testen (bijv. onderscheid tussen concepten, praktische toepassingen).
-    4. Scenario-gebaseerde vragen: Enkele vragen moeten de stof in een realistische context plaatsen.
-    5. Geen letterlijke kopie: De vragen moeten de stof testen zonder exacte zinnen uit de tekst over te nemen.
-    6. Opties: Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
-    7. Uitgebreide uitleg: Naast het juiste antwoord moet ook worden uitgelegd waarom dit correct is en waarom de andere opties fout zijn.
+    1. Volledige dekking: Identificeer en verwerk ALLE gemarkeerde begrippen (** ** ), zonder limiet aan het aantal vragen. 
+    2. HBO-niveau: Maak uitdagende vragen die begrip en toepassing testen, niet alleen feitenkennis.
+    3. Variatie in vraagtypen:
+       - Kennisvragen: "Wat betekent [begrip]?"
+       - Vergelijkingsvragen: "Wat is het verschil tussen [begrip A] en [begrip B]?"
+       - Toepassingsvragen: "In welke situatie zou je [begrip] toepassen?"
+       - Scenariovragen: "Een bedrijf heeft te maken met [situatie]. Welk [begrip] is hier van toepassing?"
+    4. Geen letterlijke kopie: Gebruik de tekst als context, maar neem geen zinnen letterlijk over.
+    5. Opties: Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
+    6. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
     
     Retourneer de vragen in een JSON array met de volgende structuur:
     [
@@ -185,9 +190,9 @@ serve(async (req) => {
     
     Belangrijk:
     - Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
-    - Behandel elk concept, elke term en elk detail uit de tekst in de vragen.
-    - De uitleg moet helder en bondig zijn, en aangeven waarom het juiste antwoord correct is en waarom de andere opties fout zijn.
-    - Scenario's en denkvragen toevoegen voor een diepgaand begrip.`;
+    - Beperk het aantal vragen NIET; genereer zoveel vragen als nodig om alle gemarkeerde begrippen (** ** ) te dekken.
+    - Zorg dat elke vraag nauwkeurig past bij het niveau en de context van het lesmateriaal.
+    - Gebruik de begrippen zoals ze zijn gedefinieerd in de tekst, maar formuleer de vragen in je eigen woorden.`;
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
