@@ -1,4 +1,3 @@
-
 // @deno-types="https://deno.land/x/xhr@0.1.0/mod.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -49,7 +48,7 @@ serve(async (req) => {
   }
 
   try {
-    const { count = 1, bookId, paragraphId, debug = false } = await req.json();
+    const { count = 1, bookId, debug = false } = await req.json();
     
     // Reset distribution if needed
     resetDistributionIfNeeded();
@@ -63,8 +62,8 @@ serve(async (req) => {
     
     for (let i = 0; i < count; i++) {
       const systemPrompt = `
-You are an expert in creating multiple-choice questions about sales and marketing. 
-Create challenging but fair multiple-choice questions based on sales and marketing knowledge.
+You are an expert in creating multiple-choice questions about sales. 
+Create challenging but fair multiple-choice questions based on sales knowledge.
 
 Important requirements:
 1. Each question must have exactly 4 options labeled A, B, C, and D.
@@ -75,8 +74,6 @@ Important requirements:
 6. Present questions in JSON format with these fields: question, options, correct, explanation.
 7. Focus on conceptual understanding rather than simple recall.
 8. Questions should be challenging but fair, requiring critical thinking.
-9. If the question is about a definition, ensure the correct answer accurately reflects the term's meaning.
-10. For questions that involve processes or steps, ensure options are clearly distinct from each other.
       
 Example format:
 {
@@ -91,15 +88,9 @@ Example format:
   "explanation": "Need discovery aims to understand the customer's specific requirements, challenges, and pain points before proposing solutions. This ensures the salesperson can tailor their approach to address actual customer needs rather than just presenting features."
 }`;
 
-      // Customize the user prompt based on provided parameters
-      let userPrompt = "";
-      if (bookId && paragraphId) {
-        userPrompt = `Create a challenging but fair multiple-choice question about sales and marketing based on the content from the textbook chapter focusing on terms like marketingplanning, strategie, planning, verkoopdoelstellingen, and segmentatiestrategie. The question should test deep understanding rather than simple facts.`;
-      } else if (bookId) {
-        userPrompt = `Create a challenging but fair multiple-choice question about sales and marketing concepts from a textbook. Focus on topics like marketing planning, strategy, segmentation, sales objectives, or sales tactics. The question should test understanding of key concepts.`;
-      } else {
-        userPrompt = `Create a challenging but fair multiple-choice question about sales concepts, strategies or marketing techniques. The question should test deep understanding rather than simple facts.`;
-      }
+      const userPrompt = bookId 
+        ? `Create a challenging but fair multiple-choice question about sales based on a Sales textbook. The question should test deep understanding rather than simple facts.`
+        : `Create a challenging but fair multiple-choice question about sales concepts, strategies or techniques. The question should test deep understanding rather than simple facts.`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
@@ -147,15 +138,15 @@ Example format:
         
         // If parsing fails, try to create a fallback question
         questions.push({
-          question: "Which of the following best describes the concept of marketing planning?",
+          question: "What is a key benefit of using open-ended questions in sales?",
           options: [
-            "A. The process of creating advertisements",
-            "B. Determining marketing objectives and strategies to achieve them",
-            "C. Analyzing customer complaints and feedback",
-            "D. Setting product prices based on competitors"
+            "A. They require less preparation",
+            "B. They encourage prospects to share more information",
+            "C. They are easier to answer quickly",
+            "D. They limit the conversation to relevant topics"
           ],
           correct: preferredAnswer, // Use the preferred answer for distribution
-          explanation: "Marketing planning is the process of determining marketing objectives and developing appropriate strategies to achieve those objectives. It involves strategic analysis and planning for all marketing activities."
+          explanation: "Open-ended questions encourage prospects to share more information and insights, which helps salespeople better understand their needs and challenges."
         });
         
         // Update distribution for fallback question
