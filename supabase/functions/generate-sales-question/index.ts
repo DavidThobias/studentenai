@@ -36,17 +36,19 @@ serve(async (req) => {
     // Parse request body
     const requestData = await req.json();
     const { 
-      count = 5,
+      count = 0, // Setting count to 0 means no limit - we'll generate questions for all bolded terms
       bookId,
       chapterId,
       paragraphId,
-      debug = false 
+      debug = false,
+      showProcessDetails = false // New parameter to control streaming process details
     } = requestData;
     
     console.log(`Generating sales questions with context:`, {
       bookId: bookId || 'not specified',
       chapterId: chapterId || 'not specified',
-      paragraphId: paragraphId || 'not specified'
+      paragraphId: paragraphId || 'not specified',
+      requestedCount: count
     });
     
     // Fetch book content if bookId is provided
@@ -167,6 +169,11 @@ serve(async (req) => {
     boldedTerms = extractBoldedTerms(bookContent);
     console.log(`Extracted ${boldedTerms.length} bolded terms from content`);
     
+    // Check if we extracted a reasonable number of terms
+    if (boldedTerms.length > 30) {
+      console.log(`Warning: Large number of bolded terms (${boldedTerms.length}), performance may be affected`);
+    }
+    
     // Updated system prompt with more educational focus
     const systemPrompt = `Je bent een AI gespecialiseerd in het genereren van educatieve meerkeuzevragen om gebruikers volledig inzicht te geven in sales en marketing concepten. 
     Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen.
@@ -214,6 +221,19 @@ serve(async (req) => {
     - Zorg dat elke vraag nauwkeurig past bij het niveau en de context van het lesmateriaal.
     - Gebruik de begrippen zoals ze zijn gedefinieerd in de tekst, maar formuleer de vragen in je eigen woorden.`;
     
+    // Calculate estimated token count to help debug potential OpenAI token limit issues
+    const estimatedPromptTokens = (systemPrompt.length + userPrompt.length) / 4;
+    console.log(`Estimated prompt tokens: ${Math.ceil(estimatedPromptTokens)}`);
+    
+    // Dynamically adjust max tokens based on content size
+    const numberOfTerms = boldedTerms.length;
+    // Base token count + additional tokens per term
+    const requiredTokens = 2000 + (numberOfTerms * 300);
+    // Cap at OpenAI's max limit for gpt-4o
+    const maxTokens = Math.min(requiredTokens, 8000);
+    
+    console.log(`Using max_tokens: ${maxTokens} for ${numberOfTerms} terms`);
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -221,7 +241,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${openAIApiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o', // Upgraded from gpt-4o-mini to gpt-4o for better quality
+        model: 'gpt-4o', // Using the most capable model for complex question generation
         messages: [
           {
             role: 'system',
@@ -233,7 +253,7 @@ serve(async (req) => {
           }
         ],
         temperature: 0.7,
-        max_tokens: 4000, // Increased max tokens to accommodate for more detailed responses
+        max_tokens: maxTokens,
       }),
     });
 
@@ -266,10 +286,12 @@ serve(async (req) => {
           console.log(`Successfully extracted and parsed JSON from text with ${questions.length} questions`);
         } catch (extractError) {
           console.error('Failed to parse extracted content:', extractError);
+          console.error('Raw content that failed to parse:', jsonMatch[0].substring(0, 200) + '...');
           throw new Error('Failed to parse question data');
         }
       } else {
         console.error('No JSON content found in response');
+        console.error('Raw response content:', content.substring(0, 200) + '...');
         throw new Error('Invalid format in OpenAI response');
       }
     }
@@ -283,6 +305,8 @@ serve(async (req) => {
     if (questions.length === 0) {
       throw new Error('No questions were generated');
     }
+    
+    console.log(`Generated ${questions.length} questions for ${boldedTerms.length} bolded terms`);
     
     // Validate and format each question
     questions = questions.filter(q => {
@@ -300,7 +324,7 @@ serve(async (req) => {
       return isValid;
     });
     
-    console.log(`Returning ${questions.length} questions`);
+    console.log(`Returning ${questions.length} questions after validation`);
 
     // Create response object, include debug info if requested
     const responseObj: any = {
@@ -311,7 +335,8 @@ serve(async (req) => {
         chapterId,
         paragraphId,
         bookTitle,
-        contextDescription
+        contextDescription,
+        boldedTermsCount: boldedTerms.length
       }
     };
     
@@ -320,7 +345,11 @@ serve(async (req) => {
       responseObj.debug = {
         prompt: userPrompt,
         response: data.choices[0].message,
-        extractedTerms: boldedTerms
+        extractedTerms: boldedTerms,
+        tokenEstimates: {
+          promptTokens: Math.ceil(estimatedPromptTokens),
+          requestedMaxTokens: maxTokens
+        }
       };
     }
 

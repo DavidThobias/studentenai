@@ -151,7 +151,7 @@ export const useQuiz = (
       return;
     }
     
-    const count = customQuestionCount || 5;
+    const count = customQuestionCount || 0; // 0 means unlimited, will generate questions for all bolded terms
     
     setIsGenerating(true);
     setQuizError(null);
@@ -162,11 +162,12 @@ export const useQuiz = (
     setScore(0);
     setIsQuizComplete(false);
     
-    addLog(`Generating ${count} quiz questions for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}`);
+    addLog(`Generating quiz questions for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}`);
     
     const payload: any = { 
       count: count, 
-      debug: true 
+      debug: true,
+      showProcessDetails: true // Enable detailed process information
     };
     
     if (bookId) payload.bookId = bookId;
@@ -225,6 +226,11 @@ export const useQuiz = (
     console.log('Full API response:', data);
     
     if (data.success && data.questions && Array.isArray(data.questions)) {
+      // Add metrics to the log
+      if (data.context) {
+        addLog(`Generated ${data.questions.length} questions for ${data.context.boldedTermsCount || 'unknown'} bolded terms`);
+      }
+      
       const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
         let correctAnswerIndex;
         
@@ -253,9 +259,15 @@ export const useQuiz = (
         setDebugData({
           ...debugData,
           prompt: data.debug.prompt,
-          response: data.debug.response
+          response: data.debug.response,
+          tokenEstimates: data.debug.tokenEstimates,
+          extractedTerms: data.debug.extractedTerms
         });
         addLog('Debug data saved from API response');
+        
+        if (data.debug.extractedTerms) {
+          addLog(`Terms found in content: ${data.debug.extractedTerms.length}`);
+        }
       }
     } else {
       setQuizError('Geen vragen konden worden gegenereerd. Controleer of er content beschikbaar is voor dit boek/hoofdstuk.');
