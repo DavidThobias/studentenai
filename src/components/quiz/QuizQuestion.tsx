@@ -52,6 +52,13 @@ const QuizQuestionComponent = ({
     if (activeElement && activeElement.blur) {
       activeElement.blur();
     }
+    
+    // Force clear any radio selections in the DOM
+    const radioInputs = document.querySelectorAll('input[type="radio"]');
+    radioInputs.forEach((radio: Element) => {
+      const radioElement = radio as HTMLInputElement;
+      radioElement.checked = false;
+    });
   }, [currentQuestionIndex, selectedAnswer]);
   
   // Format the paragraph content for better rendering
@@ -136,6 +143,7 @@ const QuizQuestionComponent = ({
           ))}
         </RadioGroup>
 
+        {/* Always show explanation when answer is submitted, no need for toggle anymore */}
         {isAnswerSubmitted && (
           <Alert className="mt-4">
             <HelpCircle className="h-4 w-4" />
