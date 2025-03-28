@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { BookOpen, Play, History, ArrowLeft } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import { Card, CardContent } from "@/components/ui/card";
+import { useState, useEffect } from "react";
 
 interface QuizStudyModeProps {
   paragraphContent: string | null;
@@ -21,6 +22,29 @@ const QuizStudyMode = ({
   onContinueExistingQuiz,
   onBackToParagraphSelection
 }: QuizStudyModeProps) => {
+  const [formattedContent, setFormattedContent] = useState<string | null>(paragraphContent);
+  
+  // Process the content to improve formatting
+  useEffect(() => {
+    if (paragraphContent) {
+      let processedContent = paragraphContent;
+      
+      // Add proper spacing around bold terms
+      processedContent = processedContent.replace(/\*\*(.*?)\*\*/g, "\n\n**$1**\n\n");
+      
+      // Ensure proper bullet point formatting
+      processedContent = processedContent.replace(/^-\s/gm, "\n- ");
+      
+      // Ensure proper numbered list formatting
+      processedContent = processedContent.replace(/^(\d+)\.\s/gm, "\n$1. ");
+      
+      // Clean up any excessive newlines
+      processedContent = processedContent.replace(/\n{3,}/g, "\n\n");
+      
+      setFormattedContent(processedContent);
+    }
+  }, [paragraphContent]);
+  
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-2 mb-4 text-xl font-medium">
@@ -30,9 +54,9 @@ const QuizStudyMode = ({
 
       <Card className="mb-6 shadow-sm">
         <CardContent className="p-6">
-          <div className="prose prose-sm sm:prose-base max-w-none">
-            {paragraphContent ? (
-              <ReactMarkdown>{paragraphContent}</ReactMarkdown>
+          <div className="prose prose-sm sm:prose-base max-w-none study-content">
+            {formattedContent ? (
+              <ReactMarkdown className="react-markdown-content">{formattedContent}</ReactMarkdown>
             ) : (
               <p className="text-muted-foreground">Geen inhoud beschikbaar voor deze paragraaf.</p>
             )}

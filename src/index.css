@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -136,5 +137,45 @@
   .prose-blue strong + em,
   .prose-blue strong em {
     @apply text-gray-600 not-italic font-normal;
+  }
+  
+  /* Study content styling */
+  .study-content {
+    @apply prose max-w-none;
+  }
+  
+  .study-content strong {
+    @apply block text-lg font-bold mt-4 mb-2 text-primary;
+  }
+  
+  .study-content ul {
+    @apply pl-6 my-3 space-y-1;
+  }
+  
+  .study-content ul li {
+    @apply my-1;
+  }
+  
+  .study-content ol {
+    @apply pl-6 my-3 space-y-1 list-decimal;
+  }
+  
+  .study-content ol li {
+    @apply my-1;
+  }
+  
+  /* Ensure proper spacing between concepts */
+  .react-markdown-content p {
+    @apply my-2;
+  }
+  
+  /* Format definition lists better */
+  .react-markdown-content p + p {
+    @apply mt-3;
+  }
+  
+  /* Add more spacing around important terms */
+  .react-markdown-content strong {
+    @apply inline-block py-1;
   }
 }

@@ -8,6 +8,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, Eye } from "lucide-react";
 import { QuizQuestion } from "@/hooks/useQuiz";
 import { useEffect } from "react";
+import ReactMarkdown from 'react-markdown';
 
 interface QuizQuestionProps {
   question: QuizQuestion;
@@ -53,6 +54,13 @@ const QuizQuestionComponent = ({
     }
   }, [currentQuestionIndex, selectedAnswer]);
   
+  // Format the paragraph content for better rendering
+  const formattedParagraphContent = currentParagraphContent
+    .replace(/\*\*(.*?)\*\*/g, "\n\n**$1**\n\n")
+    .replace(/^-\s/gm, "\n- ")
+    .replace(/^(\d+)\.\s/gm, "\n$1. ")
+    .replace(/\n{3,}/g, "\n\n");
+  
   return (
     <Card className="border-2 max-w-3xl mx-auto">
       <CardHeader>
@@ -76,7 +84,9 @@ const QuizQuestionComponent = ({
         {structuredLearning && showParagraphContent && (
           <div className="mb-6 p-4 bg-gray-50 rounded-md border">
             <h3 className="font-medium mb-2">Paragraaf inhoud:</h3>
-            <p className="text-sm whitespace-pre-line">{currentParagraphContent}</p>
+            <div className="text-sm study-content overflow-y-auto max-h-60">
+              <ReactMarkdown className="react-markdown-content">{formattedParagraphContent}</ReactMarkdown>
+            </div>
             <Button 
               variant="outline"
               size="sm"
