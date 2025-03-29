@@ -80,7 +80,7 @@ const QuizLoading = ({
       clearInterval(ellipsisInterval);
       clearTimeout(timer);
     };
-  }, [currentBatch, totalBatches, showDetailsAfter]);
+  }, [currentBatch, totalBatches, showDetailsAfter, progress]);
   
   const getPhaseDescription = () => {
     switch (loadingPhase) {
