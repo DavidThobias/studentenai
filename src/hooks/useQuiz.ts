@@ -253,13 +253,14 @@ export const useQuiz = (
     setScore(0);
     setIsQuizComplete(false);
     
-    setBatchProgress({
+    const initialBatchProgress: BatchProgress = {
       currentBatch: 0,
       totalBatches: 1,
       processedTerms: 0,
       totalTerms: 0,
       startTime: Date.now()
-    });
+    };
+    setBatchProgress(initialBatchProgress);
     
     addLog(`Starting batch processing for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}`);
     
@@ -268,6 +269,11 @@ export const useQuiz = (
       
       if (!firstBatchResult) {
         setQuizError('Er is een fout opgetreden bij het genereren van de eerste batch vragen');
+        setBatchProgress(prev => prev ? {
+          ...prev,
+          totalBatches: 0,
+          totalTerms: 0
+        } : initialBatchProgress);
         setIsGenerating(false);
         return;
       }
@@ -276,13 +282,14 @@ export const useQuiz = (
       
       addLog(`First batch complete: ${firstBatchQuestions.length} questions, ${metadata.totalTerms} total terms`);
       
-      setBatchProgress({
+      setBatchProgress(prev => ({
+        ...(prev || initialBatchProgress),
         currentBatch: 0,
-        totalBatches: metadata.totalBatches,
+        totalBatches: metadata.totalBatches || 1,
         processedTerms: firstBatchQuestions.length,
-        totalTerms: metadata.totalTerms,
+        totalTerms: metadata.totalTerms || firstBatchQuestions.length,
         startTime: Date.now()
-      });
+      }));
       
       setAllQuestions(firstBatchQuestions);
       
@@ -303,7 +310,7 @@ export const useQuiz = (
           ...prev,
           currentBatch,
           processedTerms: allProcessedQuestions.length
-        } : null);
+        } : initialBatchProgress);
         
         const batchResult = await processBatch(currentBatch, batchSize);
         
@@ -318,7 +325,7 @@ export const useQuiz = (
           ...prev,
           currentBatch,
           processedTerms: allProcessedQuestions.length
-        } : null);
+        } : initialBatchProgress);
         
         addLog(`Added ${batchResult.questions.length} questions from batch ${currentBatch}, total now: ${allProcessedQuestions.length}`);
         
@@ -341,7 +348,9 @@ export const useQuiz = (
       addLog(`Fatal error in batch processing: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsGenerating(false);
-      setBatchProgress(null);
+      setTimeout(() => {
+        setBatchProgress(null);
+      }, 500);
     }
   };
 
@@ -489,7 +498,13 @@ export const useQuiz = (
     chapterId,
     paragraphId,
     debugData,
-    batchProgress,
+    batchProgress: batchProgress || {
+      currentBatch: 0,
+      totalBatches: 1,
+      processedTerms: 0,
+      totalTerms: 0,
+      startTime: Date.now()
+    },
     allQuestions,
     setBookId,
     setChapterId,

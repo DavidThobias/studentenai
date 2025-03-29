@@ -27,20 +27,26 @@ const QuizLoading = ({
   const progressRef = useRef(progress);
   progressRef.current = progress;
   
+  // Safely calculate values even if props are undefined
+  const safeTotalBatches = totalBatches || 1;
+  const safeCurrentBatch = currentBatch ?? 0;
+  const safeProcessedTerms = processedTerms ?? 0;
+  const safeTotalTerms = totalTerms ?? 0;
+  
   // Simulate progress for current batch
   useEffect(() => {
     // Calculate overall progress including already processed batches
     // Each batch counts for a portion of the total progress (up to 95%)
-    const batchProgress = totalBatches > 0 ? 
-      ((currentBatch / totalBatches) * 100) : 0;
+    const batchProgress = safeTotalBatches > 0 ? 
+      ((safeCurrentBatch / safeTotalBatches) * 100) : 0;
     
     // Start the progress for this batch from the previous batch completion point
     const startProgress = Math.min(batchProgress, 95);
     
     // If it's the last batch, let the progress complete to 100%
-    const isLastBatch = currentBatch === totalBatches - 1;
+    const isLastBatch = safeCurrentBatch === safeTotalBatches - 1;
     const maxProgress = isLastBatch ? 100 : 
-      Math.min(((currentBatch + 1) / totalBatches) * 100, 95);
+      Math.min(((safeCurrentBatch + 1) / safeTotalBatches) * 100, 95);
     
     setProgress(startProgress);
     
@@ -86,7 +92,7 @@ const QuizLoading = ({
       clearInterval(ellipsisInterval);
       clearTimeout(timer);
     };
-  }, [currentBatch, totalBatches, showDetailsAfter]); // Removed progress from dependencies
+  }, [safeCurrentBatch, safeTotalBatches, showDetailsAfter]); // Using safe values for dependencies
   
   const getPhaseDescription = () => {
     switch (loadingPhase) {
@@ -104,18 +110,18 @@ const QuizLoading = ({
   };
   
   const getBatchProgress = () => {
-    if (totalBatches <= 1) return '';
+    if (safeTotalBatches <= 1) return '';
     
-    return `Verwerkt ${processedTerms} van ${totalTerms} begrippen (Batch ${currentBatch + 1} van ${totalBatches})`;
+    return `Verwerkt ${safeProcessedTerms} van ${safeTotalTerms} begrippen (Batch ${safeCurrentBatch + 1} van ${safeTotalBatches})`;
   };
   
   const getCompletedBatches = () => {
-    if (currentBatch === 0) return null;
+    if (safeCurrentBatch === 0) return null;
     
     return (
       <div className="mt-3 flex items-center justify-center text-xs text-primary">
         <CheckCircle className="h-3 w-3 mr-1" />
-        <span>{currentBatch} batch{currentBatch !== 1 ? 'es' : ''} voltooid</span>
+        <span>{safeCurrentBatch} batch{safeCurrentBatch !== 1 ? 'es' : ''} voltooid</span>
       </div>
     );
   };
@@ -132,7 +138,7 @@ const QuizLoading = ({
           {showDetails ? getPhaseDescription() : 'We maken vragen specifiek voor deze paragraaf'}
         </p>
         
-        {totalBatches > 1 && (
+        {safeTotalBatches > 1 && (
           <p className="text-sm text-primary mt-1">
             {getBatchProgress()}
           </p>
@@ -151,10 +157,10 @@ const QuizLoading = ({
             <span>De AI denkt na over de beste vragen</span>
           </div>
           
-          {totalTerms > 15 && (
+          {safeTotalTerms > 15 && (
             <div className="flex items-center justify-center mt-2 gap-2">
               <Database className="h-4 w-4 text-amber-500" />
-              <span>Grote hoeveelheid begrippen ({totalTerms}) gevonden - wordt in batches verwerkt</span>
+              <span>Grote hoeveelheid begrippen ({safeTotalTerms}) gevonden - wordt in batches verwerkt</span>
             </div>
           )}
         </div>

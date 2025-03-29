@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,14 @@ interface QuizProps {
   };
 }
 
+// Default batch progress values for safety
+const defaultBatchProgress = {
+  currentBatch: 0,
+  totalBatches: 1, 
+  processedTerms: 0,
+  totalTerms: 0
+};
+
 const Quiz = ({ 
   questions, 
   onClose, 
@@ -57,7 +66,7 @@ const Quiz = ({
   handleSubmitAnswer,
   handleNextQuestion,
   restartQuiz,
-  batchProgress
+  batchProgress = defaultBatchProgress // Provide default value
 }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(true);
   
@@ -95,6 +104,7 @@ const Quiz = ({
       );
     }
     
+    // Fallback loading indicator if no batch progress is available
     return (
       <div className="flex flex-col items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
