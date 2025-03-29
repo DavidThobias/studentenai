@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader2, Brain, Database, CheckCircle } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 
@@ -22,6 +22,10 @@ const QuizLoading = ({
   const [showDetails, setShowDetails] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState<'starting' | 'extracting' | 'generating' | 'formatting'>('starting');
   const [ellipsis, setEllipsis] = useState('');
+  
+  // Using a ref to access the latest progress value inside the interval
+  const progressRef = useRef(progress);
+  progressRef.current = progress;
   
   // Simulate progress for current batch
   useEffect(() => {
@@ -49,7 +53,9 @@ const QuizLoading = ({
       });
       
       // Set loading phase based on progress within the current batch
-      const batchRelativeProgress = (progress - startProgress) / (maxProgress - startProgress) * 100;
+      // Use the current reference value from the ref to avoid stale closure issues
+      const currentProgress = progressRef.current;
+      const batchRelativeProgress = (currentProgress - startProgress) / (maxProgress - startProgress) * 100;
       
       if (batchRelativeProgress < 25) {
         setLoadingPhase('starting');
@@ -80,7 +86,7 @@ const QuizLoading = ({
       clearInterval(ellipsisInterval);
       clearTimeout(timer);
     };
-  }, [currentBatch, totalBatches, showDetailsAfter, progress]);
+  }, [currentBatch, totalBatches, showDetailsAfter]); // Removed progress from dependencies
   
   const getPhaseDescription = () => {
     switch (loadingPhase) {
