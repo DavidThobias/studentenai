@@ -33,20 +33,7 @@ interface QuizProps {
   handleSubmitAnswer: () => void;
   handleNextQuestion: () => void;
   restartQuiz: () => void;
-  batchProgress?: {
-    currentBatch: number;
-    totalBatches: number;
-    processedTerms: number;
-    totalTerms: number;
-  };
 }
-
-const defaultBatchProgress = {
-  currentBatch: 0,
-  totalBatches: 1, 
-  processedTerms: 0,
-  totalTerms: 0
-};
 
 const Quiz = ({ 
   questions, 
@@ -64,7 +51,6 @@ const Quiz = ({
   handleSubmitAnswer,
   handleNextQuestion,
   restartQuiz,
-  batchProgress = defaultBatchProgress
 }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(true);
   
@@ -91,14 +77,7 @@ const Quiz = ({
   };
 
   const renderLoadingContent = () => {
-    return (
-      <QuizLoading 
-        currentBatch={batchProgress?.currentBatch || 0}
-        totalBatches={batchProgress?.totalBatches || 1}
-        processedTerms={batchProgress?.processedTerms || 0}
-        totalTerms={batchProgress?.totalTerms || 0}
-      />
-    );
+    return <QuizLoading />;
   };
 
   const renderErrorContent = () => {
@@ -287,8 +266,7 @@ const Quiz = ({
       questionsCount: questions?.length || 0,
       currentQuestionIndex,
       isQuizComplete,
-      sheetOpen,
-      batchProgress
+      sheetOpen
     });
     
     if (isGenerating) {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuiz } from '@/hooks/useQuiz';
@@ -106,7 +105,7 @@ const QuizPage = () => {
     chapterId,
     paragraphId,
     debugData,
-    batchProgress,  // Make sure we get this from the useQuiz hook
+    batchProgress,
     setBookId,
     setChapterId,
     setParagraphId,
@@ -436,14 +435,7 @@ const QuizPage = () => {
     
     if (!showingParagraphContent) {
       if (isGenerating) {
-        return (
-          <QuizLoading 
-            currentBatch={batchProgress?.currentBatch || 0}
-            totalBatches={batchProgress?.totalBatches || 1}
-            processedTerms={batchProgress?.processedTerms || 0}
-            totalTerms={batchProgress?.totalTerms || 0}
-          />
-        );
+        return <QuizLoading />;
       }
       
       if (quizError) {

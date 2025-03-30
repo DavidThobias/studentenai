@@ -2,27 +2,7 @@
 import { Loader2, Brain } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 
-interface QuizLoadingProps {
-  showDetailsAfter?: number; // Show details after this many seconds
-  currentBatch?: number;
-  totalBatches?: number;
-  processedTerms?: number;
-  totalTerms?: number;
-}
-
-const QuizLoading = ({ 
-  showDetailsAfter = 3, 
-  currentBatch = 0, 
-  totalBatches = 1, 
-  processedTerms = 0, 
-  totalTerms = 0 
-}: QuizLoadingProps) => {
-  const batchInfo = totalBatches > 1 ? 
-    `Batch ${currentBatch + 1} van ${totalBatches}` : '';
-  
-  const termsInfo = totalTerms > 0 ? 
-    `${processedTerms} van ${totalTerms} begrippen verwerkt` : '';
-  
+const QuizLoading = () => {
   return (
     <div className="flex flex-col items-center justify-center p-8 space-y-6">
       <div className="relative w-16 h-16">
@@ -34,12 +14,6 @@ const QuizLoading = ({
         <p className="text-muted-foreground">
           We maken vragen specifiek voor deze paragraaf
         </p>
-        
-        {totalBatches > 1 && (
-          <p className="text-sm text-primary mt-1">
-            {batchInfo}{termsInfo ? ` - ${termsInfo}` : ''}
-          </p>
-        )}
       </div>
       
       <Progress value={undefined} className="w-full max-w-md h-2" />

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +32,15 @@ interface BatchProgress {
   startTime: number;
 }
 
+// Define default batch progress values to ensure they're always available
+const defaultBatchProgress: BatchProgress = {
+  currentBatch: 0,
+  totalBatches: 1,
+  processedTerms: 0,
+  totalTerms: 0,
+  startTime: Date.now()
+};
+
 export const useQuiz = (
   initialBookId: number | null, 
   initialChapterId: number | null, 
@@ -51,7 +61,8 @@ export const useQuiz = (
   const [chapterId, setChapterId] = useState<number | null>(initialChapterId);
   const [paragraphId, setParagraphId] = useState<number | null>(initialParagraphId);
   
-  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
+  // Initialize batchProgress with default values instead of null
+  const [batchProgress, setBatchProgress] = useState<BatchProgress>(defaultBatchProgress);
   const [allQuestions, setAllQuestions] = useState<QuizQuestion[]>([]);
   
   const [debugData, setDebugData] = useState<{
@@ -253,14 +264,14 @@ export const useQuiz = (
     setScore(0);
     setIsQuizComplete(false);
     
-    const initialBatchProgress = {
+    // Set initial batch progress with default values
+    setBatchProgress({
       currentBatch: 0,
       totalBatches: 1,
       processedTerms: 0,
       totalTerms: 0,
       startTime: Date.now()
-    };
-    setBatchProgress(initialBatchProgress);
+    });
     
     addLog(`Starting batch processing for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}`);
     
@@ -269,11 +280,12 @@ export const useQuiz = (
       
       if (!firstBatchResult) {
         setQuizError('Er is een fout opgetreden bij het genereren van de eerste batch vragen');
-        setBatchProgress(prev => prev ? {
+        // Update batch progress with default values instead of setting to null
+        setBatchProgress(prev => ({
           ...prev,
-          totalBatches: 0,
+          totalBatches: 1,
           totalTerms: 0
-        } : initialBatchProgress);
+        }));
         setIsGenerating(false);
         return;
       }
@@ -283,7 +295,7 @@ export const useQuiz = (
       addLog(`First batch complete: ${firstBatchQuestions.length} questions, ${metadata.totalTerms} total terms`);
       
       setBatchProgress(prev => ({
-        ...(prev || initialBatchProgress),
+        ...(prev || defaultBatchProgress),
         currentBatch: 0,
         totalBatches: metadata.totalBatches || 1,
         processedTerms: firstBatchQuestions.length,
@@ -306,11 +318,12 @@ export const useQuiz = (
       while (currentBatch < metadata.totalBatches) {
         addLog(`Processing batch ${currentBatch + 1} of ${metadata.totalBatches}`);
         
-        setBatchProgress(prev => prev ? {
-          ...prev,
+        // Always use prev value or defaultBatchProgress if prev is somehow undefined
+        setBatchProgress(prev => ({
+          ...(prev || defaultBatchProgress),
           currentBatch,
           processedTerms: allProcessedQuestions.length
-        } : initialBatchProgress);
+        }));
         
         const batchResult = await processBatch(currentBatch, batchSize);
         
@@ -321,11 +334,12 @@ export const useQuiz = (
         
         allProcessedQuestions = [...allProcessedQuestions, ...batchResult.questions];
         
-        setBatchProgress(prev => prev ? {
-          ...prev,
+        // Always use prev value or defaultBatchProgress if prev is somehow undefined
+        setBatchProgress(prev => ({
+          ...(prev || defaultBatchProgress),
           currentBatch,
           processedTerms: allProcessedQuestions.length
-        } : initialBatchProgress);
+        }));
         
         addLog(`Added ${batchResult.questions.length} questions from batch ${currentBatch}, total now: ${allProcessedQuestions.length}`);
         
@@ -495,13 +509,8 @@ export const useQuiz = (
     chapterId,
     paragraphId,
     debugData,
-    batchProgress: batchProgress || {
-      currentBatch: 0,
-      totalBatches: 1,
-      processedTerms: 0,
-      totalTerms: 0,
-      startTime: Date.now()
-    },
+    // Always ensure batchProgress is defined with default values if it's somehow undefined
+    batchProgress: batchProgress || defaultBatchProgress,
     allQuestions,
     setBookId,
     setChapterId,
