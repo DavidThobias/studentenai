@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,15 @@ export interface QuizQuestion {
   explanation: string;
 }
 
+// Define the BatchProgress interface to match the one from useQuiz
+interface BatchProgress {
+  currentBatch: number;
+  totalBatches: number;
+  processedTerms: number;
+  totalTerms: number;
+  startTime: number;
+}
+
 interface QuizProps {
   questions: QuizQuestion[];
   onClose: () => void;
@@ -33,6 +43,7 @@ interface QuizProps {
   handleSubmitAnswer: () => void;
   handleNextQuestion: () => void;
   restartQuiz: () => void;
+  batchProgress?: BatchProgress; // Add the batchProgress prop with proper interface
 }
 
 const Quiz = ({ 
@@ -51,6 +62,7 @@ const Quiz = ({
   handleSubmitAnswer,
   handleNextQuestion,
   restartQuiz,
+  batchProgress, // Add the batchProgress prop here
 }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(true);
   
