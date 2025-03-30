@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -485,7 +484,8 @@ export const useQuiz = (
     setIsQuizComplete(false);
     setShowExplanation(false);
     setQuizError(null);
-    setBatchProgress(null);
+    // Reset to default values instead of setting to null
+    setBatchProgress(defaultBatchProgress);
     
     if (bookId) {
       const stateKey = `quizState_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}`;

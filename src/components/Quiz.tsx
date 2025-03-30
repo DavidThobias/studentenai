@@ -19,13 +19,22 @@ export interface QuizQuestion {
 }
 
 // Define the BatchProgress interface to match the one from useQuiz
-interface BatchProgress {
+export interface BatchProgress {
   currentBatch: number;
   totalBatches: number;
   processedTerms: number;
   totalTerms: number;
   startTime: number;
 }
+
+// Default batch progress to use as fallback
+const defaultBatchProgress: BatchProgress = {
+  currentBatch: 0,
+  totalBatches: 1,
+  processedTerms: 0,
+  totalTerms: 0,
+  startTime: Date.now()
+};
 
 interface QuizProps {
   questions: QuizQuestion[];
@@ -62,7 +71,7 @@ const Quiz = ({
   handleSubmitAnswer,
   handleNextQuestion,
   restartQuiz,
-  batchProgress, // Add the batchProgress prop here
+  batchProgress = defaultBatchProgress, // Provide default value here
 }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(true);
   
@@ -278,7 +287,8 @@ const Quiz = ({
       questionsCount: questions?.length || 0,
       currentQuestionIndex,
       isQuizComplete,
-      sheetOpen
+      sheetOpen,
+      batchProgress: batchProgress || defaultBatchProgress, // Use defaultBatchProgress as fallback
     });
     
     if (isGenerating) {
