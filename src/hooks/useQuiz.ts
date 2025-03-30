@@ -253,7 +253,7 @@ export const useQuiz = (
     setScore(0);
     setIsQuizComplete(false);
     
-    const initialBatchProgress: BatchProgress = {
+    const initialBatchProgress = {
       currentBatch: 0,
       totalBatches: 1,
       processedTerms: 0,
@@ -348,9 +348,6 @@ export const useQuiz = (
       addLog(`Fatal error in batch processing: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsGenerating(false);
-      setTimeout(() => {
-        setBatchProgress(null);
-      }, 500);
     }
   };
 

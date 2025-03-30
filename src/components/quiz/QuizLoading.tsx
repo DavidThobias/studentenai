@@ -1,6 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
-import { Loader2, Brain, Database, CheckCircle } from 'lucide-react';
+import { Loader2, Brain } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 
 interface QuizLoadingProps {
@@ -18,114 +17,12 @@ const QuizLoading = ({
   processedTerms = 0, 
   totalTerms = 0 
 }: QuizLoadingProps) => {
-  const [progress, setProgress] = useState(5);
-  const [showDetails, setShowDetails] = useState(false);
-  const [loadingPhase, setLoadingPhase] = useState<'starting' | 'extracting' | 'generating' | 'formatting'>('starting');
-  const [ellipsis, setEllipsis] = useState('');
+  const batchInfo = totalBatches > 1 ? 
+    `Batch ${currentBatch + 1} van ${totalBatches}` : '';
   
-  // Using a ref to access the latest progress value inside the interval
-  const progressRef = useRef(progress);
-  progressRef.current = progress;
+  const termsInfo = totalTerms > 0 ? 
+    `${processedTerms} van ${totalTerms} begrippen verwerkt` : '';
   
-  // Safely calculate values even if props are undefined
-  const safeTotalBatches = totalBatches || 1;
-  const safeCurrentBatch = currentBatch ?? 0;
-  const safeProcessedTerms = processedTerms ?? 0;
-  const safeTotalTerms = totalTerms ?? 0;
-  
-  // Simulate progress for current batch
-  useEffect(() => {
-    // Calculate overall progress including already processed batches
-    // Each batch counts for a portion of the total progress (up to 95%)
-    const batchProgress = safeTotalBatches > 0 ? 
-      ((safeCurrentBatch / safeTotalBatches) * 100) : 0;
-    
-    // Start the progress for this batch from the previous batch completion point
-    const startProgress = Math.min(batchProgress, 95);
-    
-    // If it's the last batch, let the progress complete to 100%
-    const isLastBatch = safeCurrentBatch === safeTotalBatches - 1;
-    const maxProgress = isLastBatch ? 100 : 
-      Math.min(((safeCurrentBatch + 1) / safeTotalBatches) * 100, 95);
-    
-    setProgress(startProgress);
-    
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        // Approach but don't exceed maxProgress
-        const increment = (maxProgress - prev) / 10;
-        const newProgress = prev + Math.max(0.5, increment);
-        return newProgress < maxProgress ? newProgress : maxProgress;
-      });
-      
-      // Set loading phase based on progress within the current batch
-      // Use the current reference value from the ref to avoid stale closure issues
-      const currentProgress = progressRef.current;
-      const batchRelativeProgress = (currentProgress - startProgress) / (maxProgress - startProgress) * 100;
-      
-      if (batchRelativeProgress < 25) {
-        setLoadingPhase('starting');
-      } else if (batchRelativeProgress < 50) {
-        setLoadingPhase('extracting');
-      } else if (batchRelativeProgress < 75) {
-        setLoadingPhase('generating');
-      } else {
-        setLoadingPhase('formatting');
-      }
-    }, 200);
-    
-    // Animate ellipsis
-    const ellipsisInterval = setInterval(() => {
-      setEllipsis(prev => {
-        if (prev === '...') return '';
-        return prev + '.';
-      });
-    }, 500);
-    
-    // Show details after delay
-    const timer = setTimeout(() => {
-      setShowDetails(true);
-    }, showDetailsAfter * 1000);
-    
-    return () => {
-      clearInterval(interval);
-      clearInterval(ellipsisInterval);
-      clearTimeout(timer);
-    };
-  }, [safeCurrentBatch, safeTotalBatches, showDetailsAfter]); // Using safe values for dependencies
-  
-  const getPhaseDescription = () => {
-    switch (loadingPhase) {
-      case 'starting':
-        return 'Starten van het proces';
-      case 'extracting':
-        return 'Gemarkeerde begrippen herkennen';
-      case 'generating':
-        return 'Vragen genereren voor alle begrippen';
-      case 'formatting':
-        return 'Antwoorden en uitleg formatteren';
-      default:
-        return 'Bezig met laden';
-    }
-  };
-  
-  const getBatchProgress = () => {
-    if (safeTotalBatches <= 1) return '';
-    
-    return `Verwerkt ${safeProcessedTerms} van ${safeTotalTerms} begrippen (Batch ${safeCurrentBatch + 1} van ${safeTotalBatches})`;
-  };
-  
-  const getCompletedBatches = () => {
-    if (safeCurrentBatch === 0) return null;
-    
-    return (
-      <div className="mt-3 flex items-center justify-center text-xs text-primary">
-        <CheckCircle className="h-3 w-3 mr-1" />
-        <span>{safeCurrentBatch} batch{safeCurrentBatch !== 1 ? 'es' : ''} voltooid</span>
-      </div>
-    );
-  };
-
   return (
     <div className="flex flex-col items-center justify-center p-8 space-y-6">
       <div className="relative w-16 h-16">
@@ -133,44 +30,27 @@ const QuizLoading = ({
         <div className="h-16 w-16 rounded-full border-2 border-muted-foreground/20 absolute"></div>
       </div>
       <div className="text-center">
-        <h3 className="text-xl font-medium mb-2">Quiz wordt gegenereerd{ellipsis}</h3>
+        <h3 className="text-xl font-medium mb-2">Quiz wordt gegenereerd...</h3>
         <p className="text-muted-foreground">
-          {showDetails ? getPhaseDescription() : 'We maken vragen specifiek voor deze paragraaf'}
+          We maken vragen specifiek voor deze paragraaf
         </p>
         
-        {safeTotalBatches > 1 && (
+        {totalBatches > 1 && (
           <p className="text-sm text-primary mt-1">
-            {getBatchProgress()}
+            {batchInfo}{termsInfo ? ` - ${termsInfo}` : ''}
           </p>
         )}
-        
-        {getCompletedBatches()}
       </div>
       
-      <Progress value={progress} className="w-full max-w-md h-2" />
+      <Progress value={undefined} className="w-full max-w-md h-2" />
       
-      {showDetails && (
-        <div className="text-sm text-muted-foreground max-w-md text-center">
-          <p>Dit kan even duren als er veel begrippen zijn. Het systeem maakt een vraag voor elk gemarkeerd begrip uit de tekst.</p>
-          <div className="flex items-center justify-center mt-3 gap-2">
-            <Brain className="h-4 w-4 text-primary" />
-            <span>De AI denkt na over de beste vragen</span>
-          </div>
-          
-          {safeTotalTerms > 15 && (
-            <div className="flex items-center justify-center mt-2 gap-2">
-              <Database className="h-4 w-4 text-amber-500" />
-              <span>Grote hoeveelheid begrippen ({safeTotalTerms}) gevonden - wordt in batches verwerkt</span>
-            </div>
-          )}
+      <div className="text-sm text-muted-foreground max-w-md text-center">
+        <p>Dit kan even duren als er veel begrippen zijn. Het systeem maakt een vraag voor elk gemarkeerd begrip uit de tekst.</p>
+        <div className="flex items-center justify-center mt-3 gap-2">
+          <Brain className="h-4 w-4 text-primary" />
+          <span>De AI denkt na over de beste vragen</span>
         </div>
-      )}
-      
-      {!showDetails && (
-        <p className="text-sm text-muted-foreground">
-          Dit kan enkele seconden duren
-        </p>
-      )}
+      </div>
     </div>
   );
 };

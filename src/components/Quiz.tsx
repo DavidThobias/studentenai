@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -42,7 +41,6 @@ interface QuizProps {
   };
 }
 
-// Default batch progress values for safety
 const defaultBatchProgress = {
   currentBatch: 0,
   totalBatches: 1, 
@@ -66,7 +64,7 @@ const Quiz = ({
   handleSubmitAnswer,
   handleNextQuestion,
   restartQuiz,
-  batchProgress = defaultBatchProgress // Provide default value
+  batchProgress = defaultBatchProgress
 }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(true);
   
@@ -93,26 +91,13 @@ const Quiz = ({
   };
 
   const renderLoadingContent = () => {
-    if (batchProgress) {
-      return (
-        <QuizLoading 
-          currentBatch={batchProgress.currentBatch}
-          totalBatches={batchProgress.totalBatches}
-          processedTerms={batchProgress.processedTerms}
-          totalTerms={batchProgress.totalTerms}
-        />
-      );
-    }
-    
-    // Fallback loading indicator if no batch progress is available
     return (
-      <div className="flex flex-col items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-        <p className="text-center font-medium">Quiz wordt gegenereerd...</p>
-        <p className="text-center text-sm text-muted-foreground mt-2">
-          Dit kan enkele seconden duren
-        </p>
-      </div>
+      <QuizLoading 
+        currentBatch={batchProgress?.currentBatch || 0}
+        totalBatches={batchProgress?.totalBatches || 1}
+        processedTerms={batchProgress?.processedTerms || 0}
+        totalTerms={batchProgress?.totalTerms || 0}
+      />
     );
   };
 
