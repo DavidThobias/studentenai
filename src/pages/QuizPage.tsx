@@ -105,7 +105,6 @@ const QuizPage = () => {
     chapterId,
     paragraphId,
     debugData,
-    batchProgress,
     setBookId,
     setChapterId,
     setParagraphId,

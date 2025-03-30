@@ -31,15 +31,6 @@ interface BatchProgress {
   startTime: number;
 }
 
-// Define default batch progress values to ensure they're always available
-const defaultBatchProgress: BatchProgress = {
-  currentBatch: 0,
-  totalBatches: 1,
-  processedTerms: 0,
-  totalTerms: 0,
-  startTime: Date.now()
-};
-
 export const useQuiz = (
   initialBookId: number | null, 
   initialChapterId: number | null, 
@@ -60,8 +51,7 @@ export const useQuiz = (
   const [chapterId, setChapterId] = useState<number | null>(initialChapterId);
   const [paragraphId, setParagraphId] = useState<number | null>(initialParagraphId);
   
-  // Initialize batchProgress with default values instead of null
-  const [batchProgress, setBatchProgress] = useState<BatchProgress>(defaultBatchProgress);
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const [allQuestions, setAllQuestions] = useState<QuizQuestion[]>([]);
   
   const [debugData, setDebugData] = useState<{
@@ -263,7 +253,6 @@ export const useQuiz = (
     setScore(0);
     setIsQuizComplete(false);
     
-    // Set initial batch progress with default values
     setBatchProgress({
       currentBatch: 0,
       totalBatches: 1,
@@ -279,12 +268,6 @@ export const useQuiz = (
       
       if (!firstBatchResult) {
         setQuizError('Er is een fout opgetreden bij het genereren van de eerste batch vragen');
-        // Update batch progress with default values instead of setting to null
-        setBatchProgress(prev => ({
-          ...prev,
-          totalBatches: 1,
-          totalTerms: 0
-        }));
         setIsGenerating(false);
         return;
       }
@@ -293,14 +276,13 @@ export const useQuiz = (
       
       addLog(`First batch complete: ${firstBatchQuestions.length} questions, ${metadata.totalTerms} total terms`);
       
-      setBatchProgress(prev => ({
-        ...(prev || defaultBatchProgress),
+      setBatchProgress({
         currentBatch: 0,
-        totalBatches: metadata.totalBatches || 1,
+        totalBatches: metadata.totalBatches,
         processedTerms: firstBatchQuestions.length,
-        totalTerms: metadata.totalTerms || firstBatchQuestions.length,
+        totalTerms: metadata.totalTerms,
         startTime: Date.now()
-      }));
+      });
       
       setAllQuestions(firstBatchQuestions);
       
@@ -317,12 +299,11 @@ export const useQuiz = (
       while (currentBatch < metadata.totalBatches) {
         addLog(`Processing batch ${currentBatch + 1} of ${metadata.totalBatches}`);
         
-        // Always use prev value or defaultBatchProgress if prev is somehow undefined
-        setBatchProgress(prev => ({
-          ...(prev || defaultBatchProgress),
+        setBatchProgress(prev => prev ? {
+          ...prev,
           currentBatch,
           processedTerms: allProcessedQuestions.length
-        }));
+        } : null);
         
         const batchResult = await processBatch(currentBatch, batchSize);
         
@@ -333,12 +314,11 @@ export const useQuiz = (
         
         allProcessedQuestions = [...allProcessedQuestions, ...batchResult.questions];
         
-        // Always use prev value or defaultBatchProgress if prev is somehow undefined
-        setBatchProgress(prev => ({
-          ...(prev || defaultBatchProgress),
+        setBatchProgress(prev => prev ? {
+          ...prev,
           currentBatch,
           processedTerms: allProcessedQuestions.length
-        }));
+        } : null);
         
         addLog(`Added ${batchResult.questions.length} questions from batch ${currentBatch}, total now: ${allProcessedQuestions.length}`);
         
@@ -361,6 +341,7 @@ export const useQuiz = (
       addLog(`Fatal error in batch processing: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsGenerating(false);
+      setBatchProgress(null);
     }
   };
 
@@ -484,8 +465,7 @@ export const useQuiz = (
     setIsQuizComplete(false);
     setShowExplanation(false);
     setQuizError(null);
-    // Reset to default values instead of setting to null
-    setBatchProgress(defaultBatchProgress);
+    setBatchProgress(null);
     
     if (bookId) {
       const stateKey = `quizState_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}`;
@@ -509,8 +489,7 @@ export const useQuiz = (
     chapterId,
     paragraphId,
     debugData,
-    // Always ensure batchProgress is defined with default values if it's somehow undefined
-    batchProgress: batchProgress || defaultBatchProgress,
+    batchProgress,
     allQuestions,
     setBookId,
     setChapterId,

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -18,24 +17,6 @@ export interface QuizQuestion {
   explanation: string;
 }
 
-// Define the BatchProgress interface to match the one from useQuiz
-export interface BatchProgress {
-  currentBatch: number;
-  totalBatches: number;
-  processedTerms: number;
-  totalTerms: number;
-  startTime: number;
-}
-
-// Default batch progress to use as fallback
-const defaultBatchProgress: BatchProgress = {
-  currentBatch: 0,
-  totalBatches: 1,
-  processedTerms: 0,
-  totalTerms: 0,
-  startTime: Date.now()
-};
-
 interface QuizProps {
   questions: QuizQuestion[];
   onClose: () => void;
@@ -52,7 +33,12 @@ interface QuizProps {
   handleSubmitAnswer: () => void;
   handleNextQuestion: () => void;
   restartQuiz: () => void;
-  batchProgress?: BatchProgress; // Add the batchProgress prop with proper interface
+  batchProgress?: {
+    currentBatch: number;
+    totalBatches: number;
+    processedTerms: number;
+    totalTerms: number;
+  };
 }
 
 const Quiz = ({ 
@@ -71,7 +57,7 @@ const Quiz = ({
   handleSubmitAnswer,
   handleNextQuestion,
   restartQuiz,
-  batchProgress = defaultBatchProgress, // Provide default value here
+  batchProgress
 }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(true);
   
@@ -98,7 +84,26 @@ const Quiz = ({
   };
 
   const renderLoadingContent = () => {
-    return <QuizLoading />;
+    if (batchProgress) {
+      return (
+        <QuizLoading 
+          currentBatch={batchProgress.currentBatch}
+          totalBatches={batchProgress.totalBatches}
+          processedTerms={batchProgress.processedTerms}
+          totalTerms={batchProgress.totalTerms}
+        />
+      );
+    }
+    
+    return (
+      <div className="flex flex-col items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-center font-medium">Quiz wordt gegenereerd...</p>
+        <p className="text-center text-sm text-muted-foreground mt-2">
+          Dit kan enkele seconden duren
+        </p>
+      </div>
+    );
   };
 
   const renderErrorContent = () => {
@@ -288,7 +293,7 @@ const Quiz = ({
       currentQuestionIndex,
       isQuizComplete,
       sheetOpen,
-      batchProgress: batchProgress || defaultBatchProgress, // Use defaultBatchProgress as fallback
+      batchProgress
     });
     
     if (isGenerating) {
@@ -367,9 +372,7 @@ const Quiz = ({
               {batchProgress && (
                 <>
                   <div>Debug: batch: {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}</div>
-                  {batchProgress && (
-  <div>Debug: terms: {batchProgress.processedTerms}/{batchProgress.totalTerms}</div>
-)}
+                  <div>Debug: terms: {batchProgress.processedTerms}/{batchProgress.totalTerms}</div>
                 </>
               )}
             </div>
