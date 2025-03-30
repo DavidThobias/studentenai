@@ -19,7 +19,7 @@ interface QuizQuestionProps {
   score: number;
   showExplanation: boolean;
   showParagraphContent: boolean;
-  currentParagraphContent: string;
+  currentParagraphContent: string | null;
   structuredLearning: boolean;
   onAnswerSelect: (index: number) => void;
   onSubmitAnswer: () => void;
@@ -45,12 +45,14 @@ const QuizQuestionComponent = ({
   onToggleExplanation,
   onToggleParagraphContent
 }: QuizQuestionProps) => {
-  // Format the paragraph content for better rendering
-  const formattedParagraphContent = currentParagraphContent
-    .replace(/\*\*(.*?)\*\*/g, "\n\n**$1**\n\n")
-    .replace(/^-\s/gm, "\n- ")
-    .replace(/^(\d+)\.\s/gm, "\n$1. ")
-    .replace(/\n{3,}/g, "\n\n");
+  // Format the paragraph content for better rendering with null check
+  const formattedParagraphContent = currentParagraphContent 
+    ? currentParagraphContent
+        .replace(/\*\*(.*?)\*\*/g, "\n\n**$1**\n\n")
+        .replace(/^-\s/gm, "\n- ")
+        .replace(/^(\d+)\.\s/gm, "\n$1. ")
+        .replace(/\n{3,}/g, "\n\n")
+    : "";
   
   return (
     <Card className="border-2 max-w-3xl mx-auto">
