@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -27,7 +26,7 @@ interface SalesQuizQuestionProps {
   bookId?: number;
 }
 
-const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps) => {
+const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps) => {
   const [question, setQuestion] = useState<QuestionData | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -37,7 +36,6 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
   const [showDebugSection, setShowDebugSection] = useState(showDebug);
   const [showExplanation, setShowExplanation] = useState(false);
   
-  // Quiz state
   const [quizOpen, setQuizOpen] = useState(false);
   const [questions, setQuestions] = useState<Array<QuizQuestion>>([]);
   const [quizError, setQuizError] = useState<string | null>(null);
@@ -48,16 +46,13 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
   const [score, setScore] = useState(0);
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   
-  // Debug state for tracking quiz progression
   const [stateLog, setStateLog] = useState<string[]>([]);
   
-  // Add debug log function
   const addLog = (message: string) => {
     console.log(`[QUIZ DEBUG] ${message}`);
     setStateLog(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
   };
 
-  // Log state changes
   useEffect(() => {
     if (quizOpen) {
       addLog(`Quiz state update: currentQuestion=${currentQuestionIndex}, totalQuestions=${questions.length}, isAnswerSubmitted=${isAnswerSubmitted}, score=${score}`);
@@ -77,7 +72,6 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
       
       addLog(`Generating ${questionCount} quiz questions for book ID: ${bookId || 'not specified'}`);
       
-      // Call the updated generate-sales-question function
       const { data, error } = await supabase.functions.invoke('generate-sales-question', {
         body: { count: questionCount, bookId, debug: true }
       });
@@ -90,13 +84,10 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
       }
       
       if (data && data.success && data.questions && Array.isArray(data.questions)) {
-        // Format the questions from the API, now including explanations
         const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
-          const correctIndex = q.correct.charCodeAt(0) - 65; // Convert 'A', 'B', 'C', 'D' to 0, 1, 2, 3
+          const correctIndex = q.correct.charCodeAt(0) - 65;
           
-          // Clean option labels if they have prefixes like A., B., etc.
           const cleanedOptions = q.options.map((opt: string) => {
-            // If option starts with a letter and dot (e.g., "A. "), remove it
             return opt.replace(/^[A-D]\.\s*/, '');
           });
           
@@ -111,18 +102,15 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
         setQuestions(formattedQuestions);
         addLog(`Created ${formattedQuestions.length} questions from the API response`);
         
-        // Save debug data
         if (data.debug) {
           setDebugData({
             prompt: data.debug.prompt,
             response: data.debug.response
           });
-          // Auto-open the prompt accordion
           setDebugAccordion("prompt");
           addLog('Debug data saved from API response');
         }
         
-        // Automatically open quiz when questions are ready
         setQuizOpen(true);
       } else {
         setQuizError('Geen vragen konden worden gegenereerd');
@@ -225,12 +213,10 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
       
       console.log("Generating question with debug:", showDebugSection, "bookId:", bookId);
       
-      // Include bookId if available and always include debug
       const payload = bookId ? { bookId, debug: true } : { debug: true };
       
       console.log("Payload for generate-sales-question:", payload);
       
-      // Changed to use generate-sales-question instead of generate-quiz for consistency
       const { data, error } = await supabase.functions.invoke('generate-sales-question', {
         body: payload
       });
@@ -244,16 +230,13 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
       }
       
       if (data && data.success && data.questions && data.questions.length > 0) {
-        // Take first question from the response
         const questionData = data.questions[0];
         
-        // Convert letter-based correct answer to index
-        const correctIndex = questionData.correct.charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
+        const correctIndex = questionData.correct.charCodeAt(0) - 65;
         
-        // Format options to include A, B, C, D prefixes if not already included
         const formattedOptions = questionData.options.map((opt: string, index: number) => {
           if (opt.match(/^[A-D]\. /)) {
-            return opt; // Already has prefix
+            return opt;
           } else {
             return `${String.fromCharCode(65 + index)}: ${opt}`;
           }
@@ -268,14 +251,12 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
         
         setQuestion(formattedQuestion);
         
-        // Always save debug data regardless of showDebug setting
         if (data.debug) {
           console.log("Debug data received:", data.debug);
           setDebugData({
             prompt: data.debug.prompt,
             response: data.debug.response
           });
-          // Auto-open the prompt accordion
           setDebugAccordion("prompt");
         } else {
           console.warn("No debug data in response despite requesting it");
@@ -295,20 +276,24 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
   const checkAnswer = () => {
     if (!selectedAnswer || !question) return;
     
-    // Extract the letter from the selected answer (A, B, C, or D)
     const selectedLetter = selectedAnswer.charAt(0);
     
-    // Format the correct answer in the same format
     const correctIndex = question.correctAnswer;
     const correctLetter = String.fromCharCode(65 + correctIndex);
     
     setIsCorrect(selectedLetter === correctLetter);
-    // Show explanation automatically when an answer is checked
     setShowExplanation(true);
   };
 
   const handleToggleExplanation = () => {
     setShowExplanation(!showExplanation);
+  };
+
+  const defaultBatchProgress = {
+    currentBatch: 0,
+    totalBatches: 1,
+    processedTerms: 0,
+    totalTerms: 0
   };
 
   return (
@@ -334,26 +319,24 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
             )}
           </Button>
           
-          {showDebug && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setShowDebugSection(!showDebugSection)}
-              className="text-xs"
-            >
-              {showDebugSection ? (
-                <>
-                  <EyeOff className="mr-1 h-3 w-3" />
-                  Verberg debug info
-                </>
-              ) : (
-                <>
-                  <Eye className="mr-1 h-3 w-3" />
-                  Toon debug info
-                </>
-              )}
-            </Button>
-          )}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowDebugSection(!showDebugSection)}
+            className="text-xs"
+          >
+            {showDebugSection ? (
+              <>
+                <EyeOff className="mr-1 h-3 w-3" />
+                Verberg debug info
+              </>
+            ) : (
+              <>
+                <Eye className="mr-1 h-3 w-3" />
+                Toon debug info
+              </>
+            )}
+          </Button>
         </div>
       ) : (
         <Card className="shadow-lg border-study-100">
@@ -405,7 +388,6 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
               </Alert>
             )}
             
-            {/* Explanation section */}
             {isCorrect !== null && showExplanation && (
               <Alert className="mt-4">
                 <AlertTitle>Uitleg</AlertTitle>
@@ -415,7 +397,6 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
               </Alert>
             )}
             
-            {/* Debug section toggle */}
             {showDebug && (
               <div className="flex justify-end mt-4">
                 <Button 
@@ -439,7 +420,6 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
               </div>
             )}
             
-            {/* Debug content */}
             {showDebug && showDebugSection && (
               <div className="mt-6 border border-gray-200 rounded-md overflow-hidden">
                 <Accordion 
@@ -511,7 +491,6 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
         </Card>
       )}
 
-      {/* Quiz Component */}
       <Quiz 
         questions={questions} 
         onClose={handleCloseQuiz} 
@@ -528,10 +507,10 @@ const SalesQuizQuestion = ({ showDebug = false, bookId }: SalesQuizQuestionProps
         handleSubmitAnswer={handleSubmitAnswer}
         handleNextQuestion={handleNextQuestion}
         restartQuiz={restartQuiz}
+        batchProgress={defaultBatchProgress}
       />
 
-      {/* Debug panel - only show when quiz is open */}
-      {quizOpen && showDebug && showDebugSection && (
+      {quizOpen && showDebugSection && (
         <div className="mt-6 border border-gray-200 rounded-md p-4 bg-gray-50">
           <div className="flex justify-between items-center mb-2">
             <h3 className="font-medium">Quiz Debug Panel</h3>

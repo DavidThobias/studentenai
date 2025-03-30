@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
@@ -48,12 +47,10 @@ const QuizDebug = ({
   paragraphsCount,
   batchProgress
 }: QuizDebugProps) => {
-  const [showDebug, setShowDebug] = useState(false);
+  const [showDebug, setShowDebug] = useState(true);
   const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
 
-  // Check for query param to enable debug
-  const urlParams = new URLSearchParams(window.location.search);
-  const debugMode = urlParams.get('debug') === 'true';
+  const debugMode = true;
 
   if (!debugMode) {
     return null;
@@ -63,7 +60,6 @@ const QuizDebug = ({
     setShowDebug(!showDebug);
   };
 
-  // Calculate elapsed time if we have batch progress with start time
   const getElapsedTime = () => {
     if (!batchProgress?.startTime) return null;
     
@@ -74,7 +70,6 @@ const QuizDebug = ({
     return `${minutes}m ${seconds % 60}s`;
   };
 
-  // Estimate remaining time based on current progress
   const getEstimatedRemainingTime = () => {
     if (!batchProgress?.startTime || batchProgress.processedTerms === 0) return null;
     
@@ -146,7 +141,6 @@ const QuizDebug = ({
             </div>
           </div>
           
-          {/* Batch Progress Information */}
           {batchProgress && (
             <div className="mb-4 border rounded-md p-3 bg-amber-50">
               <h4 className="font-semibold flex items-center text-amber-700">
@@ -175,7 +169,6 @@ const QuizDebug = ({
             </div>
           )}
           
-          {/* Extracted Terms */}
           {debugData.extractedTerms && debugData.extractedTerms.length > 0 && (
             <div className="mb-4">
               <h4 className="font-semibold mb-1 flex items-center">
@@ -190,7 +183,6 @@ const QuizDebug = ({
             </div>
           )}
           
-          {/* Current Batch Terms */}
           {debugData.batchTerms && debugData.batchTerms.length > 0 && (
             <div className="mb-4">
               <h4 className="font-semibold mb-1 flex items-center">
@@ -205,7 +197,6 @@ const QuizDebug = ({
             </div>
           )}
           
-          {/* Token Estimation */}
           {debugData.tokenEstimates && (
             <div className="mb-4">
               <h4 className="font-semibold mb-1 flex items-center">

@@ -432,7 +432,6 @@ export const useQuiz = (
     if (currentQuestionIndex < questions.length - 1) {
       addLog(`Moving to next question (${currentQuestionIndex + 1})`);
       setCurrentQuestionIndex(prevIndex => prevIndex + 1);
-      setSelectedAnswer(null);
       setIsAnswerSubmitted(false);
       setShowExplanation(false);
     } else {

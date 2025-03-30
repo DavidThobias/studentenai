@@ -60,16 +60,15 @@ const Quiz = ({
   batchProgress
 }: QuizProps) => {
   const [showExplanation, setShowExplanation] = useState(true);
+  const [showDebug, setShowDebug] = useState(false);
   
   const [sheetOpen, setSheetOpen] = useState(open);
   
   useEffect(() => {
-    console.log(`Parent open state changed to: ${open}, current sheetOpen: ${sheetOpen}`);
-    if (open === true) {
-      console.log('Setting sheetOpen to true');
-      setSheetOpen(true);
-    }
-  }, [open]);
+    const urlParams = new URLSearchParams(window.location.search);
+    const debugMode = urlParams.get('debug') === 'true';
+    setShowDebug(debugMode);
+  }, []);
 
   useEffect(() => {
     if (isAnswerSubmitted) {
@@ -360,7 +359,7 @@ const Quiz = ({
         </SheetHeader>
         
         <div className="mt-4 pointer-events-auto">
-          {import.meta.env.DEV && (
+          {(import.meta.env.DEV || showDebug) && (
             <div className="bg-gray-100 p-2 mb-4 text-xs rounded">
               <div>Debug: Questions: {questions?.length || 0}</div>
               <div>Debug: Current index: {currentQuestionIndex}</div>

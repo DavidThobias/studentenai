@@ -45,15 +45,6 @@ const QuizQuestionComponent = ({
   onToggleExplanation,
   onToggleParagraphContent
 }: QuizQuestionProps) => {
-  // Reset focus on radio buttons when moving to next question
-  useEffect(() => {
-    // When the question changes or when the answer is reset, clear any active focus
-    const activeElement = document.activeElement as HTMLElement;
-    if (activeElement && activeElement.blur) {
-      activeElement.blur();
-    }
-  }, [currentQuestionIndex, selectedAnswer]);
-  
   // Format the paragraph content for better rendering
   const formattedParagraphContent = currentParagraphContent
     .replace(/\*\*(.*?)\*\*/g, "\n\n**$1**\n\n")
@@ -108,7 +99,7 @@ const QuizQuestionComponent = ({
         >
           {question.options.map((option, index) => (
             <div
-              key={`${currentQuestionIndex}-${index}`}
+              key={`question-${currentQuestionIndex}-option-${index}`}
               className={`flex items-center space-x-2 rounded-lg border p-4 ${
                 isAnswerSubmitted
                   ? index === question.correctAnswer
