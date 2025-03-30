@@ -367,7 +367,9 @@ const Quiz = ({
               {batchProgress && (
                 <>
                   <div>Debug: batch: {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}</div>
-                  <div>Debug: terms: {batchProgress.processedTerms}/{batchProgress.totalTerms}</div>
+                  {batchProgress && (
+  <div>Debug: terms: {batchProgress.processedTerms}/{batchProgress.totalTerms}</div>
+)}
                 </>
               )}
             </div>
