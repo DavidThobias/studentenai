@@ -16,10 +16,12 @@ const UserDashboard = () => {
     studyProgress: 0,
     quizScore: 0
   });
+  const [defaultBookId, setDefaultBookId] = useState<number | null>(null);
 
   useEffect(() => {
     if (user) {
       fetchUserStats();
+      fetchDefaultBook();
     } else {
       setIsLoading(false);
     }
@@ -73,6 +75,38 @@ const UserDashboard = () => {
     }
   };
 
+  const fetchDefaultBook = async () => {
+    try {
+      // First try to get the most recently used book from quiz results
+      const { data: recentQuiz, error: recentError } = await supabase
+        .from('quiz_results')
+        .select('book_id')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (recentQuiz?.book_id) {
+        setDefaultBookId(recentQuiz.book_id);
+        return;
+      }
+      
+      // If no recent quiz, just get the first available book
+      const { data: books, error: booksError } = await supabase
+        .from('books')
+        .select('id, book_title')
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      
+      if (books?.id) {
+        setDefaultBookId(books.id);
+      }
+    } catch (error) {
+      console.error('Error fetching default book:', error);
+    }
+  };
+
   return (
     <div className="grid gap-4 md:gap-8">
       <div className="grid gap-4 md:grid-cols-2">
@@ -116,7 +150,7 @@ const UserDashboard = () => {
             Selecteer een hoofdstuk en start direct met leren door een quiz te maken over het materiaal.
           </p>
           
-          <Link to="/quiz">
+          <Link to={defaultBookId ? `/quiz?bookId=${defaultBookId}` : "/quiz"}>
             <Button className="w-full sm:w-auto flex items-center justify-center gap-2">
               Begin met leren
               <ArrowRight className="h-4 w-4 ml-1" />
