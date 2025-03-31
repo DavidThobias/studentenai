@@ -2,7 +2,6 @@
 import { useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Hero from '@/components/Hero';
-import QuizSection from '@/components/QuizSection';
 import Footer from '@/components/Footer';
 
 const Index = () => {
@@ -29,7 +28,6 @@ const Index = () => {
       <Navbar />
       <main>
         <Hero />
-        <QuizSection />
       </main>
       <Footer />
     </div>
