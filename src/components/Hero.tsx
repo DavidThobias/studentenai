@@ -25,7 +25,7 @@ export default function Hero() {
 
             <div className="flex flex-col gap-4 max-w-md">
               <Link 
-                to="/books" 
+                to="/learn" 
                 className="btn-primary group inline-flex items-center justify-center py-4 px-6 text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 Start met leren
