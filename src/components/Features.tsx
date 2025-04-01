@@ -1,66 +1,89 @@
 
-import { BookOpen, Brain, CheckCircle, LightbulbIcon, GraduationCap, Clock } from "lucide-react";
+import { motion } from "framer-motion";
+import { BookOpen, Brain, CheckCircle, LightbulbIcon, GraduationCap } from "lucide-react";
 
 const features = [
   {
     icon: <BookOpen className="h-6 w-6 text-study-600" />,
-    title: "Boek",
-    description: "Upload je studieboeken en transformeer ze in interactieve leermateriaal!."
+    title: "Upload Boeken",
+    description: "Transformeer je studieboeken naar interactief leermateriaal."
   },
   {
     icon: <Brain className="h-6 w-6 text-study-600" />,
-    title: "AI-Gegenereerde Vragen",
-    description: "Onze AI genereert gepersonaliseerde vragen op basis van jouw specifieke studiemateriaal."
+    title: "AI-Quizzen",
+    description: "Gepersonaliseerde vragen voor actief leren."
   },
   {
     icon: <CheckCircle className="h-6 w-6 text-study-600" />,
-    title: "Voortgangsanalyse",
-    description: "Monitor je leervoortgang en identificeer gebieden die meer aandacht nodig hebben."
+    title: "Voortgang",
+    description: "Volg je ontwikkeling en studieresultaten."
   },
   {
     icon: <LightbulbIcon className="h-6 w-6 text-study-600" />,
-    title: "Spaced Repetition",
-    description: "Herhaal informatie op optimale intervallen om langetermijnretentie te maximaliseren."
+    title: "Beter Onthouden",
+    description: "Optimale herhaling voor langetermijnretentie."
   },
   {
     icon: <GraduationCap className="h-6 w-6 text-study-600" />,
-    title: "Gepersonaliseerd Leren",
-    description: "Past zich aan jouw leerstijl en tempo aan voor een op maat gemaakte studie-ervaring."
-  },
-  {
-    icon: <Clock className="h-6 w-6 text-study-600" />,
-    title: "Studietimer",
-    description: "Ingebouwde pomodoro-timer om je te helpen gefocust en productief te blijven."
+    title: "Op Maat",
+    description: "Past zich aan jouw leerstijl en tempo aan."
   }
 ];
 
 export default function Features() {
+  const containerVariants = {
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
+  };
+
   return (
     <section id="features" className="py-20 px-6 bg-white">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="heading-lg text-foreground mb-4">
-            Functies voor effectief leren uit boeken
+      <div className="max-w-6xl mx-auto">
+        <motion.div 
+          className="text-center max-w-3xl mx-auto mb-16"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7 }}
+        >
+          <h2 className="text-3xl font-bold mb-4 text-foreground">
+            Effectiever studeren
           </h2>
-          <p className="subheading">
-            StudyJoy combineert bewezen leertechnieken met moderne technologie om effectiever te leren uit jouw studiemateriaal.
+          <p className="text-lg text-muted-foreground">
+            Combineer bewezen leertechnieken met moderne technologie
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <motion.div 
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6"
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+        >
           {features.map((feature, index) => (
-            <div 
+            <motion.div 
               key={index}
-              className="p-6 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow duration-300 ease-in-out"
+              className="p-6 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow duration-300 ease-in-out h-full flex flex-col"
+              variants={itemVariants}
             >
               <div className="h-12 w-12 rounded-xl bg-study-50 flex items-center justify-center mb-4">
                 {feature.icon}
               </div>
-              <h3 className="heading-md mb-2">{feature.title}</h3>
-              <p className="text-muted-foreground">{feature.description}</p>
-            </div>
+              <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
+              <p className="text-sm text-muted-foreground">{feature.description}</p>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );

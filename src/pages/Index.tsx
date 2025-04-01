@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Hero from '@/components/Hero';
+import Features from '@/components/Features';
 import Footer from '@/components/Footer';
 
 const Index = () => {
@@ -24,10 +25,11 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Navbar />
       <main>
         <Hero />
+        <Features />
       </main>
       <Footer />
     </div>
