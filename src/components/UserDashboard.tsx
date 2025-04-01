@@ -150,7 +150,7 @@ const UserDashboard = () => {
             Selecteer een hoofdstuk en start direct met leren door een quiz te maken over het materiaal.
           </p>
           
-          <Link to={defaultBookId ? `/quiz?bookId=${defaultBookId}` : "/quiz"}>
+          <Link to={defaultBookId ? `/quiz?bookId=${defaultBookId}&structured=true` : "/quiz"}>
             <Button className="w-full sm:w-auto flex items-center justify-center gap-2">
               Begin met leren
               <ArrowRight className="h-4 w-4 ml-1" />
