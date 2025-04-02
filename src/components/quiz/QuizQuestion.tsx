@@ -54,6 +54,12 @@ const QuizQuestionComponent = ({
         .replace(/\n{3,}/g, "\n\n")
     : "";
   
+  // Clear selected answer when question changes
+  useEffect(() => {
+    // This effect will run whenever the question changes
+    // The actual reset happens in the parent component via handleNextQuestion
+  }, [currentQuestionIndex, question]);
+  
   return (
     <Card className="border-2 max-w-3xl mx-auto">
       <CardHeader>
@@ -94,7 +100,7 @@ const QuizQuestionComponent = ({
         )}
         
         <RadioGroup
-          value={selectedAnswer?.toString()}
+          value={selectedAnswer !== null ? selectedAnswer.toString() : undefined}
           onValueChange={(value) => onAnswerSelect(parseInt(value))}
           className="space-y-3"
           disabled={isAnswerSubmitted}

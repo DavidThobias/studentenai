@@ -207,15 +207,18 @@ serve(async (req) => {
     
     console.log(`Processing batch ${batchIndex + 1}/${totalBatches} with ${boldedTermsToProcess.length} terms`);
     
-    // Updated system prompt with more educational focus and balanced answer distribution
+    // Updated system prompt with more educational focus and requirements for better explanations
     const systemPrompt = `Je bent een AI gespecialiseerd in het genereren van educatieve meerkeuzevragen op HBO-niveau.
-    Je creëert vragen die zowel uitdagend als leerzaam zijn, met de nadruk op het testen van begrip, analyse, toepassing en evaluatie - niet alleen feitenkennis.
+    Je creëert vragen die UITDAGEND en leerzaam zijn, met de nadruk op het testen van begrip, analyse, toepassing en evaluatie - niet alleen feitenkennis.
     
-    BELANGRIJK: Zorg voor een evenwichtige verdeling van juiste antwoorden - ongeveer 25% A, 25% B, 25% C en 25% D. Wissel de correcte antwoorden door elkaar zodat er geen voorspelbaar patroon is.
+    BELANGRIJK: 
+    1. Zorg voor een evenwichtige verdeling van juiste antwoorden - ongeveer 25% A, 25% B, 25% C en 25% D.
+    2. De vragen moeten UITDAGEND zijn, geschikt voor HBO-niveau. Vermijd eenvoudige feitelijke vragen.
+    3. Maak gedetailleerde uitleg die EERST het concept/begrip duidelijk definieert en DAARNA uitlegt hoe dit van toepassing is op de vraag.
     
     Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.`;
     
-    // Revised user prompt with emphasis on HBO-level challenging questions and context restrictions for specific paragraphs
+    // Revised user prompt with emphasis on HBO-level challenging questions and better explanations
     let userPrompt;
     
     if (isSpecificParagraph && specificParagraphContent) {
@@ -227,26 +230,27 @@ serve(async (req) => {
       
       Inhoud van specifieke paragraaf: ${specificParagraphContent}
       
-      Genereer uitdagende HBO-niveau vragen EXCLUSIEF over de volgende specifieke termen uit deze paragraaf:
+      Genereer UITDAGENDE HBO-niveau vragen EXCLUSIEF over de volgende specifieke termen uit deze paragraaf:
       ${boldedTermsToProcess.join(', ')}
       
       BELANGRIJK! ALLEEN DEZE TERMEN: ${boldedTermsToProcess.join(', ')} zijn relevant voor deze opdracht.
       
       Vereisten voor de vragen:
       1. Maak ALLEEN vragen over bovenstaande termen en EXCLUSIEF gebaseerd op de inhoud van deze specifieke paragraaf.
-      2. HBO-niveau: Focus op vragen die inzicht, toepassing en praktisch begrip testen, niet alleen feitenkennis.
-      3. Variatie in vraagtypen:
-         - Kennisvragen: "Wat is de definitie of betekenis van [begrip]?"
-         - Vergelijkingsvragen: "Wat is het verschil tussen [begrip A] en [begrip B]?"
-         - Toepassingsvragen: "In welke situatie zou je [begrip] toepassen?"
-         - Scenariovragen: "Een bedrijf heeft te maken met [situatie]. Welk [begrip] is hier van toepassing?"
-      4. Realistische context: Gebruik praktijkgerichte contexten of scenario's uit de specifieke paragraaf.
-      5. Geen letterlijke kopie: Gebruik de tekst als context, maar neem geen zinnen letterlijk over.
-      6. Antwoordopties:
-         - Zorg dat de foute antwoordopties geloofwaardig zijn en niet te extreem.
-         - Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
-      7. Evenwichtige verdeling: Zorg voor een gelijke verdeling van correcte antwoorden (A, B, C, D) over alle vragen.
-      8. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
+      2. HBO-niveau: Focus op vragen die UITDAGEND zijn en inzicht, toepassing en praktisch begrip testen, niet alleen feitenkennis.
+      3. MOEILIJKHEIDSGRAAD: Zorg ervoor dat de vragen echt uitdagend zijn. Vermijd oppervlakkige en te eenvoudige kennisvragen.
+      4. Variatie in vraagtypen:
+         - Toepassingsvragen: "Hoe zou je [begrip] toepassen in de volgende situatie...?"
+         - Analysevragen: "Wat is de relatie tussen [begrip A] en [begrip B] in deze context...?"
+         - Evalueringsvragen: "Beoordeel de effectiviteit van [begrip] in de volgende case..."
+         - Scenariovragen met meerdere factoren: "Een bedrijf heeft te maken met [complexe situatie]. Welke [begrip] is hier het meest relevant en waarom?"
+      5. Maak foute antwoorden geloofwaardig en plausibel, maar duidelijk incorrect bij nadere analyse.
+      6. Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
+      7. ZEER BELANGRIJK - UITGEBREIDE UITLEG: 
+         - Begin met een duidelijke definitie van het centrale begrip/concept
+         - Vervolgens leg uit waarom het correcte antwoord juist is 
+         - Leg ook uit waarom elk van de andere opties incorrect is
+         - Minimaal 4-5 zinnen per uitleg
       
       BELANGRIJK: GEBRUIK ALLEEN INFORMATIE UIT DEZE SPECIFIEKE PARAGRAAF. VERWIJS NIET NAAR ANDERE PARAGRAFEN OF HOOFDSTUKKEN.
       
@@ -268,7 +272,7 @@ serve(async (req) => {
       - Maak alleen vragen voor de specifiek genoemde begrippen in deze batch.
       - Zorg dat elke vraag nauwkeurig past bij het niveau en de context van het specifieke paragraaf.`;
     } else {
-      // For non-specific paragraphs, use the original prompt format
+      // For non-specific paragraphs, use the updated format with better explanations
       userPrompt = `
       Invoer:
       ${bookTitle ? `Boektitel: ${bookTitle}\n` : ''}
@@ -276,25 +280,25 @@ serve(async (req) => {
       
       Inhoud: ${bookContent}
       
-      Genereer uitdagende HBO-niveau vragen over de volgende specifieke begrippen uit de tekst.
+      Genereer UITDAGENDE HBO-niveau vragen over de volgende specifieke begrippen uit de tekst.
       
       Vereisten voor de vragen:
       1. Maak voor ELK van deze termen minimaal één vraag: ${boldedTermsToProcess.join(', ')}
-      2. HBO-niveau: Focus op vragen die inzicht, toepassing en praktisch begrip testen, niet alleen feitenkennis.
-      3. Variatie in vraagtypen:
-         - Kennisvragen: "Wat is de definitie of betekenis van [begrip]?"
-         - Vergelijkingsvragen: "Wat is het verschil tussen [begrip A] en [begrip B]?"
-         - Toepassingsvragen: "In welke situatie zou je [begrip] toepassen?"
-         - Scenariovragen: "Een bedrijf heeft te maken met [situatie]. Welk [begrip] is hier van toepassing?"
-         - Probleemoplossende vragen: "Een organisatie ervaart [probleem]. Wat is de beste aanpak volgens [begrip]?"
-      4. Realistische context: Gebruik praktijkgerichte contexten of scenario's die relevant zijn in de beroepspraktijk.
-      5. Geen letterlijke kopie: Gebruik de tekst als context, maar neem geen zinnen letterlijk over.
-      6. Antwoordopties:
-         - Zorg dat de foute antwoordopties geloofwaardig zijn en niet te extreem.
-         - Vermijd vragen waarbij het antwoord te voorspelbaar is door de formulering.
-         - Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
-      7. Evenwichtige verdeling: Zorg voor een gelijke verdeling van correcte antwoorden (A, B, C, D) over alle vragen.
-      8. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
+      2. HBO-niveau: Focus op vragen die UITDAGEND zijn en inzicht, toepassing en praktisch begrip testen, niet alleen feitenkennis.
+      3. MOEILIJKHEIDSGRAAD: Zorg ervoor dat de vragen echt uitdagend zijn. Vermijd oppervlakkige en te eenvoudige kennisvragen.
+      4. Variatie in vraagtypen:
+         - Toepassingsvragen: "Hoe zou je [begrip] toepassen in de volgende situatie...?"
+         - Analysevragen: "Wat is de relatie tussen [begrip A] en [begrip B] in deze context...?"
+         - Evalueringsvragen: "Beoordeel de effectiviteit van [begrip] in de volgende case..."
+         - Scenariovragen met meerdere factoren: "Een bedrijf heeft te maken met [complexe situatie]. Welke [begrip] is hier het meest relevant en waarom?"
+         - Probleemoplossende vragen: "Een organisatie ervaart [complex probleem]. Wat is de beste aanpak volgens [begrip]?"
+      5. Maak foute antwoorden geloofwaardig en plausibel, maar duidelijk incorrect bij nadere analyse.
+      6. Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
+      7. ZEER BELANGRIJK - UITGEBREIDE UITLEG:
+         - Begin met een duidelijke definitie van het centrale begrip/concept
+         - Vervolgens leg uit waarom het correcte antwoord juist is 
+         - Leg ook uit waarom elk van de andere opties incorrect is
+         - Minimaal 4-5 zinnen per uitleg
       
       Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
       
