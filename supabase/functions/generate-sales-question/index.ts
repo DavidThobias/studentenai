@@ -101,24 +101,9 @@ serve(async (req) => {
       bookTitle = book.book_title;
       contextDescription = `boek "${bookTitle}"`;
       
-      // Build query for content based on provided context
-      let query = supabase
-        .from('books')
-        .select('content, chapter_number, paragraph_number, chapter_title')
-        .eq('book_title', bookTitle);
-      
-      // Add chapter filter if specified
-      if (chapterId) {
-        query = query.eq('chapter_number', chapterId);
-        contextDescription = `hoofdstuk ${chapterId} van ${contextDescription}`;
-      }
-      
-      // If paragraphId is specified, query by ID, not by paragraph_number
-      let paragraphs;
-      let paragraphsError;
-      
-      if (paragraphId && chapterId) {
-        // First get the specific paragraph by its ID
+      // If paragraphId is specified, query ONLY by this specific ID
+      // This is the key change to focus quiz generation on a single paragraph
+      if (paragraphId) {
         console.log(`Fetching specific paragraph with ID: ${paragraphId}`);
         const { data: specificParagraph, error: specificError } = await supabase
           .from('books')
@@ -128,52 +113,66 @@ serve(async (req) => {
         
         if (specificError) {
           console.error(`Error fetching specific paragraph: ${JSON.stringify(specificError)}`);
-          paragraphsError = specificError;
-        } else if (!specificParagraph) {
-          console.error(`No paragraph found with ID: ${paragraphId}`);
-          paragraphsError = new Error(`No paragraph found with ID: ${paragraphId}`);
-        } else {
-          paragraphs = [specificParagraph];
-          contextDescription = `paragraaf ${specificParagraph.paragraph_number} van ${contextDescription}`;
-          console.log(`Found paragraph ${specificParagraph.paragraph_number} with ID ${paragraphId}`);
+          throw new Error(`Error fetching paragraph: ${specificError.message}`);
         }
-      } else {
-        // Get all paragraphs for the chapter
-        const result = await query
-          .order('chapter_number', { ascending: true })
+        
+        if (!specificParagraph) {
+          console.error(`No paragraph found with ID: ${paragraphId}`);
+          throw new Error(`No paragraph found with ID: ${paragraphId}`);
+        }
+        
+        // Set content to ONLY this paragraph's content
+        bookContent = `Hoofdstuk ${specificParagraph.chapter_number} (${specificParagraph.chapter_title}), Paragraaf ${specificParagraph.paragraph_number}:\n\n${specificParagraph.content}`;
+        contextDescription = `paragraaf ${specificParagraph.paragraph_number} van hoofdstuk ${specificParagraph.chapter_number} van ${contextDescription}`;
+        
+        console.log(`Using content ONLY from paragraph ${specificParagraph.paragraph_number} (ID: ${paragraphId})`);
+      }
+      // If only chapterId is specified (no paragraphId), query all paragraphs from that chapter
+      else if (chapterId) {
+        const { data: paragraphs, error: paragraphsError } = await supabase
+          .from('books')
+          .select('content, chapter_number, paragraph_number, chapter_title')
+          .eq('book_title', bookTitle)
+          .eq('chapter_number', chapterId)
           .order('paragraph_number', { ascending: true });
         
-        paragraphs = result.data;
-        paragraphsError = result.error;
+        if (paragraphsError) {
+          console.error(`Error fetching paragraphs: ${JSON.stringify(paragraphsError)}`);
+          throw new Error(`Error fetching paragraphs: ${paragraphsError.message}`);
+        }
+        
+        if (!paragraphs || paragraphs.length === 0) {
+          console.error(`No paragraphs found for chapter ${chapterId}`);
+          throw new Error(`No paragraphs found for chapter ${chapterId}`);
+        }
+        
+        bookContent = paragraphs.map(p => 
+          `Paragraaf ${p.paragraph_number}: ${p.content}`
+        ).join('\n\n');
+        contextDescription = `hoofdstuk ${chapterId} van ${contextDescription}`;
+        
+        console.log(`Fetched ${paragraphs.length} paragraphs from chapter ${chapterId}`);
       }
-      
-      if (!paragraphsError && paragraphs && paragraphs.length > 0) {
-        // If there's paragraph-specific content, use it
-        if (paragraphId && paragraphs.length === 1) {
-          const paragraph = paragraphs[0];
-          bookContent = `Hoofdstuk ${paragraph.chapter_number} (${paragraph.chapter_title}), Paragraaf ${paragraph.paragraph_number}:\n\n${paragraph.content}`;
-          console.log(`Using content from paragraph ${paragraph.paragraph_number} (ID: ${paragraphId})`);
-        } 
-        // If there's chapter-specific content, use all paragraphs from that chapter
-        else if (chapterId) {
-          bookContent = paragraphs.map(p => 
-            `Paragraaf ${p.paragraph_number}: ${p.content}`
-          ).join('\n\n');
-          console.log(`Fetched ${paragraphs.length} paragraphs from chapter ${chapterId}`);
+      // Otherwise use a sample of paragraphs from the book
+      else {
+        const { data: paragraphs, error: paragraphsError } = await supabase
+          .from('books')
+          .select('content, chapter_number, paragraph_number, chapter_title')
+          .eq('book_title', bookTitle)
+          .order('chapter_number', { ascending: true })
+          .order('paragraph_number', { ascending: true })
+          .limit(20); // Get a reasonable sample
+        
+        if (paragraphsError) {
+          console.error(`Error fetching paragraphs: ${JSON.stringify(paragraphsError)}`);
+          throw new Error(`Error fetching paragraphs: ${paragraphsError.message}`);
         }
-        // Otherwise use a sample of paragraphs from the book
-        else {
-          bookContent = paragraphs.map(p => 
-            `Hoofdstuk ${p.chapter_number}, Paragraaf ${p.paragraph_number}: ${p.content}`
-          ).join('\n\n');
-          
-          console.log(`Fetched ${paragraphs.length} paragraphs for book: ${bookTitle}`);
-        }
-      } else if (paragraphsError) {
-        console.error(`Error fetching paragraphs: ${JSON.stringify(paragraphsError)}`);
-      } else {
-        console.warn(`No paragraphs found for the specified context`);
-        bookContent = `Boek: ${bookTitle}`;
+        
+        bookContent = paragraphs?.map(p => 
+          `Hoofdstuk ${p.chapter_number}, Paragraaf ${p.paragraph_number}: ${p.content}`
+        ).join('\n\n') || `Boek: ${bookTitle}`;
+        
+        console.log(`Fetched ${paragraphs?.length || 0} paragraphs for book: ${bookTitle}`);
       }
     }
     
