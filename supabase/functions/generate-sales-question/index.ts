@@ -1,4 +1,3 @@
-
 // @deno-types="https://deno.land/x/xhr@0.1.0/mod.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -70,6 +69,7 @@ serve(async (req) => {
     let totalBatches = 0;
     let boldedTermsToProcess: string[] = [];
     let isSpecificParagraph = false;
+    let specificParagraphContent = "";
     
     if (bookId) {
       // Create Supabase client to fetch book content
@@ -124,6 +124,7 @@ serve(async (req) => {
         }
         
         // Set content to ONLY this paragraph's content
+        specificParagraphContent = specificParagraph.content;
         bookContent = `Hoofdstuk ${specificParagraph.chapter_number} (${specificParagraph.chapter_title}), Paragraaf ${specificParagraph.paragraph_number}:\n\n${specificParagraph.content}`;
         contextDescription = `paragraaf ${specificParagraph.paragraph_number} van hoofdstuk ${specificParagraph.chapter_number} van ${contextDescription}`;
         
@@ -179,8 +180,15 @@ serve(async (req) => {
     }
     
     // Extract bolded terms from the content
-    allBoldedTerms = extractBoldedTerms(bookContent);
-    console.log(`Extracted ${allBoldedTerms.length} bolded terms from content`);
+    if (isSpecificParagraph && specificParagraphContent) {
+      // When it's a specific paragraph, ONLY extract terms from that paragraph's content
+      allBoldedTerms = extractBoldedTerms(specificParagraphContent);
+      console.log(`Extracted ${allBoldedTerms.length} bolded terms ONLY from the specific paragraph`);
+    } else {
+      // Otherwise extract from all content
+      allBoldedTerms = extractBoldedTerms(bookContent);
+      console.log(`Extracted ${allBoldedTerms.length} bolded terms from all content`);
+    }
     
     if (allBoldedTerms.length === 0) {
       console.log('No bolded terms found in content. Returning empty result.');
