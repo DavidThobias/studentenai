@@ -125,6 +125,9 @@ serve(async (req) => {
         
         // Set content to ONLY this paragraph's content
         specificParagraphContent = specificParagraph.content;
+        console.log("Specific paragraph content:", specificParagraphContent.substring(0, 100) + "...");
+        
+        // We still set bookContent for reference, but we won't use it for term extraction
         bookContent = `Hoofdstuk ${specificParagraph.chapter_number} (${specificParagraph.chapter_title}), Paragraaf ${specificParagraph.paragraph_number}:\n\n${specificParagraph.content}`;
         contextDescription = `paragraaf ${specificParagraph.paragraph_number} van hoofdstuk ${specificParagraph.chapter_number} van ${contextDescription}`;
         
@@ -132,50 +135,11 @@ serve(async (req) => {
       }
       // If only chapterId is specified (no paragraphId), query all paragraphs from that chapter
       else if (chapterId) {
-        const { data: paragraphs, error: paragraphsError } = await supabase
-          .from('books')
-          .select('content, chapter_number, paragraph_number, chapter_title')
-          .eq('book_title', bookTitle)
-          .eq('chapter_number', chapterId)
-          .order('paragraph_number', { ascending: true });
-        
-        if (paragraphsError) {
-          console.error(`Error fetching paragraphs: ${JSON.stringify(paragraphsError)}`);
-          throw new Error(`Error fetching paragraphs: ${paragraphsError.message}`);
-        }
-        
-        if (!paragraphs || paragraphs.length === 0) {
-          console.error(`No paragraphs found for chapter ${chapterId}`);
-          throw new Error(`No paragraphs found for chapter ${chapterId}`);
-        }
-        
-        bookContent = paragraphs.map(p => 
-          `Paragraaf ${p.paragraph_number}: ${p.content}`
-        ).join('\n\n');
-        contextDescription = `hoofdstuk ${chapterId} van ${contextDescription}`;
-        
-        console.log(`Fetched ${paragraphs.length} paragraphs from chapter ${chapterId}`);
+        // ... keep existing code
       }
       // Otherwise use a sample of paragraphs from the book
       else {
-        const { data: paragraphs, error: paragraphsError } = await supabase
-          .from('books')
-          .select('content, chapter_number, paragraph_number, chapter_title')
-          .eq('book_title', bookTitle)
-          .order('chapter_number', { ascending: true })
-          .order('paragraph_number', { ascending: true })
-          .limit(20); // Get a reasonable sample
-        
-        if (paragraphsError) {
-          console.error(`Error fetching paragraphs: ${JSON.stringify(paragraphsError)}`);
-          throw new Error(`Error fetching paragraphs: ${paragraphsError.message}`);
-        }
-        
-        bookContent = paragraphs?.map(p => 
-          `Hoofdstuk ${p.chapter_number}, Paragraaf ${p.paragraph_number}: ${p.content}`
-        ).join('\n\n') || `Boek: ${bookTitle}`;
-        
-        console.log(`Fetched ${paragraphs?.length || 0} paragraphs for book: ${bookTitle}`);
+        // ... keep existing code
       }
     }
     
@@ -183,7 +147,10 @@ serve(async (req) => {
     if (isSpecificParagraph && specificParagraphContent) {
       // When it's a specific paragraph, ONLY extract terms from that paragraph's content
       allBoldedTerms = extractBoldedTerms(specificParagraphContent);
-      console.log(`Extracted ${allBoldedTerms.length} bolded terms ONLY from the specific paragraph`);
+      // Double check that the terms actually appear in the paragraph content
+      allBoldedTerms = allBoldedTerms.filter(term => specificParagraphContent.includes(term));
+      console.log(`Extracted and filtered ${allBoldedTerms.length} bolded terms ONLY from the specific paragraph`);
+      console.log("Terms extracted:", allBoldedTerms);
     } else {
       // Otherwise extract from all content
       allBoldedTerms = extractBoldedTerms(bookContent);
@@ -212,10 +179,12 @@ serve(async (req) => {
     
     // Process terms in batches
     const termBatches = chunkArray(allBoldedTerms, actualBatchSize);
+    console.log("Term batches:", termBatches);
     totalBatches = termBatches.length;
     
     // Get the terms for the requested batch
     boldedTermsToProcess = termBatches[batchIndex] || [];
+    console.log("Processing terms in this batch:", boldedTermsToProcess);
     
     if (boldedTermsToProcess.length === 0) {
       console.log(`No terms found for batch ${batchIndex}. Total batches: ${totalBatches}`);
@@ -246,56 +215,113 @@ serve(async (req) => {
     
     Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.`;
     
-    // Revised user prompt with emphasis on HBO-level challenging questions
-    const userPrompt = `
-    Invoer:
-    ${bookTitle ? `Boektitel: ${bookTitle}\n` : ''}
-    ${contextDescription ? `Context: ${contextDescription}\n` : ''}
+    // Revised user prompt with emphasis on HBO-level challenging questions and context restrictions for specific paragraphs
+    let userPrompt;
     
-    Inhoud: ${bookContent}
+    if (isSpecificParagraph && specificParagraphContent) {
+      // When generating questions for a specific paragraph, use ONLY the paragraph content as context
+      userPrompt = `
+      Invoer:
+      ${bookTitle ? `Boektitel: ${bookTitle}\n` : ''}
+      ${contextDescription ? `Context: ${contextDescription}\n` : ''}
+      
+      Inhoud van specifieke paragraaf: ${specificParagraphContent}
+      
+      Genereer uitdagende HBO-niveau vragen EXCLUSIEF over de volgende specifieke termen uit deze paragraaf:
+      ${boldedTermsToProcess.join(', ')}
+      
+      BELANGRIJK! ALLEEN DEZE TERMEN: ${boldedTermsToProcess.join(', ')} zijn relevant voor deze opdracht.
+      
+      Vereisten voor de vragen:
+      1. Maak ALLEEN vragen over bovenstaande termen en EXCLUSIEF gebaseerd op de inhoud van deze specifieke paragraaf.
+      2. HBO-niveau: Focus op vragen die inzicht, toepassing en praktisch begrip testen, niet alleen feitenkennis.
+      3. Variatie in vraagtypen:
+         - Kennisvragen: "Wat is de definitie of betekenis van [begrip]?"
+         - Vergelijkingsvragen: "Wat is het verschil tussen [begrip A] en [begrip B]?"
+         - Toepassingsvragen: "In welke situatie zou je [begrip] toepassen?"
+         - Scenariovragen: "Een bedrijf heeft te maken met [situatie]. Welk [begrip] is hier van toepassing?"
+      4. Realistische context: Gebruik praktijkgerichte contexten of scenario's uit de specifieke paragraaf.
+      5. Geen letterlijke kopie: Gebruik de tekst als context, maar neem geen zinnen letterlijk over.
+      6. Antwoordopties:
+         - Zorg dat de foute antwoordopties geloofwaardig zijn en niet te extreem.
+         - Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
+      7. Evenwichtige verdeling: Zorg voor een gelijke verdeling van correcte antwoorden (A, B, C, D) over alle vragen.
+      8. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
+      
+      BELANGRIJK: GEBRUIK ALLEEN INFORMATIE UIT DEZE SPECIFIEKE PARAGRAAF. VERWIJS NIET NAAR ANDERE PARAGRAFEN OF HOOFDSTUKKEN.
+      
+      Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
+      
+      Retourneer de vragen in een JSON array met de volgende structuur:
+      [
+        {
+          "question": "De vraag in het Nederlands",
+          "options": ["A. Optie 1", "B. Optie 2", "C. Optie 3", "D. Optie 4"],
+          "correct": "A" (of B, C, D afhankelijk van welk antwoord correct is),
+          "explanation": "Uitleg waarom dit antwoord correct is en waarom de andere opties incorrect zijn."
+        },
+        ...meer vragen...
+      ]
+      
+      BELANGRIJK:
+      - Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
+      - Maak alleen vragen voor de specifiek genoemde begrippen in deze batch.
+      - Zorg dat elke vraag nauwkeurig past bij het niveau en de context van het specifieke paragraaf.`;
+    } else {
+      // For non-specific paragraphs, use the original prompt format
+      userPrompt = `
+      Invoer:
+      ${bookTitle ? `Boektitel: ${bookTitle}\n` : ''}
+      ${contextDescription ? `Context: ${contextDescription}\n` : ''}
+      
+      Inhoud: ${bookContent}
+      
+      Genereer uitdagende HBO-niveau vragen over de volgende specifieke begrippen uit de tekst.
+      
+      Vereisten voor de vragen:
+      1. Maak voor ELK van deze termen minimaal één vraag: ${boldedTermsToProcess.join(', ')}
+      2. HBO-niveau: Focus op vragen die inzicht, toepassing en praktisch begrip testen, niet alleen feitenkennis.
+      3. Variatie in vraagtypen:
+         - Kennisvragen: "Wat is de definitie of betekenis van [begrip]?"
+         - Vergelijkingsvragen: "Wat is het verschil tussen [begrip A] en [begrip B]?"
+         - Toepassingsvragen: "In welke situatie zou je [begrip] toepassen?"
+         - Scenariovragen: "Een bedrijf heeft te maken met [situatie]. Welk [begrip] is hier van toepassing?"
+         - Probleemoplossende vragen: "Een organisatie ervaart [probleem]. Wat is de beste aanpak volgens [begrip]?"
+      4. Realistische context: Gebruik praktijkgerichte contexten of scenario's die relevant zijn in de beroepspraktijk.
+      5. Geen letterlijke kopie: Gebruik de tekst als context, maar neem geen zinnen letterlijk over.
+      6. Antwoordopties:
+         - Zorg dat de foute antwoordopties geloofwaardig zijn en niet te extreem.
+         - Vermijd vragen waarbij het antwoord te voorspelbaar is door de formulering.
+         - Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
+      7. Evenwichtige verdeling: Zorg voor een gelijke verdeling van correcte antwoorden (A, B, C, D) over alle vragen.
+      8. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
+      
+      Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
+      
+      Retourneer de vragen in een JSON array met de volgende structuur:
+      [
+        {
+          "question": "De vraag in het Nederlands",
+          "options": ["A. Optie 1", "B. Optie 2", "C. Optie 3", "D. Optie 4"],
+          "correct": "A" (of B, C, D afhankelijk van welk antwoord correct is),
+          "explanation": "Uitleg waarom dit antwoord correct is en waarom de andere opties incorrect zijn."
+        },
+        ...meer vragen...
+      ]
+      
+      BELANGRIJK:
+      - Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
+      - Maak alleen vragen voor de specifiek genoemde begrippen in deze batch.
+      - Maak uitdagende vragen die gebruikers stimuleren om dieper na te denken over de stof.
+      - Zorg dat elke vraag nauwkeurig past bij het niveau en de context van het lesmateriaal.
+      - Gebruik de begrippen zoals ze zijn gedefinieerd in de tekst, maar formuleer de vragen in je eigen woorden.
+      - Verdeel de juiste antwoorden (A, B, C, D) gelijkmatig over alle vragen.`;
+    }
     
-    Genereer uitdagende HBO-niveau vragen over de volgende specifieke begrippen uit de tekst.
-    
-    Vereisten voor de vragen:
-    1. Maak voor ELK van deze termen minimaal één vraag: ${boldedTermsToProcess.join(', ')}
-    2. HBO-niveau: Focus op vragen die inzicht, toepassing en praktisch begrip testen, niet alleen feitenkennis.
-    3. Variatie in vraagtypen:
-       - Kennisvragen: "Wat is de definitie of betekenis van [begrip]?"
-       - Vergelijkingsvragen: "Wat is het verschil tussen [begrip A] en [begrip B]?"
-       - Toepassingsvragen: "In welke situatie zou je [begrip] toepassen?"
-       - Scenariovragen: "Een bedrijf heeft te maken met [situatie]. Welk [begrip] is hier van toepassing?"
-       - Probleemoplossende vragen: "Een organisatie ervaart [probleem]. Wat is de beste aanpak volgens [begrip]?"
-    4. Realistische context: Gebruik praktijkgerichte contexten of scenario's die relevant zijn in de beroepspraktijk.
-    5. Geen letterlijke kopie: Gebruik de tekst als context, maar neem geen zinnen letterlijk over.
-    6. Antwoordopties:
-       - Zorg dat de foute antwoordopties geloofwaardig zijn en niet te extreem.
-       - Vermijd vragen waarbij het antwoord te voorspelbaar is door de formulering.
-       - Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
-    7. Evenwichtige verdeling: Zorg voor een gelijke verdeling van correcte antwoorden (A, B, C, D) over alle vragen.
-    8. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
-    
-    ${isSpecificParagraph ? 'BELANGRIJK: Maak ALLEEN vragen over de inhoud van de SPECIFIEKE paragraaf die is meegestuurd. NIET over andere paragrafen.\n' : ''}
-    ${isSpecificParagraph && boldedTermsToProcess.length <= 5 ? 'Voor deze paragraaf zijn er maar weinig termen. Maak per term twee of drie verschillende vragen om de stof goed te behandelen.\n' : ''}
-    Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
-    
-    Retourneer de vragen in een JSON array met de volgende structuur:
-    [
-      {
-        "question": "De vraag in het Nederlands",
-        "options": ["A. Optie 1", "B. Optie 2", "C. Optie 3", "D. Optie 4"],
-        "correct": "A" (of B, C, D afhankelijk van welk antwoord correct is),
-        "explanation": "Uitleg waarom dit antwoord correct is en waarom de andere opties incorrect zijn."
-      },
-      ...meer vragen...
-    ]
-    
-    BELANGRIJK:
-    - Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
-    - Maak alleen vragen voor de specifiek genoemde begrippen in deze batch.
-    - Maak uitdagende vragen die gebruikers stimuleren om dieper na te denken over de stof.
-    - Zorg dat elke vraag nauwkeurig past bij het niveau en de context van het lesmateriaal.
-    - Gebruik de begrippen zoals ze zijn gedefinieerd in de tekst, maar formuleer de vragen in je eigen woorden.
-    - Verdeel de juiste antwoorden (A, B, C, D) gelijkmatig over alle vragen.`;
+    // Log the prompt for debugging
+    if (debug) {
+      console.log("User prompt to OpenAI:", userPrompt.substring(0, 500) + "...");
+    }
     
     // Calculate estimated token count to help debug potential OpenAI token limit issues
     const estimatedPromptTokens = (systemPrompt.length + userPrompt.length) / 4;
@@ -398,6 +424,30 @@ serve(async (req) => {
       }
       return isValid;
     });
+    
+    // Validate that questions only contain terms from the specified paragraph when required
+    if (isSpecificParagraph && specificParagraphContent) {
+      const originalQuestionsCount = questions.length;
+      
+      // Check if each question is actually about the terms we requested
+      questions = questions.filter(q => {
+        // Check if any of the terms we're processing appear in the question
+        const containsRelevantTerm = boldedTermsToProcess.some(term => 
+          q.question.toLowerCase().includes(term.toLowerCase()) ||
+          q.explanation.toLowerCase().includes(term.toLowerCase())
+        );
+        
+        if (!containsRelevantTerm) {
+          console.warn('Filtered out question not related to requested terms:', q.question);
+        }
+        
+        return containsRelevantTerm;
+      });
+      
+      if (questions.length < originalQuestionsCount) {
+        console.log(`Filtered out ${originalQuestionsCount - questions.length} questions not related to the specified terms`);
+      }
+    }
     
     console.log(`Returning ${questions.length} questions after validation`);
 
