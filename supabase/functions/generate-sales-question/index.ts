@@ -1,3 +1,4 @@
+
 // @deno-types="https://deno.land/x/xhr@0.1.0/mod.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -214,14 +215,14 @@ serve(async (req) => {
     console.log(`Processing batch ${batchIndex + 1}/${totalBatches} with ${boldedTermsToProcess.length} terms`);
     
     // Updated system prompt with more educational focus and balanced answer distribution
-    const systemPrompt = `Je bent een AI gespecialiseerd in het genereren van educatieve meerkeuzevragen om gebruikers volledig inzicht te geven in sales en marketing concepten. 
-    Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen.
+    const systemPrompt = `Je bent een AI gespecialiseerd in het genereren van educatieve meerkeuzevragen op HBO-niveau.
+    Je creëert vragen die zowel uitdagend als leerzaam zijn, met de nadruk op het testen van begrip, analyse, toepassing en evaluatie - niet alleen feitenkennis.
     
-    BELANGRIJK: Zorg voor een evenwichtige verdeling van juiste antwoorden - ongeveer 25% A, 25% B, 25% C en 25% D. Wissel de correcte antwoorden door elkaar zodat er geen voorspelbaar patroon is, maar houd de distributie zo gelijk mogelijk.
+    BELANGRIJK: Zorg voor een evenwichtige verdeling van juiste antwoorden - ongeveer 25% A, 25% B, 25% C en 25% D. Wissel de correcte antwoorden door elkaar zodat er geen voorspelbaar patroon is.
     
     Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.`;
     
-    // Revised user prompt
+    // Revised user prompt with emphasis on HBO-level challenging questions
     const userPrompt = `
     Invoer:
     ${bookTitle ? `Boektitel: ${bookTitle}\n` : ''}
@@ -229,20 +230,25 @@ serve(async (req) => {
     
     Inhoud: ${bookContent}
     
-    Genereer een uitgebreide set vragen over de volgende specifieke begrippen uit de tekst.
+    Genereer uitdagende HBO-niveau vragen over de volgende specifieke begrippen uit de tekst.
     
     Vereisten voor de vragen:
     1. Maak voor ELK van deze termen minimaal één vraag: ${boldedTermsToProcess.join(', ')}
-    2. HBO-niveau: Maak uitdagende vragen die begrip en toepassing testen, niet alleen feitenkennis.
+    2. HBO-niveau: Focus op vragen die inzicht, toepassing en praktisch begrip testen, niet alleen feitenkennis.
     3. Variatie in vraagtypen:
-       - Kennisvragen: "Wat betekent [begrip]?"
+       - Kennisvragen: "Wat is de definitie of betekenis van [begrip]?"
        - Vergelijkingsvragen: "Wat is het verschil tussen [begrip A] en [begrip B]?"
        - Toepassingsvragen: "In welke situatie zou je [begrip] toepassen?"
        - Scenariovragen: "Een bedrijf heeft te maken met [situatie]. Welk [begrip] is hier van toepassing?"
-    4. Geen letterlijke kopie: Gebruik de tekst als context, maar neem geen zinnen letterlijk over.
-    5. Opties: Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
-    6. Evenwichtige verdeling: Zorg voor een gelijke verdeling van correcte antwoorden (A, B, C, D) over alle vragen.
-    7. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
+       - Probleemoplossende vragen: "Een organisatie ervaart [probleem]. Wat is de beste aanpak volgens [begrip]?"
+    4. Realistische context: Gebruik praktijkgerichte contexten of scenario's die relevant zijn in de beroepspraktijk.
+    5. Geen letterlijke kopie: Gebruik de tekst als context, maar neem geen zinnen letterlijk over.
+    6. Antwoordopties:
+       - Zorg dat de foute antwoordopties geloofwaardig zijn en niet te extreem.
+       - Vermijd vragen waarbij het antwoord te voorspelbaar is door de formulering.
+       - Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
+    7. Evenwichtige verdeling: Zorg voor een gelijke verdeling van correcte antwoorden (A, B, C, D) over alle vragen.
+    8. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
     
     Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
     
@@ -257,9 +263,10 @@ serve(async (req) => {
       ...meer vragen...
     ]
     
-    Belangrijk:
+    BELANGRIJK:
     - Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
     - Maak alleen vragen voor de specifiek genoemde begrippen in deze batch.
+    - Maak uitdagende vragen die gebruikers stimuleren om dieper na te denken over de stof.
     - Zorg dat elke vraag nauwkeurig past bij het niveau en de context van het lesmateriaal.
     - Gebruik de begrippen zoals ze zijn gedefinieerd in de tekst, maar formuleer de vragen in je eigen woorden.
     - Verdeel de juiste antwoorden (A, B, C, D) gelijkmatig over alle vragen.`;
