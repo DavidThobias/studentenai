@@ -69,6 +69,7 @@ serve(async (req) => {
     let allBoldedTerms: string[] = [];
     let totalBatches = 0;
     let boldedTermsToProcess: string[] = [];
+    let isSpecificParagraph = false;
     
     if (bookId) {
       // Create Supabase client to fetch book content
@@ -103,8 +104,8 @@ serve(async (req) => {
       contextDescription = `boek "${bookTitle}"`;
       
       // If paragraphId is specified, query ONLY by this specific ID
-      // This is the key change to focus quiz generation on a single paragraph
       if (paragraphId) {
+        isSpecificParagraph = true;
         console.log(`Fetching specific paragraph with ID: ${paragraphId}`);
         const { data: specificParagraph, error: specificError } = await supabase
           .from('books')
@@ -181,13 +182,28 @@ serve(async (req) => {
     allBoldedTerms = extractBoldedTerms(bookContent);
     console.log(`Extracted ${allBoldedTerms.length} bolded terms from content`);
     
-    // Check if we extracted a reasonable number of terms
-    if (allBoldedTerms.length > 30) {
-      console.log(`Processing large number of bolded terms (${allBoldedTerms.length}) in batches`);
+    if (allBoldedTerms.length === 0) {
+      console.log('No bolded terms found in content. Returning empty result.');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Geen gemarkeerde termen gevonden in de geselecteerde inhoud',
+          questions: []
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // When it's a specific paragraph, we should process all terms in one batch if there are few terms
+    // This ensures we don't divide a small set of paragraph-specific terms into multiple batches
+    let actualBatchSize = batchSize;
+    if (isSpecificParagraph && allBoldedTerms.length <= 10) {
+      console.log(`Using larger batch size for paragraph with ${allBoldedTerms.length} terms`);
+      actualBatchSize = allBoldedTerms.length; // Process all terms in one go if it's a small paragraph
     }
     
     // Process terms in batches
-    const termBatches = chunkArray(allBoldedTerms, batchSize);
+    const termBatches = chunkArray(allBoldedTerms, actualBatchSize);
     totalBatches = termBatches.length;
     
     // Get the terms for the requested batch
@@ -250,6 +266,8 @@ serve(async (req) => {
     7. Evenwichtige verdeling: Zorg voor een gelijke verdeling van correcte antwoorden (A, B, C, D) over alle vragen.
     8. Uitgebreide uitleg: Leg uit waarom het correcte antwoord juist is en waarom de andere opties fout zijn.
     
+    ${isSpecificParagraph ? 'BELANGRIJK: Maak ALLEEN vragen over de inhoud van de SPECIFIEKE paragraaf die is meegestuurd. NIET over andere paragrafen.\n' : ''}
+    ${isSpecificParagraph && boldedTermsToProcess.length <= 5 ? 'Voor deze paragraaf zijn er maar weinig termen. Maak per term twee of drie verschillende vragen om de stof goed te behandelen.\n' : ''}
     Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
     
     Retourneer de vragen in een JSON array met de volgende structuur:
@@ -393,7 +411,8 @@ serve(async (req) => {
         paragraphId,
         bookTitle,
         contextDescription,
-        boldedTermsCount: allBoldedTerms.length
+        boldedTermsCount: allBoldedTerms.length,
+        isSpecificParagraph
       }
     };
     
