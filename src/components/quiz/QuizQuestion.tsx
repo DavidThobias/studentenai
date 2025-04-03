@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -145,7 +144,7 @@ const QuizQuestionComponent = ({
           ))}
         </RadioGroup>
 
-        {isAnswerSubmitted && (
+        {isAnswerSubmitted && showExplanation && (
           <Alert className="mt-4">
             <HelpCircle className="h-4 w-4" />
             <AlertTitle>Uitleg</AlertTitle>

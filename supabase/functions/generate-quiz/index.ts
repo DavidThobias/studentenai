@@ -1,4 +1,3 @@
-
 // @deno-types="https://deno.land/x/types/deno.d.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -189,10 +188,9 @@ serve(async (req) => {
       - Misleidende maar plausibele antwoordopties toevoegen
     
     UITGEBREIDE UITLEG: Voor elke vraag moet een grondige uitleg worden gegeven die:
-      1. Het relevante concept/begrip eerst duidelijk definieert
-      2. Uitlegt hoe dit concept van toepassing is op de vraag
-      3. Verheldert waarom het juiste antwoord correct is
-      4. Specifiek beschrijft waarom elk onjuist antwoord fout is
+      1. Begint met een duidelijke definitie van het concept of begrip
+      2. Daarna uitlegt waarom het correcte antwoord juist is 
+      3. Vervolgens specifiek beschrijft waarom elk onjuist antwoord fout is
     
     Diepgang: De vragen moeten zowel feitelijke kennis als begrip testen (bijv. onderscheid tussen concepten, praktische toepassingen).
     
@@ -326,8 +324,46 @@ serve(async (req) => {
     });
     
     if (!hasProperDistribution && quizQuestions.length >= 4) {
-      console.warn("Detected uneven answer distribution. Forced rebalancing would be applied here in production.");
-      // In a more advanced implementation, you could rebalance answers here
+      console.warn("Detected uneven answer distribution. Forcing rebalancing...");
+      
+      // Simple rebalancing algorithm for when distribution is poor
+      if (quizQuestions.length >= 4) {
+        // Create a mapping of what letter each question's correct answer should be
+        const targetDistribution = [];
+        for (let i = 0; i < quizQuestions.length; i++) {
+          // This ensures a perfectly even distribution of A, B, C, D
+          targetDistribution.push(String.fromCharCode(65 + (i % 4)));
+        }
+        
+        // Shuffle to avoid predictable pattern
+        for (let i = targetDistribution.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [targetDistribution[i], targetDistribution[j]] = [targetDistribution[j], targetDistribution[i]];
+        }
+        
+        // Rebalance by reassigning correct answers and reordering options
+        quizQuestions = quizQuestions.map((question, idx) => {
+          const currentCorrectIndex = question.correct.charCodeAt(0) - 65;
+          const targetCorrectIndex = targetDistribution[idx].charCodeAt(0) - 65;
+          
+          if (currentCorrectIndex === targetCorrectIndex) {
+            return question; // No change needed
+          }
+          
+          // Rearrange options to make desired answer correct
+          const newOptions = [...question.options];
+          [newOptions[currentCorrectIndex], newOptions[targetCorrectIndex]] = 
+            [newOptions[targetCorrectIndex], newOptions[currentCorrectIndex]];
+          
+          return {
+            ...question,
+            options: newOptions,
+            correct: targetDistribution[idx]
+          };
+        });
+        
+        console.log("Answer distribution rebalanced");
+      }
     }
 
     // Validate each question's structure and convert from letter format to index format

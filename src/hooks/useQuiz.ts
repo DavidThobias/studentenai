@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +53,7 @@ export const useQuiz = (
   const [score, setScore] = useState(0);
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [showIncrementalResults, setShowIncrementalResults] = useState(true);
   
   const [bookId, setBookId] = useState<number | null>(initialBookId);
   const [chapterId, setChapterId] = useState<number | null>(initialChapterId);
@@ -101,7 +101,6 @@ export const useQuiz = (
     }
   }, [questions, currentQuestionIndex, selectedAnswer, isAnswerSubmitted, score, isQuizComplete, bookId, chapterId, paragraphId, addLog]);
 
-  // Function to check answer distribution
   const validateAnswerDistribution = (quizQuestions: QuizQuestion[]): boolean => {
     if (quizQuestions.length < 4) return true; // Not enough questions to balance
     
@@ -121,7 +120,6 @@ export const useQuiz = (
     
     addLog(`Answer distribution: A=${distribution.A}, B=${distribution.B}, C=${distribution.C}, D=${distribution.D}`);
     
-    // Check if distribution is reasonably balanced
     const expectedCount = quizQuestions.length / 4;
     const isBalanced = Object.values(distribution).every(count => 
       Math.abs(count - expectedCount) <= 1
@@ -328,68 +326,81 @@ export const useQuiz = (
       });
       
       setAllQuestions(firstBatchQuestions);
+      setQuestions(firstBatchQuestions);
       
       if (metadata.isLastBatch) {
-        setQuestions(firstBatchQuestions);
         setIsGenerating(false);
         addLog(`Quiz generation complete with ${firstBatchQuestions.length} questions (single batch)`);
         return;
       }
       
+      if (showIncrementalResults) {
+        setIsGenerating(false);
+      }
+      
       let currentBatch = 1;
       let allProcessedQuestions = [...firstBatchQuestions];
       
-      while (currentBatch < metadata.totalBatches) {
-        addLog(`Processing batch ${currentBatch + 1} of ${metadata.totalBatches}`);
-        
-        setBatchProgress(prev => prev ? {
-          ...prev,
-          currentBatch,
-          processedTerms: allProcessedQuestions.length
-        } : null);
-        
-        const batchResult = await processBatch(currentBatch, batchSize);
-        
-        if (!batchResult) {
-          addLog(`Batch ${currentBatch} failed, continuing with ${allProcessedQuestions.length} questions`);
-          break;
+      const processBatches = async () => {
+        while (currentBatch < metadata.totalBatches) {
+          addLog(`Processing batch ${currentBatch + 1} of ${metadata.totalBatches}`);
+          
+          setBatchProgress(prev => prev ? {
+            ...prev,
+            currentBatch,
+            processedTerms: allProcessedQuestions.length
+          } : null);
+          
+          const batchResult = await processBatch(currentBatch, batchSize);
+          
+          if (!batchResult) {
+            addLog(`Batch ${currentBatch} failed, continuing with ${allProcessedQuestions.length} questions`);
+            break;
+          }
+          
+          allProcessedQuestions = [...allProcessedQuestions, ...batchResult.questions];
+          
+          setBatchProgress(prev => prev ? {
+            ...prev,
+            currentBatch,
+            processedTerms: allProcessedQuestions.length
+          } : null);
+          
+          addLog(`Added ${batchResult.questions.length} questions from batch ${currentBatch}, total now: ${allProcessedQuestions.length}`);
+          
+          setAllQuestions(allProcessedQuestions);
+          
+          if (showIncrementalResults) {
+            setQuestions(allProcessedQuestions);
+          }
+          
+          currentBatch++;
+          
+          if (batchResult.metadata.isLastBatch) {
+            addLog(`Last batch complete, total questions: ${allProcessedQuestions.length}`);
+            break;
+          }
         }
         
-        allProcessedQuestions = [...allProcessedQuestions, ...batchResult.questions];
+        setQuestions(allProcessedQuestions);
         
-        setBatchProgress(prev => prev ? {
-          ...prev,
-          currentBatch,
-          processedTerms: allProcessedQuestions.length
-        } : null);
-        
-        addLog(`Added ${batchResult.questions.length} questions from batch ${currentBatch}, total now: ${allProcessedQuestions.length}`);
-        
-        setAllQuestions(allProcessedQuestions);
-        
-        currentBatch++;
-        
-        if (batchResult.metadata.isLastBatch) {
-          addLog(`Last batch complete, total questions: ${allProcessedQuestions.length}`);
-          break;
+        const isBalanced = validateAnswerDistribution(allProcessedQuestions);
+        if (!isBalanced) {
+          addLog('Warning: The answer distribution is not evenly balanced across A, B, C, and D');
         }
-      }
+        
+        addLog(`Quiz generation complete with ${allProcessedQuestions.length} total questions across ${currentBatch} batches`);
+        
+        setIsGenerating(false);
+        setBatchProgress(null);
+      };
       
-      setQuestions(allProcessedQuestions);
-      
-      // Check answer distribution
-      const isBalanced = validateAnswerDistribution(allProcessedQuestions);
-      if (!isBalanced) {
-        addLog('Warning: The answer distribution is not evenly balanced across A, B, C, and D');
-      }
-      
-      addLog(`Quiz generation complete with ${allProcessedQuestions.length} total questions across ${currentBatch} batches`);
+      processBatches();
       
     } catch (err) {
       console.error('Error in generateQuiz with batches:', err);
       setQuizError(`Er is een onverwachte fout opgetreden: ${err instanceof Error ? err.message : 'Onbekende fout'}`);
       addLog(`Fatal error in batch processing: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
       setIsGenerating(false);
       setBatchProgress(null);
     }
@@ -487,7 +498,6 @@ export const useQuiz = (
     if (currentQuestionIndex < questions.length - 1) {
       addLog(`Moving to next question (${currentQuestionIndex + 1})`);
       setCurrentQuestionIndex(prevIndex => prevIndex + 1);
-      // Explicitly reset the selected answer when moving to the next question
       setSelectedAnswer(null);
       setIsAnswerSubmitted(false);
       setShowExplanation(false);
@@ -552,6 +562,8 @@ export const useQuiz = (
     debugData,
     batchProgress,
     allQuestions,
+    showIncrementalResults,
+    setShowIncrementalResults,
     setBookId,
     setChapterId,
     setParagraphId,

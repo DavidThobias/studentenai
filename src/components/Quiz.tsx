@@ -64,11 +64,21 @@ const Quiz = ({
   
   const [sheetOpen, setSheetOpen] = useState(open);
   
+  const [loadingMoreQuestions, setLoadingMoreQuestions] = useState(false);
+  
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const debugMode = urlParams.get('debug') === 'true';
     setShowDebug(debugMode);
   }, []);
+
+  useEffect(() => {
+    if (questions.length > 0 && isGenerating && batchProgress) {
+      setLoadingMoreQuestions(true);
+    } else {
+      setLoadingMoreQuestions(false);
+    }
+  }, [questions.length, isGenerating, batchProgress]);
 
   useEffect(() => {
     if (isAnswerSubmitted) {
@@ -83,26 +93,30 @@ const Quiz = ({
   };
 
   const renderLoadingContent = () => {
-    if (batchProgress) {
+    if (questions.length === 0) {
+      if (batchProgress) {
+        return (
+          <QuizLoading 
+            currentBatch={batchProgress.currentBatch}
+            totalBatches={batchProgress.totalBatches}
+            processedTerms={batchProgress.processedTerms}
+            totalTerms={batchProgress.totalTerms}
+          />
+        );
+      }
+      
       return (
-        <QuizLoading 
-          currentBatch={batchProgress.currentBatch}
-          totalBatches={batchProgress.totalBatches}
-          processedTerms={batchProgress.processedTerms}
-          totalTerms={batchProgress.totalTerms}
-        />
+        <div className="flex flex-col items-center justify-center p-8">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p className="text-center font-medium">Quiz wordt gegenereerd...</p>
+          <p className="text-center text-sm text-muted-foreground mt-2">
+            Dit kan enkele seconden duren
+          </p>
+        </div>
       );
     }
     
-    return (
-      <div className="flex flex-col items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-        <p className="text-center font-medium">Quiz wordt gegenereerd...</p>
-        <p className="text-center text-sm text-muted-foreground mt-2">
-          Dit kan enkele seconden duren
-        </p>
-      </div>
-    );
+    return null;
   };
 
   const renderErrorContent = () => {
@@ -195,6 +209,12 @@ const Quiz = ({
           <div className="flex justify-between items-center mb-2">
             <div className="text-sm font-medium text-muted-foreground">
               Vraag {currentQuestionIndex + 1} van {questions.length}
+              {loadingMoreQuestions && (
+                <span className="ml-2 text-xs text-primary flex items-center">
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  Meer vragen laden...
+                </span>
+              )}
             </div>
             <div className="text-sm font-medium text-muted-foreground">
               Score: {score} / {isAnswerSubmitted ? currentQuestionIndex + 1 : currentQuestionIndex}
@@ -254,6 +274,22 @@ const Quiz = ({
               </AlertDescription>
             </Alert>
           )}
+          
+          {loadingMoreQuestions && batchProgress && (
+            <div className="mt-4 text-xs text-muted-foreground">
+              <div className="flex items-center">
+                <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" />
+                <span>
+                  Batch {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}: 
+                  {batchProgress.processedTerms}/{batchProgress.totalTerms} begrippen verwerkt
+                </span>
+              </div>
+              <Progress 
+                value={(batchProgress.processedTerms / batchProgress.totalTerms) * 100} 
+                className="h-1 mt-1" 
+              />
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0">
           <div className="flex items-center space-x-2">
@@ -295,7 +331,7 @@ const Quiz = ({
       batchProgress
     });
     
-    if (isGenerating) {
+    if (isGenerating && questions.length === 0) {
       return renderLoadingContent();
     }
 
@@ -340,16 +376,18 @@ const Quiz = ({
       >
         <SheetHeader className="mb-4">
           <SheetTitle>
-            {isGenerating ? "Quiz voorbereiden" :
+            {isGenerating && questions.length === 0 ? "Quiz voorbereiden" :
              error ? "Quiz Fout" :
              isQuizComplete ? "Quiz voltooid!" :
              title}
           </SheetTitle>
           <SheetDescription>
-            {isGenerating ? 
+            {isGenerating && questions.length === 0 ? 
               batchProgress ? 
                 `Bezig met genereren van vragen (Batch ${batchProgress.currentBatch + 1}/${batchProgress.totalBatches})` :
                 "Even geduld terwijl we je quiz voorbereiden." :
+             loadingMoreQuestions ?
+                `Vraag ${currentQuestionIndex + 1} van ${questions.length} (meer vragen worden geladen)` :
              error ? "Er is een probleem opgetreden bij het genereren van de quiz." :
              isQuizComplete ? "Bekijk hieronder je resultaten" :
              questions.length > 0 ? 
@@ -364,6 +402,7 @@ const Quiz = ({
               <div>Debug: Questions: {questions?.length || 0}</div>
               <div>Debug: Current index: {currentQuestionIndex}</div>
               <div>Debug: isGenerating: {String(isGenerating)}</div>
+              <div>Debug: loadingMoreQuestions: {String(loadingMoreQuestions)}</div>
               <div>Debug: error: {error ? 'Yes' : 'No'}</div>
               <div>Debug: isQuizComplete: {String(isQuizComplete)}</div>
               <div>Debug: sheetOpen: {String(sheetOpen)}</div>
