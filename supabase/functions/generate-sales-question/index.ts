@@ -83,7 +83,7 @@ function balanceAnswerDistribution(questions: any[]): any[] {
         
         console.log(`Rebalancing question ${i}: changing correct from ${q.correct} to ${newAnswerLetter}`);
         
-        // Save the original correct option
+        // Save the original correct option and its content
         const correctOption = q.options[oldAnswerIndex];
         
         // Swap options - move the correct option to the new position
@@ -92,6 +92,47 @@ function balanceAnswerDistribution(questions: any[]): any[] {
         
         // Update the correct answer
         q.correct = newAnswerLetter;
+        
+        // IMPORTANT: Update explanation to reflect the new option ordering
+        // This prevents the explanation from referencing the wrong options
+        if (q.explanation) {
+          // Replace specific option references like "Option A", "Option B", etc.
+          const optionLetters = ['A', 'B', 'C', 'D'];
+          
+          // Create a mapping of old positions to new positions
+          const optionMap = optionLetters.reduce((map, letter, index) => {
+            if (index === oldAnswerIndex) {
+              // The previously correct option moved to newAnswerIndex
+              map[letter] = optionLetters[newAnswerIndex];
+            } else if (index === newAnswerIndex) {
+              // The option that was at newAnswerIndex moved to oldAnswerIndex
+              map[letter] = optionLetters[oldAnswerIndex];
+            } else {
+              // Other options stay the same
+              map[letter] = letter;
+            }
+            return map;
+          }, {} as Record<string, string>);
+          
+          // Apply the mapping to update option references in the explanation
+          for (const [oldLetter, newLetter] of Object.entries(optionMap)) {
+            if (oldLetter !== newLetter) {
+              // Replace references like "Option A", "Optie A", etc.
+              const patterns = [
+                new RegExp(`[Oo]ptie ${oldLetter}\\b`, 'g'),
+                new RegExp(`[Oo]ption ${oldLetter}\\b`, 'g'),
+                new RegExp(`[Aa]ntwoord ${oldLetter}\\b`, 'g'),
+                new RegExp(`[Aa]nswer ${oldLetter}\\b`, 'g')
+              ];
+              
+              for (const pattern of patterns) {
+                q.explanation = q.explanation.replace(pattern, (match) => 
+                  match.replace(oldLetter, newLetter)
+                );
+              }
+            }
+          }
+        }
         
         // Move to the next under-represented answer
         underRepIndex++;
@@ -392,6 +433,8 @@ serve(async (req) => {
       2. Waarom het juiste antwoord correct is (1-2 zinnen)
       3. Korte uitleg waarom de andere opties incorrect zijn (1 zin voor alle opties samen)
       
+      BELANGRIJK: Vermijd in de uitleg te refereren naar specifieke optie-letters (A, B, C, D) of de exacte tekst van een optie, omdat de volgorde kan wijzigen. Gebruik algemene termen als "het juiste antwoord" en "de onjuiste opties".
+      
       Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
       
       Retourneer de vragen in een JSON array met deze structuur:
@@ -443,6 +486,8 @@ serve(async (req) => {
       1. Definitie van het concept (1 zin)
       2. Waarom het juiste antwoord correct is (1-2 zinnen)
       3. Korte uitleg waarom de andere opties incorrect zijn (1 zin voor alle opties samen)
+      
+      BELANGRIJK: Vermijd in de uitleg te refereren naar specifieke optie-letters (A, B, C, D) of de exacte tekst van een optie, omdat de volgorde kan wijzigen. Gebruik algemene termen als "het juiste antwoord" en "de onjuiste opties".
       
       Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
       
@@ -609,93 +654,105 @@ serve(async (req) => {
     // Verify answer distribution and balance if needed
     if (questions.length >= 4) {
       // Count correct answers by letter
-      const correctAnswerCounts = {
-        'A': 0,
-        'B': 0,
-        'C': 0,
-        'D': 0
+      const answerDistribution = {
+        A: questions.filter(q => q.correct === 'A').length,
+        B: questions.filter(q => q.correct === 'B').length,
+        C: questions.filter(q => q.correct === 'C').length,
+        D: questions.filter(q => q.correct === 'D').length
       };
       
-      questions.forEach(q => {
-        correctAnswerCounts[q.correct]++;
-      });
+      console.log('Initial answer distribution:', answerDistribution);
       
-      console.log('Initial answer distribution:', correctAnswerCounts);
+      // Balance answer distribution if needed
+      questions = balanceAnswerDistribution(questions);
       
-      // Check if there's a significant imbalance
-      const expectedCount = Math.ceil(questions.length / 4);
-      const isBalanced = Object.values(correctAnswerCounts).every(count => 
-        Math.abs(count as number - expectedCount) <= 1
-      );
+      // Get the new distribution after balancing
+      const balancedDistribution = {
+        A: questions.filter(q => q.correct === 'A').length,
+        B: questions.filter(q => q.correct === 'B').length,
+        C: questions.filter(q => q.correct === 'C').length,
+        D: questions.filter(q => q.correct === 'D').length
+      };
       
-      // If balance is needed, apply our rebalancing algorithm
-      if (!isBalanced) {
-        console.log('Rebalancing answer distribution...');
-        questions = balanceAnswerDistribution(questions);
-      }
+      console.log('Balanced answer distribution:', balancedDistribution);
     }
     
     console.log(`Returning ${questions.length} questions after validation and balancing`);
-
-    // Create response object, include debug info if requested
-    const responseObj: any = {
+    
+    // Convert the letter answers (A, B, C, D) to indices (0, 1, 2, 3) for client-side processing
+    const processedQuestions = questions.map(q => {
+      // Convert the letter to an index (A=0, B=1, etc.)
+      const correctIndex = q.correct.charCodeAt(0) - 65;
+      
+      // Ensure the explanation doesn't reference specific options by letter
+      const explanation = q.explanation
+        // Replace direct option letter references with more generic language
+        .replace(/\b(optie|option|antwoord|answer)\s+[A-D]\b/gi, "het juiste antwoord")
+        // Remove any remaining direct letter references
+        .replace(/\b[Oo]ptie [A-D]\b/g, "een optie")
+        .replace(/\b[Aa]ntwoord [A-D]\b/g, "een antwoord");
+      
+      return {
+        ...q,
+        correctAnswer: correctIndex,
+        explanation: explanation
+      };
+    });
+    
+    const responseData = {
       success: true,
-      questions: questions,
+      questions: processedQuestions,
       metadata: {
         batchIndex,
         totalBatches,
         totalTerms: allBoldedTerms.length,
-        processedTerms: boldedTermsToProcess.length,
-        batchSize,
-        isLastBatch: batchIndex >= totalBatches - 1
+        processedTerms: (batchIndex * actualBatchSize) + processedQuestions.length,
+        batchSize: actualBatchSize,
+        isLastBatch: batchIndex >= totalBatches - 1,
+        boldedTermsCount: allBoldedTerms.length
       },
       context: {
-        bookId,
-        chapterId,
-        paragraphId,
         bookTitle,
         contextDescription,
-        boldedTermsCount: allBoldedTerms.length,
-        isSpecificParagraph
+        isSpecificParagraph,
+        boldedTermsCount: allBoldedTerms.length
       }
     };
     
-    // Add debug information if requested
     if (debug) {
-      responseObj.debug = {
+      // Add debug info if requested
+      responseData.debug = {
         prompt: userPrompt,
-        response: data.choices[0].message,
-        extractedTerms: allBoldedTerms,
+        response: { content },
         batchTerms: boldedTermsToProcess,
+        extractedTerms: allBoldedTerms,
         tokenEstimates: {
           promptTokens: Math.ceil(estimatedPromptTokens),
           requestedMaxTokens: maxTokens
         },
         answerDistribution: {
-          'A': questions.filter(q => q.correct === 'A').length,
-          'B': questions.filter(q => q.correct === 'B').length,
-          'C': questions.filter(q => q.correct === 'C').length,
-          'D': questions.filter(q => q.correct === 'D').length
+          A: questions.filter(q => q.correct === 'A').length,
+          B: questions.filter(q => q.correct === 'B').length,
+          C: questions.filter(q => q.correct === 'C').length,
+          D: questions.filter(q => q.correct === 'D').length
         }
       };
     }
-
+    
     return new Response(
-      JSON.stringify(responseObj),
+      JSON.stringify(responseData),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
+    
   } catch (error) {
-    console.error('Error in generate-sales-question function:', error);
+    console.error('Error:', error);
+    
     return new Response(
       JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : 'An unknown error occurred'
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

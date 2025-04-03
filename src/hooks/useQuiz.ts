@@ -174,6 +174,16 @@ export const useQuiz = (
           // Update the correct answer
           q.correctAnswer = newAnswerIndex;
           
+          // Clean the explanation to remove any references to specific options
+          if (q.explanation) {
+            q.explanation = q.explanation
+              // Replace direct option letter references with more generic language
+              .replace(/\b(optie|option|antwoord|answer)\s+[A-D]\b/gi, "het juiste antwoord")
+              // Remove any remaining direct letter references
+              .replace(/\b[Oo]ptie [A-D]\b/g, "een optie")
+              .replace(/\b[Aa]ntwoord [A-D]\b/g, "een antwoord");
+          }
+          
           // Move to the next under-represented answer
           underRepIndex++;
           
@@ -371,11 +381,20 @@ export const useQuiz = (
         correctAnswerIndex = 0;
       }
       
+      // Clean the explanation to avoid any references to specific options
+      let cleanedExplanation = q.explanation || "Dit is het correcte antwoord volgens de theorie.";
+      
+      // Remove specific option references from explanation
+      cleanedExplanation = cleanedExplanation
+        .replace(/\b(optie|option|antwoord|answer)\s+[A-D]\b/gi, "het juiste antwoord")
+        .replace(/\b[Oo]ptie [A-D]\b/g, "een optie")
+        .replace(/\b[Aa]ntwoord [A-D]\b/g, "een antwoord");
+      
       return {
         question: q.question,
         options: q.options,
         correctAnswer: correctAnswerIndex,
-        explanation: q.explanation || "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
+        explanation: cleanedExplanation
       };
     });
   };

@@ -76,6 +76,14 @@ const QuizQuestionComponent = ({
     onAnswerSelect(index);
   };
   
+  // Create a function to generate a safe display for explanations that avoids references to specific options
+  const getSafeExplanation = () => {
+    if (!question.explanation) return "";
+    
+    // Return the explanation as-is since we've updated the backend to avoid option-specific references
+    return question.explanation;
+  };
+  
   return (
     <Card className="border-2 max-w-3xl mx-auto">
       <CardHeader>
@@ -164,7 +172,7 @@ const QuizQuestionComponent = ({
             <HelpCircle className="h-4 w-4" />
             <AlertTitle>Uitleg</AlertTitle>
             <AlertDescription>
-              <ReactMarkdown>{question.explanation}</ReactMarkdown>
+              <ReactMarkdown>{getSafeExplanation()}</ReactMarkdown>
             </AlertDescription>
           </Alert>
         )}

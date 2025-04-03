@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -60,11 +59,9 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
     }
   }, [quizOpen, currentQuestionIndex, isAnswerSubmitted, score, questions.length]);
 
-  // Reset quiz selected answer when question changes
   useEffect(() => {
     if (quizOpen && questions.length > 0) {
       addLog(`Question changed to ${currentQuestionIndex}, resetting selected answer state`);
-      // This helps ensure the UI is properly reset when questions change
       if (!isAnswerSubmitted) {
         setQuizSelectedAnswer(null);
       }
@@ -97,24 +94,36 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
       
       if (data && data.success && data.questions && Array.isArray(data.questions)) {
         const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
-          const correctIndex = q.correct.charCodeAt(0) - 65;
+          let correctIndex;
+          if (typeof q.correctAnswer === 'number') {
+            correctIndex = q.correctAnswer;
+          } else if (q.correct && typeof q.correct === 'string') {
+            correctIndex = q.correct.charCodeAt(0) - 65;
+          } else {
+            correctIndex = 0;
+          }
           
           const cleanedOptions = q.options.map((opt: string) => {
             return opt.replace(/^[A-D]\.\s*/, '');
           });
           
+          let cleanedExplanation = q.explanation || "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales.";
+          cleanedExplanation = cleanedExplanation
+            .replace(/\b(optie|option|antwoord|answer)\s+[A-D]\b/gi, "het juiste antwoord")
+            .replace(/\b[Oo]ptie [A-D]\b/g, "een optie")
+            .replace(/\b[Aa]ntwoord [A-D]\b/g, "een antwoord");
+          
           return {
             question: q.question,
             options: cleanedOptions,
             correctAnswer: correctIndex,
-            explanation: q.explanation || "Dit is het correcte antwoord volgens de theorie uit het Basisboek Sales."
+            explanation: cleanedExplanation
           };
         });
         
         setQuestions(formattedQuestions);
         addLog(`Created ${formattedQuestions.length} questions from the API response`);
         
-        // Check if answer distribution is balanced
         const distribution = {
           A: 0, B: 0, C: 0, D: 0
         };
@@ -225,7 +234,6 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
     setQuizOpen(false);
   };
 
-  // Function to verify answer distribution
   const checkAnswerDistribution = (questions: QuizQuestion[]) => {
     if (questions.length < 4) return;
     
