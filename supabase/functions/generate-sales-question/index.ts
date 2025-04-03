@@ -1,4 +1,3 @@
-
 // @deno-types="https://deno.land/x/xhr@0.1.0/mod.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -226,11 +225,48 @@ serve(async (req) => {
       }
       // If only chapterId is specified (no paragraphId), query all paragraphs from that chapter
       else if (chapterId) {
-        // ... keep existing code
+        console.log(`Fetching all paragraphs from chapter with ID: ${chapterId}`);
+        const { data: chapterParagraphs, error: chapterError } = await supabase
+          .from('books')
+          .select('content, chapter_number, paragraph_number')
+          .eq('book_id', bookId)
+          .eq('chapter_id', chapterId);
+        
+        if (chapterError) {
+          console.error(`Error fetching paragraphs for chapter: ${JSON.stringify(chapterError)}`);
+          throw new Error(`Error fetching paragraphs for chapter: ${chapterError.message}`);
+        }
+        
+        if (!chapterParagraphs || chapterParagraphs.length === 0) {
+          console.warn(`No paragraphs found for chapter ID: ${chapterId}`);
+        } else {
+          // Concatenate all paragraph contents from the chapter
+          bookContent = chapterParagraphs.map(p => `Paragraaf ${p.chapter_number}.${p.paragraph_number}:\n\n${p.content}`).join('\n\n');
+          contextDescription = `hoofdstuk van ${contextDescription}`;
+          console.log(`Using content from chapter ${chapterId} with ${chapterParagraphs.length} paragraphs`);
+        }
       }
       // Otherwise use a sample of paragraphs from the book
       else {
-        // ... keep existing code
+        console.log(`Fetching a sample of paragraphs from book with ID: ${bookId}`);
+        const { data: bookParagraphs, error: bookError } = await supabase
+          .from('books')
+          .select('content, chapter_number, paragraph_number')
+          .eq('book_id', bookId)
+          .limit(50); // Limit to a reasonable number of paragraphs
+        
+        if (bookError) {
+          console.error(`Error fetching paragraphs for book: ${JSON.stringify(bookError)}`);
+          throw new Error(`Error fetching paragraphs for book: ${bookError.message}`);
+        }
+        
+        if (!bookParagraphs || bookParagraphs.length === 0) {
+          console.warn(`No paragraphs found for book ID: ${bookId}`);
+        } else {
+          // Concatenate all paragraph contents from the book
+          bookContent = bookParagraphs.map(p => `Hoofdstuk ${p.chapter_number}, Paragraaf ${p.paragraph_number}:\n\n${p.content}`).join('\n\n');
+          console.log(`Using content from book ${bookId} with ${bookParagraphs.length} paragraphs`);
+        }
       }
     }
     
@@ -297,25 +333,28 @@ serve(async (req) => {
     }
     
     console.log(`Processing batch ${batchIndex + 1}/${totalBatches} with ${boldedTermsToProcess.length} terms`);
+
+    // Updated system prompt with focus on challenging questions and subtle distractors
+    const systemPrompt = `Je bent een AI gespecialiseerd in het genereren van uitdagende meerkeuzevragen op HBO-niveau.
+    Creëer vragen die UITDAGEND zijn en kritisch denken vereisen. Test hoger-orde vaardigheden zoals analyse, toepassing en evaluatie.
     
-    // Updated system prompt with more randomization instruction for answers
-    const systemPrompt = `Je bent een AI gespecialiseerd in het genereren van educatieve meerkeuzevragen op HBO-niveau.
-    Je creëert vragen die UITDAGEND en leerzaam zijn, met de nadruk op het testen van begrip, analyse, toepassing en evaluatie - niet alleen feitenkennis.
+    BELANGRIJKSTE VEREISTEN:
+    1. ECHT UITDAGENDE VRAGEN: Genereer vragen die een DIEP BEGRIP vereisen, geen simpele feiten.
+    2. SUBTIEL ONJUISTE ANTWOORDEN: Maak afleidende opties die GELOOFWAARDIG maar SUBTIEL ONJUIST zijn, bijvoorbeeld:
+       - Deels waar maar onvolledig
+       - Te breed of te specifiek
+       - Juiste redenering maar onjuiste conclusie
+       - Verward met verwante concepten
+    3. COMPLEXE SCENARIO'S: Gebruik realistische bedrijfscontexten die meerdere concepten integreren.
+    4. GEVARIEERDE VRAAGTYPEN: Inclusief berekeningen, tabellen, en afbeeldinginterpretatie waar relevant.
+    5. ANTWOORDVERDELING: Zorg voor gelijke verdeling van juiste antwoorden (25% A, 25% B, 25% C, 25% D).
     
-    BELANGRIJK: 
-    1. ANTWOORDVERDELING: Zorg voor een EXACTE gelijke verdeling van juiste antwoorden - PRECIES 25% A, 25% B, 25% C en 25% D.
-       HEEL BELANGRIJK: RANDOMISEER de juiste antwoorden. VERMIJD het overmatig gebruiken van één letter (zoals B).
-    2. De vragen moeten ECHT UITDAGEND zijn, geschikt voor HBO-niveau. Vermijd eenvoudige feitelijke vragen.
-    3. Voor elke TERM maak je EXACT ÉÉN VRAAG (niet meer, niet minder).
-    4. Je maakt de uitleg als volgt:
-       - EERST: Een duidelijke definitie van het begrip (1-2 zinnen)
-       - DAARNA: Waarom het correcte antwoord juist is (2-3 zinnen)
-       - TENSLOTTE: Waarom elk incorrect antwoord onjuist is (1 zin per antwoord)
-    5. ECHT BELANGRIJK: WISSEL de juiste antwoorden af. Als je 8 vragen maakt, dan moet er PRECIES 2x A, 2x B, 2x C en 2x D juist zijn. NIET meer dan dat.
-    
-    Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.`;
-    
-    // Revised user prompt with explicit randomization instruction
+    Voor elke TERM maak je EXACT ÉÉN vraag die:
+    - De definitie combineert met praktische toepassing
+    - Verwarring kan veroorzaken met aanverwante begrippen
+    - Beroep doet op kritisch denken en analyse`;
+
+    // Revised user prompt for more challenging questions
     let userPrompt;
     
     if (isSpecificParagraph && specificParagraphContent) {
@@ -330,53 +369,48 @@ serve(async (req) => {
       Genereer UITDAGENDE HBO-niveau vragen. MAAK EXACT ÉÉN VRAAG VOOR ELKE van deze begrippen uit deze paragraaf:
       ${boldedTermsToProcess.join(', ')}
       
-      LET OP DE STRUCTUUR: In de paragraaf hebben termen vaak deze structuur:
-      - Eerst komt het begrip in **vetgedrukt**
-      - Dan volgt informatie over dit begrip
-      - Daarna komt het volgende begrip
+      VRAAGVEREISTEN:
+      1. PRAKTIJK GEORIËNTEERD: Elke vraag moet een realistische business case of scenario bevatten.
+      2. VERWARRING CREËREN: Gebruik verwante concepten in de antwoordopties om DOELBEWUST verwarring te creëren.
+      3. SUBTIEL ONDERSCHEID: Het verschil tussen juiste en onjuiste antwoorden moet subtiel zijn.
+      4. GEÏNTEGREERDE KENNIS: Vraag naar relaties tussen concepten, niet naar individuele definities.
+      5. GEVARIEERDE FORMATS: Gebruik soms:
+         - Tabellen met data voor analyse
+         - Berekeningen die interpretatie vereisen
+         - Scenario's met meerdere variabelen
       
-      Gebruik deze structuur om PRECIES te begrijpen wat elke term betekent.
+      FOUTE ANTWOORDOPTIES:
+      - Gebruik GEEN duidelijk foute antwoorden
+      - Maak OPTIES DIE BIJNA JUIST ZIJN maar subtiel onjuist, bijvoorbeeld:
+        * Deels juist maar niet volledig
+        * Juiste conclusie maar onjuiste redenering
+        * Te specifiek of te algemeen
+        * Juist in een andere context maar onjuist in deze specifieke situatie
       
-      Vereisten voor de vragen:
-      1. Maak EXACT ÉÉN vraag per begrip, niet meer en niet minder.
-      2. UITDAGEND HBO-NIVEAU: Focus op toepassing, analyse en evaluatie, NIET op feitenkennis.
-      3. Gebruik bij voorkeur een van deze vraagtypen:
-         - TOEPASSING: "Een bedrijf wil [complexe situatie]. Hoe zou [begrip] hierbij toegepast moeten worden?"
-         - ANALYSE: "Wat is de belangrijkste functie van [begrip] in het marketingplanningsproces?"
-         - EVALUATIE: "Welke risicofactor is het meest kritisch bij de implementatie van [begrip]?"
-         - SCENARIO: "Een organisatie heeft te maken met [complexe situatie]. Welke [begrip]-strategie is meest geschikt en waarom?"
-      4. Maak de foute antwoorden GELOOFWAARDIG maar DUIDELIJK ONJUIST bij nadere analyse.
-      5. ZEER BELANGRIJK - UITLEG STRUCTUUR:
-         - BEGIN: Definitie van het concept (1-2 zinnen)
-         - DAARNA: Uitleg waarom het juiste antwoord correct is (2-3 zinnen)
-         - TENSLOTTE: Korte uitleg waarom de andere opties incorrect zijn (1 zin per optie)
-      6. VERDEEL DE JUISTE ANTWOORDEN EXACT GELIJK EN WILLEKEURIG: 25% A, 25% B, 25% C en 25% D.
-         BELANGRIJK: Om te voorkomen dat één letter (zoals B) oververtegenwoordigd is, MOET je WILLEKEURIG afwisselen
-         tussen A, B, C, en D voor de juiste antwoorden. GEBRUIK NIET ALTIJD DEZELFDE LETTER ALS EERSTE.
-         GEBRUIK EEN GELIJKE VERDELING! Als je 8 vragen maakt, gebruik dan PRECIES 2x A, 2x B, 2x C en 2x D als correct antwoord.
-      
-      GEBRUIK ALLEEN INFORMATIE UIT DEZE SPECIFIEKE PARAGRAAF.
+      UITLEGSTRUCTUUR (beknopt):
+      1. Definitie van het concept (1 zin)
+      2. Waarom het juiste antwoord correct is (1-2 zinnen)
+      3. Korte uitleg waarom de andere opties incorrect zijn (1 zin voor alle opties samen)
       
       Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
       
       Retourneer de vragen in een JSON array met deze structuur:
       [
         {
-          "question": "De vraag in het Nederlands",
-          "options": ["A. Optie 1", "B. Optie 2", "C. Optie 3", "D. Optie 4"],
+          "question": "De vraag in het Nederlands, inclusief een praktijkscenario",
+          "options": ["Optie 1 (bijna juist maar subtiel onjuist)", "Optie 2", "Optie 3", "Optie 4"],
           "correct": "A" (of B, C, D afhankelijk van welk antwoord correct is),
-          "explanation": "Uitleg waarom dit antwoord correct is en waarom de andere opties incorrect zijn."
+          "explanation": "Uitleg over het concept en waarom het antwoord correct is."
         },
         ...meer vragen...
       ]
       
       BELANGRIJK:
-      - Retourneer alleen de JSON-array
-      - Maak EXACT ÉÉN vraag voor ELKE term in de lijst
+      - Maak EXACT ÉÉN vraag per begrip
       - Zorg voor GELIJKE VERDELING van juiste antwoorden (A, B, C, D)
-      - Zorg voor WILLEKEURIGE afwisseling van juiste antwoorden`;
+      - Genereer vragen die DIEP BEGRIP testen, niet oppervlakkige kennis`;
     } else {
-      // For non-specific paragraphs, use the updated format with better explanations and randomization
+      // For non-specific paragraphs, use a similar but adapted format
       userPrompt = `
       Invoer:
       ${bookTitle ? `Boektitel: ${bookTitle}\n` : ''}
@@ -387,49 +421,46 @@ serve(async (req) => {
       Genereer UITDAGENDE HBO-niveau vragen. MAAK EXACT ÉÉN VRAAG VOOR ELK van deze begrippen uit de tekst:
       ${boldedTermsToProcess.join(', ')}
       
-      LET OP DE STRUCTUUR: In de tekst hebben termen vaak deze structuur:
-      - Eerst komt het begrip in **vetgedrukt**
-      - Dan volgt informatie over dit begrip
-      - Daarna komt het volgende begrip
+      VRAAGVEREISTEN:
+      1. PRAKTIJK GEORIËNTEERD: Elke vraag moet een realistische business case of scenario bevatten.
+      2. VERWARRING CREËREN: Gebruik verwante concepten in de antwoordopties om DOELBEWUST verwarring te creëren.
+      3. SUBTIEL ONDERSCHEID: Het verschil tussen juiste en onjuiste antwoorden moet subtiel zijn.
+      4. GEÏNTEGREERDE KENNIS: Vraag naar relaties tussen concepten, niet naar individuele definities.
+      5. GEVARIEERDE FORMATS: Gebruik soms:
+         - Tabellen met data voor analyse
+         - Berekeningen die interpretatie vereisen
+         - Scenario's met meerdere variabelen
       
-      Gebruik deze structuur om PRECIES te begrijpen wat elke term betekent.
+      FOUTE ANTWOORDOPTIES:
+      - Gebruik GEEN duidelijk foute antwoorden
+      - Maak OPTIES DIE BIJNA JUIST ZIJN maar subtiel onjuist, bijvoorbeeld:
+        * Deels juist maar niet volledig
+        * Juiste conclusie maar onjuiste redenering
+        * Te specifiek of te algemeen
+        * Juist in een andere context maar onjuist in deze specifieke situatie
       
-      Vereisten voor de vragen:
-      1. Maak EXACT ÉÉN vraag per begrip, niet meer en niet minder.
-      2. UITDAGEND HBO-NIVEAU: Focus op toepassing, analyse en evaluatie, NIET op feitenkennis.
-      3. Gebruik bij voorkeur een van deze vraagtypen:
-         - TOEPASSING: "Een bedrijf wil [complexe situatie]. Hoe zou [begrip] hierbij toegepast moeten worden?"
-         - ANALYSE: "Wat is de belangrijkste functie van [begrip] in het marketingplanningsproces?"
-         - EVALUATIE: "Welke risicofactor is het meest kritisch bij de implementatie van [begrip]?"
-         - SCENARIO: "Een organisatie heeft te maken met [complexe situatie]. Welke [begrip]-strategie is meest geschikt en waarom?"
-      4. Maak de foute antwoorden GELOOFWAARDIG maar DUIDELIJK ONJUIST bij nadere analyse.
-      5. ZEER BELANGRIJK - UITLEG STRUCTUUR:
-         - BEGIN: Definitie van het concept (1-2 zinnen)
-         - DAARNA: Uitleg waarom het juiste antwoord correct is (2-3 zinnen)
-         - TENSLOTTE: Korte uitleg waarom de andere opties incorrect zijn (1 zin per optie)
-      6. VERDEEL DE JUISTE ANTWOORDEN EXACT GELIJK EN WILLEKEURIG: 25% A, 25% B, 25% C en 25% D.
-         BELANGRIJK: Om te voorkomen dat één letter (zoals B) oververtegenwoordigd is, MOET je WILLEKEURIG afwisselen
-         tussen A, B, C, en D voor de juiste antwoorden. GEBRUIK NIET ALTIJD DEZELFDE LETTER ALS EERSTE.
-         GEBRUIK EEN GELIJKE VERDELING! Als je 8 vragen maakt, gebruik dan PRECIES 2x A, 2x B, 2x C en 2x D als correct antwoord.
+      UITLEGSTRUCTUUR (beknopt):
+      1. Definitie van het concept (1 zin)
+      2. Waarom het juiste antwoord correct is (1-2 zinnen)
+      3. Korte uitleg waarom de andere opties incorrect zijn (1 zin voor alle opties samen)
       
       Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
       
       Retourneer de vragen in een JSON array met deze structuur:
       [
         {
-          "question": "De vraag in het Nederlands",
-          "options": ["A. Optie 1", "B. Optie 2", "C. Optie 3", "D. Optie 4"],
+          "question": "De vraag in het Nederlands, inclusief een praktijkscenario",
+          "options": ["Optie 1 (bijna juist maar subtiel onjuist)", "Optie 2", "Optie 3", "Optie 4"],
           "correct": "A" (of B, C, D afhankelijk van welk antwoord correct is),
-          "explanation": "Uitleg waarom dit antwoord correct is en waarom de andere opties incorrect zijn."
+          "explanation": "Uitleg over het concept en waarom het antwoord correct is."
         },
         ...meer vragen...
       ]
       
       BELANGRIJK:
-      - Retourneer alleen de JSON-array
-      - Maak EXACT ÉÉN vraag voor ELKE term in de lijst
+      - Maak EXACT ÉÉN vraag per begrip
       - Zorg voor GELIJKE VERDELING van juiste antwoorden (A, B, C, D)
-      - Zorg voor WILLEKEURIGE afwisseling van juiste antwoorden`;
+      - Genereer vragen die DIEP BEGRIP testen, niet oppervlakkige kennis`;
     }
     
     // Log the prompt for debugging

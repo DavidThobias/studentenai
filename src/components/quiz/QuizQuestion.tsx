@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, HelpCircle, ArrowRight, Eye } from "lucide-react";
+import { CheckCircle, XCircle, HelpCircle, ArrowRight, Eye, Calculator } from "lucide-react";
 import { QuizQuestion } from "@/hooks/useQuiz";
 import { useEffect, useState } from "react";
 import ReactMarkdown from 'react-markdown';
@@ -57,6 +57,12 @@ const QuizQuestionComponent = ({
         .replace(/\n{3,}/g, "\n\n")
     : "";
   
+  // Check if question contains a calculation or table (for different styling)
+  const containsTable = question.question.includes('|---|') || question.question.includes('<table>');
+  const containsCalculation = question.question.includes('berekening') || 
+                             question.question.includes('bereken') || 
+                             question.question.includes('calculatie');
+  
   // Reset local state when question changes or when parent state is reset
   useEffect(() => {
     setLocalSelectedAnswer(selectedAnswer);
@@ -85,8 +91,11 @@ const QuizQuestionComponent = ({
           value={(currentQuestionIndex / questionsTotal) * 100} 
           className="h-2 mb-2" 
         />
-        <CardTitle className="text-lg">
-          {question.question}
+        <CardTitle className="text-lg flex items-start gap-2">
+          {containsCalculation && <Calculator className="h-5 w-5 text-blue-500 shrink-0 mt-1" />}
+          <div className={`${containsTable ? 'overflow-x-auto w-full' : ''}`}>
+            <ReactMarkdown>{question.question}</ReactMarkdown>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -134,7 +143,7 @@ const QuizQuestionComponent = ({
               >
                 <RadioGroupItem value={index.toString()} id={`option-${currentQuestionIndex}-${index}`} />
                 <Label htmlFor={`option-${currentQuestionIndex}-${index}`} className="flex-grow cursor-pointer">
-                  {cleanedOption}
+                  <ReactMarkdown>{cleanedOption}</ReactMarkdown>
                 </Label>
                 {isAnswerSubmitted && (
                   <div className="ml-2">
@@ -155,7 +164,7 @@ const QuizQuestionComponent = ({
             <HelpCircle className="h-4 w-4" />
             <AlertTitle>Uitleg</AlertTitle>
             <AlertDescription>
-              {question.explanation}
+              <ReactMarkdown>{question.explanation}</ReactMarkdown>
             </AlertDescription>
           </Alert>
         )}
