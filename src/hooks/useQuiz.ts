@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -101,24 +102,116 @@ export const useQuiz = (
     }
   }, [questions, currentQuestionIndex, selectedAnswer, isAnswerSubmitted, score, isQuizComplete, bookId, chapterId, paragraphId, addLog]);
 
-  const validateAnswerDistribution = (quizQuestions: QuizQuestion[]): boolean => {
-    if (quizQuestions.length < 4) return true; // Not enough questions to balance
+  // Client-side function to balance answer distribution if needed
+  const balanceAnswerDistribution = (quizQuestions: QuizQuestion[]): QuizQuestion[] => {
+    if (quizQuestions.length < 4) return quizQuestions;
     
-    const distribution: AnswerDistribution = {
-      A: 0,
-      B: 0,
-      C: 0,
-      D: 0
+    // Count answers by letter
+    const letterCounts = {
+      0: 0, // A
+      1: 0, // B
+      2: 0, // C
+      3: 0  // D
     };
     
     quizQuestions.forEach(q => {
-      const correctLetter = String.fromCharCode(65 + q.correctAnswer);
-      if (correctLetter in distribution) {
-        distribution[correctLetter as keyof AnswerDistribution]++;
+      if (q.correctAnswer >= 0 && q.correctAnswer <= 3) {
+        letterCounts[q.correctAnswer]++;
       }
     });
     
-    addLog(`Answer distribution: A=${distribution.A}, B=${distribution.B}, C=${distribution.C}, D=${distribution.D}`);
+    addLog(`Client-side answer distribution check: A=${letterCounts[0]}, B=${letterCounts[1]}, C=${letterCounts[2]}, D=${letterCounts[3]}`);
+    
+    // Check if distribution is balanced
+    const expectedCount = Math.ceil(quizQuestions.length / 4);
+    const isBalanced = Object.values(letterCounts).every(count => 
+      Math.abs(count - expectedCount) <= 1
+    );
+    
+    if (isBalanced) {
+      addLog('Answer distribution is already balanced');
+      return quizQuestions;
+    }
+    
+    // Find over-represented and under-represented answers
+    const overRepresented = Object.entries(letterCounts)
+      .filter(([_, count]) => count > expectedCount)
+      .map(([index]) => parseInt(index));
+      
+    const underRepresented = Object.entries(letterCounts)
+      .filter(([_, count]) => count < expectedCount)
+      .map(([index]) => parseInt(index));
+    
+    if (overRepresented.length === 0 || underRepresented.length === 0) {
+      return quizQuestions;
+    }
+    
+    addLog(`Rebalancing answers: over-represented=${overRepresented.join(',')}, under-represented=${underRepresented.join(',')}`);
+    
+    // Clone questions to avoid modifying the original array
+    const balancedQuestions: QuizQuestion[] = JSON.parse(JSON.stringify(quizQuestions));
+    
+    // Start rebalancing
+    let overRepIndex = 0;
+    let underRepIndex = 0;
+    
+    for (let i = 0; i < balancedQuestions.length; i++) {
+      const q = balancedQuestions[i];
+      
+      // If this question has an over-represented answer
+      if (overRepresented.includes(q.correctAnswer)) {
+        // And there are still under-represented answers to use
+        if (underRepIndex < underRepresented.length) {
+          const newAnswerIndex = underRepresented[underRepIndex];
+          
+          // Save the original correct option
+          const correctOption = q.options[q.correctAnswer];
+          
+          // Swap options
+          q.options[q.correctAnswer] = q.options[newAnswerIndex];
+          q.options[newAnswerIndex] = correctOption;
+          
+          // Update the correct answer
+          q.correctAnswer = newAnswerIndex;
+          
+          // Move to the next under-represented answer
+          underRepIndex++;
+          
+          // Update counts
+          letterCounts[overRepresented[overRepIndex]]--;
+          letterCounts[newAnswerIndex]++;
+          
+          // If we've fixed this over-represented answer, move to the next one
+          if (letterCounts[overRepresented[overRepIndex]] <= expectedCount) {
+            overRepIndex++;
+            if (overRepIndex >= overRepresented.length) break;
+          }
+        }
+      }
+    }
+    
+    addLog(`Rebalanced answer distribution: A=${letterCounts[0]}, B=${letterCounts[1]}, C=${letterCounts[2]}, D=${letterCounts[3]}`);
+    
+    return balancedQuestions;
+  };
+
+  const validateAnswerDistribution = (quizQuestions: QuizQuestion[]): boolean => {
+    if (quizQuestions.length < 4) return true; // Not enough questions to balance
+    
+    const distribution = {
+      0: 0, // A
+      1: 0, // B
+      2: 0, // C
+      3: 0  // D
+    };
+    
+    quizQuestions.forEach(q => {
+      if (q.correctAnswer >= 0 && q.correctAnswer <= 3) {
+        distribution[q.correctAnswer]++;
+      }
+    });
+    
+    addLog(`Answer distribution: A=${distribution[0]}, B=${distribution[1]}, C=${distribution[2]}, D=${distribution[3]}`);
     
     const expectedCount = quizQuestions.length / 4;
     const isBalanced = Object.values(distribution).every(count => 
@@ -239,7 +332,16 @@ export const useQuiz = (
         }
       }
       
-      const formattedQuestions = formatQuestions(data.questions);
+      let formattedQuestions = formatQuestions(data.questions);
+      
+      // Apply client-side balancing if needed
+      if (formattedQuestions.length >= 4) {
+        const isBalanced = validateAnswerDistribution(formattedQuestions);
+        if (!isBalanced) {
+          addLog('Applying client-side answer distribution balancing');
+          formattedQuestions = balanceAnswerDistribution(formattedQuestions);
+        }
+      }
       
       return {
         questions: formattedQuestions,
@@ -575,6 +677,8 @@ export const useQuiz = (
     handleNextQuestion,
     restartQuiz,
     toggleExplanation,
-    clearQuizState
+    clearQuizState,
+    validateAnswerDistribution,
+    balanceAnswerDistribution
   };
 };

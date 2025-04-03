@@ -30,6 +30,96 @@ function chunkArray<T>(array: T[], chunkSize: number): T[][] {
   return chunks;
 }
 
+// Function to ensure there's an equal distribution of answers
+function balanceAnswerDistribution(questions: any[]): any[] {
+  if (questions.length < 4) return questions;
+  
+  // Count the number of each answer
+  const answerCounts = { 'A': 0, 'B': 0, 'C': 0, 'D': 0 };
+  questions.forEach(q => {
+    if (q.correct && ['A', 'B', 'C', 'D'].includes(q.correct)) {
+      answerCounts[q.correct]++;
+    }
+  });
+  
+  console.log('Initial answer distribution:', answerCounts);
+  
+  // Determine the target count for each answer
+  const targetCount = Math.ceil(questions.length / 4);
+  
+  // Find answers that are over-represented and under-represented
+  const overRepresented = Object.entries(answerCounts)
+    .filter(([_, count]) => (count as number) > targetCount)
+    .map(([letter]) => letter);
+  
+  const underRepresented = Object.entries(answerCounts)
+    .filter(([_, count]) => (count as number) < targetCount)
+    .map(([letter]) => letter);
+  
+  if (overRepresented.length === 0 || underRepresented.length === 0) {
+    return questions; // No rebalancing needed
+  }
+  
+  console.log(`Need to rebalance: over-represented=${overRepresented.join(',')}, under-represented=${underRepresented.join(',')}`);
+  
+  // Clone questions to avoid modifying the original array
+  const balancedQuestions = [...questions];
+  
+  // Start with questions that have the over-represented answers
+  let overRepIndex = 0;
+  let underRepIndex = 0;
+  
+  for (let i = 0; i < balancedQuestions.length; i++) {
+    const q = balancedQuestions[i];
+    
+    // If this question has an over-represented answer
+    if (overRepresented.includes(q.correct)) {
+      // And there are still under-represented answers to use
+      if (underRepIndex < underRepresented.length) {
+        const newAnswerLetter = underRepresented[underRepIndex];
+        
+        // We need to adjust both the correct answer and the options order
+        const oldAnswerIndex = q.correct.charCodeAt(0) - 65; // Convert A, B, C, D to 0, 1, 2, 3
+        const newAnswerIndex = newAnswerLetter.charCodeAt(0) - 65;
+        
+        console.log(`Rebalancing question ${i}: changing correct from ${q.correct} to ${newAnswerLetter}`);
+        
+        // Save the original correct option
+        const correctOption = q.options[oldAnswerIndex];
+        
+        // Swap options - move the correct option to the new position
+        q.options[oldAnswerIndex] = q.options[newAnswerIndex];
+        q.options[newAnswerIndex] = correctOption;
+        
+        // Update the correct answer
+        q.correct = newAnswerLetter;
+        
+        // Move to the next under-represented answer
+        underRepIndex++;
+        
+        // Decrease count for the previous answer, increase for the new one
+        answerCounts[overRepresented[overRepIndex]]--;
+        answerCounts[newAnswerLetter]++;
+        
+        // If we've fixed this over-represented answer, move to the next one
+        if (answerCounts[overRepresented[overRepIndex]] <= targetCount) {
+          overRepIndex++;
+          if (overRepIndex >= overRepresented.length) break;
+        }
+      }
+    }
+  }
+  
+  console.log('Balanced answer distribution:', {
+    A: balancedQuestions.filter(q => q.correct === 'A').length,
+    B: balancedQuestions.filter(q => q.correct === 'B').length,
+    C: balancedQuestions.filter(q => q.correct === 'C').length,
+    D: balancedQuestions.filter(q => q.correct === 'D').length
+  });
+  
+  return balancedQuestions;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -208,22 +298,24 @@ serve(async (req) => {
     
     console.log(`Processing batch ${batchIndex + 1}/${totalBatches} with ${boldedTermsToProcess.length} terms`);
     
-    // Updated system prompt with more educational focus and requirements for better explanations
+    // Updated system prompt with more randomization instruction for answers
     const systemPrompt = `Je bent een AI gespecialiseerd in het genereren van educatieve meerkeuzevragen op HBO-niveau.
     Je creëert vragen die UITDAGEND en leerzaam zijn, met de nadruk op het testen van begrip, analyse, toepassing en evaluatie - niet alleen feitenkennis.
     
     BELANGRIJK: 
     1. ANTWOORDVERDELING: Zorg voor een EXACTE gelijke verdeling van juiste antwoorden - PRECIES 25% A, 25% B, 25% C en 25% D.
+       HEEL BELANGRIJK: RANDOMISEER de juiste antwoorden. VERMIJD het overmatig gebruiken van één letter (zoals B).
     2. De vragen moeten ECHT UITDAGEND zijn, geschikt voor HBO-niveau. Vermijd eenvoudige feitelijke vragen.
     3. Voor elke TERM maak je EXACT ÉÉN VRAAG (niet meer, niet minder).
     4. Je maakt de uitleg als volgt:
        - EERST: Een duidelijke definitie van het begrip (1-2 zinnen)
        - DAARNA: Waarom het correcte antwoord juist is (2-3 zinnen)
        - TENSLOTTE: Waarom elk incorrect antwoord onjuist is (1 zin per antwoord)
+    5. ECHT BELANGRIJK: WISSEL de juiste antwoorden af. Als je 8 vragen maakt, dan moet er PRECIES 2x A, 2x B, 2x C en 2x D juist zijn. NIET meer dan dat.
     
     Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.`;
     
-    // Revised user prompt with emphasis on HBO-level challenging questions and better explanations
+    // Revised user prompt with explicit randomization instruction
     let userPrompt;
     
     if (isSpecificParagraph && specificParagraphContent) {
@@ -258,7 +350,10 @@ serve(async (req) => {
          - BEGIN: Definitie van het concept (1-2 zinnen)
          - DAARNA: Uitleg waarom het juiste antwoord correct is (2-3 zinnen)
          - TENSLOTTE: Korte uitleg waarom de andere opties incorrect zijn (1 zin per optie)
-      6. VERDEEL DE JUISTE ANTWOORDEN EXACT GELIJK: 25% A, 25% B, 25% C en 25% D.
+      6. VERDEEL DE JUISTE ANTWOORDEN EXACT GELIJK EN WILLEKEURIG: 25% A, 25% B, 25% C en 25% D.
+         BELANGRIJK: Om te voorkomen dat één letter (zoals B) oververtegenwoordigd is, MOET je WILLEKEURIG afwisselen
+         tussen A, B, C, en D voor de juiste antwoorden. GEBRUIK NIET ALTIJD DEZELFDE LETTER ALS EERSTE.
+         GEBRUIK EEN GELIJKE VERDELING! Als je 8 vragen maakt, gebruik dan PRECIES 2x A, 2x B, 2x C en 2x D als correct antwoord.
       
       GEBRUIK ALLEEN INFORMATIE UIT DEZE SPECIFIEKE PARAGRAAF.
       
@@ -278,9 +373,10 @@ serve(async (req) => {
       BELANGRIJK:
       - Retourneer alleen de JSON-array
       - Maak EXACT ÉÉN vraag voor ELKE term in de lijst
-      - Zorg voor GELIJKE VERDELING van juiste antwoorden (A, B, C, D)`;
+      - Zorg voor GELIJKE VERDELING van juiste antwoorden (A, B, C, D)
+      - Zorg voor WILLEKEURIGE afwisseling van juiste antwoorden`;
     } else {
-      // For non-specific paragraphs, use the updated format with better explanations
+      // For non-specific paragraphs, use the updated format with better explanations and randomization
       userPrompt = `
       Invoer:
       ${bookTitle ? `Boektitel: ${bookTitle}\n` : ''}
@@ -311,7 +407,10 @@ serve(async (req) => {
          - BEGIN: Definitie van het concept (1-2 zinnen)
          - DAARNA: Uitleg waarom het juiste antwoord correct is (2-3 zinnen)
          - TENSLOTTE: Korte uitleg waarom de andere opties incorrect zijn (1 zin per optie)
-      6. VERDEEL DE JUISTE ANTWOORDEN EXACT GELIJK: 25% A, 25% B, 25% C en 25% D.
+      6. VERDEEL DE JUISTE ANTWOORDEN EXACT GELIJK EN WILLEKEURIG: 25% A, 25% B, 25% C en 25% D.
+         BELANGRIJK: Om te voorkomen dat één letter (zoals B) oververtegenwoordigd is, MOET je WILLEKEURIG afwisselen
+         tussen A, B, C, en D voor de juiste antwoorden. GEBRUIK NIET ALTIJD DEZELFDE LETTER ALS EERSTE.
+         GEBRUIK EEN GELIJKE VERDELING! Als je 8 vragen maakt, gebruik dan PRECIES 2x A, 2x B, 2x C en 2x D als correct antwoord.
       
       Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
       
@@ -329,7 +428,8 @@ serve(async (req) => {
       BELANGRIJK:
       - Retourneer alleen de JSON-array
       - Maak EXACT ÉÉN vraag voor ELKE term in de lijst
-      - Zorg voor GELIJKE VERDELING van juiste antwoorden (A, B, C, D)`;
+      - Zorg voor GELIJKE VERDELING van juiste antwoorden (A, B, C, D)
+      - Zorg voor WILLEKEURIGE afwisseling van juiste antwoorden`;
     }
     
     // Log the prompt for debugging
@@ -349,6 +449,18 @@ serve(async (req) => {
     
     console.log(`Using max_tokens: ${maxTokens} for batch of ${boldedTermsToProcess.length} terms`);
     
+    // Randomize system instruction order to prevent model predictable patterns
+    const rotationValue = Math.floor(Math.random() * 4); // 0, 1, 2, or 3
+    const letterRotation = {
+      0: ["A", "B", "C", "D"],
+      1: ["B", "C", "D", "A"],
+      2: ["C", "D", "A", "B"],
+      3: ["D", "A", "B", "C"]
+    };
+    
+    const rotatedLetters = letterRotation[rotationValue as keyof typeof letterRotation];
+    const randomSystemInstruction = `Voor deze set vragen, gebruik juist een variatie van antwoorden. Begin met ${rotatedLetters.join(", ")} als correcte antwoorden.`;
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -364,7 +476,7 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: userPrompt
+            content: randomSystemInstruction + "\n\n" + userPrompt
           }
         ],
         temperature: 0.7,
@@ -463,7 +575,7 @@ serve(async (req) => {
       }
     }
     
-    // Verify answer distribution (new validation)
+    // Verify answer distribution and balance if needed
     if (questions.length >= 4) {
       // Count correct answers by letter
       const correctAnswerCounts = {
@@ -477,20 +589,22 @@ serve(async (req) => {
         correctAnswerCounts[q.correct]++;
       });
       
-      console.log('Answer distribution:', correctAnswerCounts);
+      console.log('Initial answer distribution:', correctAnswerCounts);
       
-      // If there's a significant imbalance, log it (we don't want to filter questions at this point)
-      const expectedCount = questions.length / 4;
+      // Check if there's a significant imbalance
+      const expectedCount = Math.ceil(questions.length / 4);
       const isBalanced = Object.values(correctAnswerCounts).every(count => 
-        Math.abs(count - expectedCount) <= 1
+        Math.abs(count as number - expectedCount) <= 1
       );
       
+      // If balance is needed, apply our rebalancing algorithm
       if (!isBalanced) {
-        console.log('Warning: Answer distribution is not balanced:', correctAnswerCounts);
+        console.log('Rebalancing answer distribution...');
+        questions = balanceAnswerDistribution(questions);
       }
     }
     
-    console.log(`Returning ${questions.length} questions after validation`);
+    console.log(`Returning ${questions.length} questions after validation and balancing`);
 
     // Create response object, include debug info if requested
     const responseObj: any = {
