@@ -115,34 +115,39 @@ const QuizQuestionComponent = ({
           className="space-y-3"
           disabled={isAnswerSubmitted}
         >
-          {question.options.map((option, index) => (
-            <div
-              key={`question-${currentQuestionIndex}-option-${index}`}
-              className={`flex items-center space-x-2 rounded-lg border p-4 ${
-                isAnswerSubmitted
-                  ? index === question.correctAnswer
-                    ? 'border-green-500 bg-green-50'
-                    : index === localSelectedAnswer
-                    ? 'border-red-500 bg-red-50'
-                    : ''
-                  : 'hover:border-primary'
-              }`}
-            >
-              <RadioGroupItem value={index.toString()} id={`option-${currentQuestionIndex}-${index}`} />
-              <Label htmlFor={`option-${currentQuestionIndex}-${index}`} className="flex-grow cursor-pointer">
-                {option}
-              </Label>
-              {isAnswerSubmitted && (
-                <div className="ml-2">
-                  {index === question.correctAnswer ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  ) : index === localSelectedAnswer ? (
-                    <XCircle className="h-5 w-5 text-red-500" />
-                  ) : null}
-                </div>
-              )}
-            </div>
-          ))}
+          {question.options.map((option, index) => {
+            // Remove any A., B., C., D. prefixes from the options
+            const cleanedOption = option.replace(/^[A-D][:.]\s*/, '');
+            
+            return (
+              <div
+                key={`question-${currentQuestionIndex}-option-${index}`}
+                className={`flex items-center space-x-2 rounded-lg border p-4 ${
+                  isAnswerSubmitted
+                    ? index === question.correctAnswer
+                      ? 'border-green-500 bg-green-50'
+                      : index === localSelectedAnswer
+                      ? 'border-red-500 bg-red-50'
+                      : ''
+                    : 'hover:border-primary'
+                }`}
+              >
+                <RadioGroupItem value={index.toString()} id={`option-${currentQuestionIndex}-${index}`} />
+                <Label htmlFor={`option-${currentQuestionIndex}-${index}`} className="flex-grow cursor-pointer">
+                  {cleanedOption}
+                </Label>
+                {isAnswerSubmitted && (
+                  <div className="ml-2">
+                    {index === question.correctAnswer ? (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    ) : index === localSelectedAnswer ? (
+                      <XCircle className="h-5 w-5 text-red-500" />
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </RadioGroup>
 
         {isAnswerSubmitted && showExplanation && (

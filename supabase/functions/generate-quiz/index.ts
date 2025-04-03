@@ -1,3 +1,4 @@
+
 // @deno-types="https://deno.land/x/types/deno.d.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -164,6 +165,9 @@ serve(async (req) => {
       contentToUse = contentToUse.substring(0, MAX_CONTENT_LENGTH) + "...";
     }
 
+    // Random answer seed to prevent model bias toward specific letters
+    const randomSeed = Math.floor(Math.random() * 10000);
+
     // Improved OpenAI prompt with focus on balanced answer distribution and challenging questions
     const openAIPrompt = `
     Je bent een AI gespecialiseerd in het genereren van uitdagende educatieve meerkeuzevragen om gebruikers volledig inzicht te geven in een specifieke paragraaf uit een boek.
@@ -177,36 +181,38 @@ serve(async (req) => {
     Vereisten voor de vragen:
     Dynamisch aantal vragen: Op basis van de lengte en inhoud van de paragraaf. Kortere paragrafen krijgen minder vragen, langere paragrafen meer. Genereer maximaal ${numberOfQuestions} vragen.
     
-    PERFECTE VERDELING VAN ANTWOORDEN: Het is CRUCIAAL dat er een exacte en gelijke verdeling is tussen A, B, C en D als correcte antwoorden. Elk correct antwoord (A, B, C, D) moet precies 25% van de tijd voorkomen. Dit is een ABSOLUTE VEREISTE. Controleer dit zorgvuldig voordat je je antwoord voltooit.
+    PERFECTE VERDELING VAN ANTWOORDEN: Het is CRUCIAAL dat er een exacte en gelijke verdeling is tussen A, B, C en D als correcte antwoorden. Elk correct antwoord (A, B, C, D) moet precies 25% van de tijd voorkomen. Dit is een ABSOLUTE VEREISTE. Genereer de antwoorden puur willekeurig zonder voorkeur voor bepaalde letters. Random seed voor antwoordverdeling: ${randomSeed}. Controleer dit zorgvuldig voordat je je antwoord voltooit.
     
-    MOEILIJKHEIDSGRAAD: Hoog. Maak de vragen uitdagend door:
+    MOEILIJKHEIDSGRAAD: ZEER HOOG. Maak de vragen extreem uitdagend door:
       - Complexe scenario's te creëren die dieper begrip vereisen
       - Gebruik van verfijnde nuances tussen antwoordopties
-      - Toepassing van kennis in nieuwe contexten
-      - Hogere cognitieve vaardigheden testen (analyseren, evalueren, creëren)
+      - Toepassing van kennis in nieuwe, onverwachte contexten
+      - Hogere cognitieve vaardigheden testen (kritisch analyseren, evalueren, creëren)
       - Vragen over subtiele verbanden tussen concepten
-      - Misleidende maar plausibele antwoordopties toevoegen
+      - Misleidende maar plausibele antwoordopties toevoegen die diep inzicht testen
+      - Abstract denken en inzicht vereisen om de juiste conclusies te trekken
     
     UITGEBREIDE UITLEG: Voor elke vraag moet een grondige uitleg worden gegeven die:
       1. Begint met een duidelijke definitie van het concept of begrip
       2. Daarna uitlegt waarom het correcte antwoord juist is 
       3. Vervolgens specifiek beschrijft waarom elk onjuist antwoord fout is
+      4. Verwijst naar complexe toepassingssituaties
     
-    Diepgang: De vragen moeten zowel feitelijke kennis als begrip testen (bijv. onderscheid tussen concepten, praktische toepassingen).
+    Diepgang: De vragen moeten zowel feitelijke kennis als diepgaand begrip testen (bijv. onderscheid tussen subtiele concepten, praktische toepassingen in complexe situaties).
     
-    Scenario-gebaseerde vragen: Minstens de helft van de vragen moeten de stof in een realistische, complexe context plaatsen.
+    Scenario-gebaseerde vragen: Minstens 70% van de vragen moeten de stof in een realistische, complexe context plaatsen die kritisch denken vereist.
     
-    Strikvragen: Voeg enkele subtiele strikvragen toe waarbij oppervlakkige lezing tot een verkeerd antwoord kan leiden. Deze vragen testen diepgaand begrip.
+    Strikvragen: Voeg meerdere uitdagende strikvragen toe waarbij oppervlakkige lezing tot een verkeerd antwoord kan leiden. Deze vragen testen diepgaand begrip.
     
     Correct geformatteerde JSON-uitvoer, met de volgende structuur:
     [
       {
         "question": "Wat is een belangrijk kenmerk van een salesgerichte organisatie?",
         "options": [
-          "A. Er wordt nauwelijks met sales targets gewerkt.",
-          "B. Het verkoopresultaat staat centraal.",
-          "C. Verkopers worden niet afgerekend op prestaties.",
-          "D. Het product verkoopt zichzelf."
+          "Er wordt nauwelijks met sales targets gewerkt.",
+          "Het verkoopresultaat staat centraal.",
+          "Verkopers worden niet afgerekend op prestaties.",
+          "Het product verkoopt zichzelf."
         ],
         "correct": "B",
         "explanation": "Een salesgerichte organisatie wordt gekenmerkt door een sterke focus op verkoopresultaten. Het verkoopresultaat staat centraal betekent dat alle bedrijfsactiviteiten worden afgestemd op het behalen van omzetdoelstellingen. In de context van de vraag is antwoord B correct omdat salesgerichte organisaties juist wél met targets werken (in tegenstelling tot A), prestatiegerichtheid tonen (in tegenstelling tot C), en niet vertrouwen op passieve verkoop (in tegenstelling tot D)."
@@ -235,7 +241,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${openAIApiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o', // Upgraded to more powerful model
         messages: [
           {
             role: 'system',
@@ -246,8 +252,8 @@ serve(async (req) => {
             content: openAIPrompt
           }
         ],
-        temperature: 0.7,
-        max_tokens: 3000,
+        temperature: 0.9, // Slightly higher temperature for more randomness in answers
+        max_tokens: 3500, // Increased token limit for more detailed explanations
       }),
     });
 
@@ -326,7 +332,7 @@ serve(async (req) => {
     if (!hasProperDistribution && quizQuestions.length >= 4) {
       console.warn("Detected uneven answer distribution. Forcing rebalancing...");
       
-      // Simple rebalancing algorithm for when distribution is poor
+      // Enhanced rebalancing algorithm for when distribution is poor
       if (quizQuestions.length >= 4) {
         // Create a mapping of what letter each question's correct answer should be
         const targetDistribution = [];
@@ -350,8 +356,10 @@ serve(async (req) => {
             return question; // No change needed
           }
           
-          // Rearrange options to make desired answer correct
+          // Create a deep copy of options to avoid reference issues
           const newOptions = [...question.options];
+          
+          // Swap the correct answer with the target position
           [newOptions[currentCorrectIndex], newOptions[targetCorrectIndex]] = 
             [newOptions[targetCorrectIndex], newOptions[currentCorrectIndex]];
           
@@ -362,7 +370,14 @@ serve(async (req) => {
           };
         });
         
-        console.log("Answer distribution rebalanced");
+        // Verify the new distribution
+        const newDistribution = { A: 0, B: 0, C: 0, D: 0 };
+        quizQuestions.forEach(q => {
+          if (q && q.correct && ["A", "B", "C", "D"].includes(q.correct)) {
+            newDistribution[q.correct]++;
+          }
+        });
+        console.log("Rebalanced answer distribution:", newDistribution);
       }
     }
 
