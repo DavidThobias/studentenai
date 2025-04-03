@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,17 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
     }
   }, [quizOpen, currentQuestionIndex, isAnswerSubmitted, score, questions.length]);
 
+  // Reset quiz selected answer when question changes
+  useEffect(() => {
+    if (quizOpen && questions.length > 0) {
+      addLog(`Question changed to ${currentQuestionIndex}, resetting selected answer state`);
+      // This helps ensure the UI is properly reset when questions change
+      if (!isAnswerSubmitted) {
+        setQuizSelectedAnswer(null);
+      }
+    }
+  }, [currentQuestionIndex, quizOpen, questions]);
+
   const generateSalesQuiz = async (questionCount: number = 5) => {
     try {
       setIsGenerating(true);
@@ -101,6 +113,18 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
         
         setQuestions(formattedQuestions);
         addLog(`Created ${formattedQuestions.length} questions from the API response`);
+        
+        // Check if answer distribution is balanced
+        const distribution = {
+          A: 0, B: 0, C: 0, D: 0
+        };
+        
+        formattedQuestions.forEach(q => {
+          const letter = String.fromCharCode(65 + q.correctAnswer);
+          distribution[letter as keyof typeof distribution]++;
+        });
+        
+        addLog(`Answer distribution: A=${distribution.A}, B=${distribution.B}, C=${distribution.C}, D=${distribution.D}`);
         
         if (data.debug) {
           setDebugData({
@@ -199,6 +223,29 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
   const handleCloseQuiz = () => {
     addLog('Closing quiz');
     setQuizOpen(false);
+  };
+
+  // Function to verify answer distribution
+  const checkAnswerDistribution = (questions: QuizQuestion[]) => {
+    if (questions.length < 4) return;
+    
+    const distribution = {
+      A: 0, B: 0, C: 0, D: 0
+    };
+    
+    questions.forEach(q => {
+      const letter = String.fromCharCode(65 + q.correctAnswer);
+      distribution[letter as keyof typeof distribution]++;
+    });
+    
+    const expected = questions.length / 4;
+    const isBalanced = Object.values(distribution).every(c => Math.abs(c - expected) <= 1);
+    
+    if (!isBalanced) {
+      addLog(`Warning: Answer distribution is not balanced: A=${distribution.A}, B=${distribution.B}, C=${distribution.C}, D=${distribution.D}`);
+    } else {
+      addLog(`Answer distribution is well balanced: A=${distribution.A}, B=${distribution.B}, C=${distribution.C}, D=${distribution.D}`);
+    }
   };
 
   const generateQuestion = async () => {
@@ -550,6 +597,18 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
               <span className="font-bold">Selected Answer:</span> {quizSelectedAnswer !== null ? quizSelectedAnswer : 'None'}
             </div>
           </div>
+          {questions.length >= 4 && (
+            <div className="mt-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => checkAnswerDistribution(questions)}
+                className="w-full text-xs"
+              >
+                Check Answer Distribution
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

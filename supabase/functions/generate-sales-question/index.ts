@@ -1,3 +1,4 @@
+
 // @deno-types="https://deno.land/x/xhr@0.1.0/mod.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -212,9 +213,13 @@ serve(async (req) => {
     Je creëert vragen die UITDAGEND en leerzaam zijn, met de nadruk op het testen van begrip, analyse, toepassing en evaluatie - niet alleen feitenkennis.
     
     BELANGRIJK: 
-    1. Zorg voor een evenwichtige verdeling van juiste antwoorden - ongeveer 25% A, 25% B, 25% C en 25% D.
-    2. De vragen moeten UITDAGEND zijn, geschikt voor HBO-niveau. Vermijd eenvoudige feitelijke vragen.
-    3. Maak gedetailleerde uitleg die EERST het concept/begrip duidelijk definieert en DAARNA uitlegt hoe dit van toepassing is op de vraag.
+    1. ANTWOORDVERDELING: Zorg voor een EXACTE gelijke verdeling van juiste antwoorden - PRECIES 25% A, 25% B, 25% C en 25% D.
+    2. De vragen moeten ECHT UITDAGEND zijn, geschikt voor HBO-niveau. Vermijd eenvoudige feitelijke vragen.
+    3. Voor elke TERM maak je EXACT ÉÉN VRAAG (niet meer, niet minder).
+    4. Je maakt de uitleg als volgt:
+       - EERST: Een duidelijke definitie van het begrip (1-2 zinnen)
+       - DAARNA: Waarom het correcte antwoord juist is (2-3 zinnen)
+       - TENSLOTTE: Waarom elk incorrect antwoord onjuist is (1 zin per antwoord)
     
     Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.`;
     
@@ -230,33 +235,36 @@ serve(async (req) => {
       
       Inhoud van specifieke paragraaf: ${specificParagraphContent}
       
-      Genereer UITDAGENDE HBO-niveau vragen EXCLUSIEF over de volgende specifieke termen uit deze paragraaf:
+      Genereer UITDAGENDE HBO-niveau vragen. MAAK EXACT ÉÉN VRAAG VOOR ELKE van deze begrippen uit deze paragraaf:
       ${boldedTermsToProcess.join(', ')}
       
-      BELANGRIJK! ALLEEN DEZE TERMEN: ${boldedTermsToProcess.join(', ')} zijn relevant voor deze opdracht.
+      LET OP DE STRUCTUUR: In de paragraaf hebben termen vaak deze structuur:
+      - Eerst komt het begrip in **vetgedrukt**
+      - Dan volgt informatie over dit begrip
+      - Daarna komt het volgende begrip
+      
+      Gebruik deze structuur om PRECIES te begrijpen wat elke term betekent.
       
       Vereisten voor de vragen:
-      1. Maak ALLEEN vragen over bovenstaande termen en EXCLUSIEF gebaseerd op de inhoud van deze specifieke paragraaf.
-      2. HBO-niveau: Focus op vragen die UITDAGEND zijn en inzicht, toepassing en praktisch begrip testen, niet alleen feitenkennis.
-      3. MOEILIJKHEIDSGRAAD: Zorg ervoor dat de vragen echt uitdagend zijn. Vermijd oppervlakkige en te eenvoudige kennisvragen.
-      4. Variatie in vraagtypen:
-         - Toepassingsvragen: "Hoe zou je [begrip] toepassen in de volgende situatie...?"
-         - Analysevragen: "Wat is de relatie tussen [begrip A] en [begrip B] in deze context...?"
-         - Evalueringsvragen: "Beoordeel de effectiviteit van [begrip] in de volgende case..."
-         - Scenariovragen met meerdere factoren: "Een bedrijf heeft te maken met [complexe situatie]. Welke [begrip] is hier het meest relevant en waarom?"
-      5. Maak foute antwoorden geloofwaardig en plausibel, maar duidelijk incorrect bij nadere analyse.
-      6. Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
-      7. ZEER BELANGRIJK - UITGEBREIDE UITLEG: 
-         - Begin met een duidelijke definitie van het centrale begrip/concept
-         - Vervolgens leg uit waarom het correcte antwoord juist is 
-         - Leg ook uit waarom elk van de andere opties incorrect is
-         - Minimaal 4-5 zinnen per uitleg
+      1. Maak EXACT ÉÉN vraag per begrip, niet meer en niet minder.
+      2. UITDAGEND HBO-NIVEAU: Focus op toepassing, analyse en evaluatie, NIET op feitenkennis.
+      3. Gebruik bij voorkeur een van deze vraagtypen:
+         - TOEPASSING: "Een bedrijf wil [complexe situatie]. Hoe zou [begrip] hierbij toegepast moeten worden?"
+         - ANALYSE: "Wat is de belangrijkste functie van [begrip] in het marketingplanningsproces?"
+         - EVALUATIE: "Welke risicofactor is het meest kritisch bij de implementatie van [begrip]?"
+         - SCENARIO: "Een organisatie heeft te maken met [complexe situatie]. Welke [begrip]-strategie is meest geschikt en waarom?"
+      4. Maak de foute antwoorden GELOOFWAARDIG maar DUIDELIJK ONJUIST bij nadere analyse.
+      5. ZEER BELANGRIJK - UITLEG STRUCTUUR:
+         - BEGIN: Definitie van het concept (1-2 zinnen)
+         - DAARNA: Uitleg waarom het juiste antwoord correct is (2-3 zinnen)
+         - TENSLOTTE: Korte uitleg waarom de andere opties incorrect zijn (1 zin per optie)
+      6. VERDEEL DE JUISTE ANTWOORDEN EXACT GELIJK: 25% A, 25% B, 25% C en 25% D.
       
-      BELANGRIJK: GEBRUIK ALLEEN INFORMATIE UIT DEZE SPECIFIEKE PARAGRAAF. VERWIJS NIET NAAR ANDERE PARAGRAFEN OF HOOFDSTUKKEN.
+      GEBRUIK ALLEEN INFORMATIE UIT DEZE SPECIFIEKE PARAGRAAF.
       
       Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
       
-      Retourneer de vragen in een JSON array met de volgende structuur:
+      Retourneer de vragen in een JSON array met deze structuur:
       [
         {
           "question": "De vraag in het Nederlands",
@@ -268,9 +276,9 @@ serve(async (req) => {
       ]
       
       BELANGRIJK:
-      - Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
-      - Maak alleen vragen voor de specifiek genoemde begrippen in deze batch.
-      - Zorg dat elke vraag nauwkeurig past bij het niveau en de context van het specifieke paragraaf.`;
+      - Retourneer alleen de JSON-array
+      - Maak EXACT ÉÉN vraag voor ELKE term in de lijst
+      - Zorg voor GELIJKE VERDELING van juiste antwoorden (A, B, C, D)`;
     } else {
       // For non-specific paragraphs, use the updated format with better explanations
       userPrompt = `
@@ -280,29 +288,34 @@ serve(async (req) => {
       
       Inhoud: ${bookContent}
       
-      Genereer UITDAGENDE HBO-niveau vragen over de volgende specifieke begrippen uit de tekst.
+      Genereer UITDAGENDE HBO-niveau vragen. MAAK EXACT ÉÉN VRAAG VOOR ELK van deze begrippen uit de tekst:
+      ${boldedTermsToProcess.join(', ')}
+      
+      LET OP DE STRUCTUUR: In de tekst hebben termen vaak deze structuur:
+      - Eerst komt het begrip in **vetgedrukt**
+      - Dan volgt informatie over dit begrip
+      - Daarna komt het volgende begrip
+      
+      Gebruik deze structuur om PRECIES te begrijpen wat elke term betekent.
       
       Vereisten voor de vragen:
-      1. Maak voor ELK van deze termen minimaal één vraag: ${boldedTermsToProcess.join(', ')}
-      2. HBO-niveau: Focus op vragen die UITDAGEND zijn en inzicht, toepassing en praktisch begrip testen, niet alleen feitenkennis.
-      3. MOEILIJKHEIDSGRAAD: Zorg ervoor dat de vragen echt uitdagend zijn. Vermijd oppervlakkige en te eenvoudige kennisvragen.
-      4. Variatie in vraagtypen:
-         - Toepassingsvragen: "Hoe zou je [begrip] toepassen in de volgende situatie...?"
-         - Analysevragen: "Wat is de relatie tussen [begrip A] en [begrip B] in deze context...?"
-         - Evalueringsvragen: "Beoordeel de effectiviteit van [begrip] in de volgende case..."
-         - Scenariovragen met meerdere factoren: "Een bedrijf heeft te maken met [complexe situatie]. Welke [begrip] is hier het meest relevant en waarom?"
-         - Probleemoplossende vragen: "Een organisatie ervaart [complex probleem]. Wat is de beste aanpak volgens [begrip]?"
-      5. Maak foute antwoorden geloofwaardig en plausibel, maar duidelijk incorrect bij nadere analyse.
-      6. Elke vraag moet vier duidelijke antwoordopties hebben (A, B, C, D), waarvan er precies één correct is.
-      7. ZEER BELANGRIJK - UITGEBREIDE UITLEG:
-         - Begin met een duidelijke definitie van het centrale begrip/concept
-         - Vervolgens leg uit waarom het correcte antwoord juist is 
-         - Leg ook uit waarom elk van de andere opties incorrect is
-         - Minimaal 4-5 zinnen per uitleg
+      1. Maak EXACT ÉÉN vraag per begrip, niet meer en niet minder.
+      2. UITDAGEND HBO-NIVEAU: Focus op toepassing, analyse en evaluatie, NIET op feitenkennis.
+      3. Gebruik bij voorkeur een van deze vraagtypen:
+         - TOEPASSING: "Een bedrijf wil [complexe situatie]. Hoe zou [begrip] hierbij toegepast moeten worden?"
+         - ANALYSE: "Wat is de belangrijkste functie van [begrip] in het marketingplanningsproces?"
+         - EVALUATIE: "Welke risicofactor is het meest kritisch bij de implementatie van [begrip]?"
+         - SCENARIO: "Een organisatie heeft te maken met [complexe situatie]. Welke [begrip]-strategie is meest geschikt en waarom?"
+      4. Maak de foute antwoorden GELOOFWAARDIG maar DUIDELIJK ONJUIST bij nadere analyse.
+      5. ZEER BELANGRIJK - UITLEG STRUCTUUR:
+         - BEGIN: Definitie van het concept (1-2 zinnen)
+         - DAARNA: Uitleg waarom het juiste antwoord correct is (2-3 zinnen)
+         - TENSLOTTE: Korte uitleg waarom de andere opties incorrect zijn (1 zin per optie)
+      6. VERDEEL DE JUISTE ANTWOORDEN EXACT GELIJK: 25% A, 25% B, 25% C en 25% D.
       
       Dit is batch ${batchIndex + 1} van ${totalBatches}, focus alleen op deze begrippen: ${boldedTermsToProcess.join(', ')}
       
-      Retourneer de vragen in een JSON array met de volgende structuur:
+      Retourneer de vragen in een JSON array met deze structuur:
       [
         {
           "question": "De vraag in het Nederlands",
@@ -314,12 +327,9 @@ serve(async (req) => {
       ]
       
       BELANGRIJK:
-      - Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
-      - Maak alleen vragen voor de specifiek genoemde begrippen in deze batch.
-      - Maak uitdagende vragen die gebruikers stimuleren om dieper na te denken over de stof.
-      - Zorg dat elke vraag nauwkeurig past bij het niveau en de context van het lesmateriaal.
-      - Gebruik de begrippen zoals ze zijn gedefinieerd in de tekst, maar formuleer de vragen in je eigen woorden.
-      - Verdeel de juiste antwoorden (A, B, C, D) gelijkmatig over alle vragen.`;
+      - Retourneer alleen de JSON-array
+      - Maak EXACT ÉÉN vraag voor ELKE term in de lijst
+      - Zorg voor GELIJKE VERDELING van juiste antwoorden (A, B, C, D)`;
     }
     
     // Log the prompt for debugging
@@ -453,6 +463,33 @@ serve(async (req) => {
       }
     }
     
+    // Verify answer distribution (new validation)
+    if (questions.length >= 4) {
+      // Count correct answers by letter
+      const correctAnswerCounts = {
+        'A': 0,
+        'B': 0,
+        'C': 0,
+        'D': 0
+      };
+      
+      questions.forEach(q => {
+        correctAnswerCounts[q.correct]++;
+      });
+      
+      console.log('Answer distribution:', correctAnswerCounts);
+      
+      // If there's a significant imbalance, log it (we don't want to filter questions at this point)
+      const expectedCount = questions.length / 4;
+      const isBalanced = Object.values(correctAnswerCounts).every(count => 
+        Math.abs(count - expectedCount) <= 1
+      );
+      
+      if (!isBalanced) {
+        console.log('Warning: Answer distribution is not balanced:', correctAnswerCounts);
+      }
+    }
+    
     console.log(`Returning ${questions.length} questions after validation`);
 
     // Create response object, include debug info if requested
@@ -488,6 +525,12 @@ serve(async (req) => {
         tokenEstimates: {
           promptTokens: Math.ceil(estimatedPromptTokens),
           requestedMaxTokens: maxTokens
+        },
+        answerDistribution: {
+          'A': questions.filter(q => q.correct === 'A').length,
+          'B': questions.filter(q => q.correct === 'B').length,
+          'C': questions.filter(q => q.correct === 'C').length,
+          'D': questions.filter(q => q.correct === 'D').length
         }
       };
     }

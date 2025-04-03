@@ -32,6 +32,13 @@ interface BatchProgress {
   startTime: number;
 }
 
+interface AnswerDistribution {
+  A: number;
+  B: number;
+  C: number;
+  D: number;
+}
+
 export const useQuiz = (
   initialBookId: number | null, 
   initialChapterId: number | null, 
@@ -61,6 +68,7 @@ export const useQuiz = (
     apiResponse: any | null;
     extractedTerms?: string[];
     batchTerms?: string[];
+    answerDistribution?: AnswerDistribution;
     tokenEstimates?: {
       promptTokens?: number;
       requestedMaxTokens?: number;
@@ -92,6 +100,35 @@ export const useQuiz = (
       addLog(`Saved quiz state to localStorage with key: ${stateKey}`);
     }
   }, [questions, currentQuestionIndex, selectedAnswer, isAnswerSubmitted, score, isQuizComplete, bookId, chapterId, paragraphId, addLog]);
+
+  // Function to check answer distribution
+  const validateAnswerDistribution = (quizQuestions: QuizQuestion[]): boolean => {
+    if (quizQuestions.length < 4) return true; // Not enough questions to balance
+    
+    const distribution: AnswerDistribution = {
+      A: 0,
+      B: 0,
+      C: 0,
+      D: 0
+    };
+    
+    quizQuestions.forEach(q => {
+      const correctLetter = String.fromCharCode(65 + q.correctAnswer);
+      if (correctLetter in distribution) {
+        distribution[correctLetter as keyof AnswerDistribution]++;
+      }
+    });
+    
+    addLog(`Answer distribution: A=${distribution.A}, B=${distribution.B}, C=${distribution.C}, D=${distribution.D}`);
+    
+    // Check if distribution is reasonably balanced
+    const expectedCount = quizQuestions.length / 4;
+    const isBalanced = Object.values(distribution).every(count => 
+      Math.abs(count - expectedCount) <= 1
+    );
+    
+    return isBalanced;
+  };
 
   const loadSavedQuizState = (bookIdParam: string | null, chapterIdParam: string | null, paragraphIdParam: string | null) => {
     let stateKey: string | null = null;
@@ -195,8 +232,13 @@ export const useQuiz = (
           response: data.debug.response,
           batchTerms: data.debug.batchTerms,
           extractedTerms: data.debug.extractedTerms || prev.extractedTerms,
-          tokenEstimates: data.debug.tokenEstimates
+          tokenEstimates: data.debug.tokenEstimates,
+          answerDistribution: data.debug.answerDistribution
         }));
+        
+        if (data.debug.answerDistribution) {
+          addLog(`Answer distribution from API: A=${data.debug.answerDistribution.A}, B=${data.debug.answerDistribution.B}, C=${data.debug.answerDistribution.C}, D=${data.debug.answerDistribution.D}`);
+        }
       }
       
       const formattedQuestions = formatQuestions(data.questions);
@@ -334,6 +376,13 @@ export const useQuiz = (
       }
       
       setQuestions(allProcessedQuestions);
+      
+      // Check answer distribution
+      const isBalanced = validateAnswerDistribution(allProcessedQuestions);
+      if (!isBalanced) {
+        addLog('Warning: The answer distribution is not evenly balanced across A, B, C, and D');
+      }
+      
       addLog(`Quiz generation complete with ${allProcessedQuestions.length} total questions across ${currentBatch} batches`);
       
     } catch (err) {
@@ -383,12 +432,17 @@ export const useQuiz = (
           prompt: data.debug.prompt,
           response: data.debug.response,
           tokenEstimates: data.debug.tokenEstimates,
-          extractedTerms: data.debug.extractedTerms
+          extractedTerms: data.debug.extractedTerms,
+          answerDistribution: data.debug.answerDistribution
         });
         addLog('Debug data saved from API response');
         
         if (data.debug.extractedTerms) {
           addLog(`Terms found in content: ${data.debug.extractedTerms.length}`);
+        }
+        
+        if (data.debug.answerDistribution) {
+          addLog(`Answer distribution: A=${data.debug.answerDistribution.A}, B=${data.debug.answerDistribution.B}, C=${data.debug.answerDistribution.C}, D=${data.debug.answerDistribution.D}`);
         }
       }
       

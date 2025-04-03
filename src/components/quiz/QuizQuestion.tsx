@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, Eye } from "lucide-react";
 import { QuizQuestion } from "@/hooks/useQuiz";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from 'react-markdown';
 
 interface QuizQuestionProps {
@@ -45,6 +45,9 @@ const QuizQuestionComponent = ({
   onToggleExplanation,
   onToggleParagraphContent
 }: QuizQuestionProps) => {
+  // Add local state to ensure UI is properly reset between questions
+  const [localSelectedAnswer, setLocalSelectedAnswer] = useState<number | null>(selectedAnswer);
+  
   // Format the paragraph content for better rendering with null check
   const formattedParagraphContent = currentParagraphContent 
     ? currentParagraphContent
@@ -54,12 +57,18 @@ const QuizQuestionComponent = ({
         .replace(/\n{3,}/g, "\n\n")
     : "";
   
-  // Force reset selected answer when question changes
+  // Reset local state when question changes or when parent state is reset
   useEffect(() => {
-    // This ensures the component state is synced with parent's state
-    // and forces a re-render with clean selection state
-    console.log(`Question changed to ${currentQuestionIndex}, resetting UI state`);
-  }, [currentQuestionIndex, question.question]);
+    setLocalSelectedAnswer(selectedAnswer);
+    console.log(`Question changed to ${currentQuestionIndex}, syncing selection state to ${selectedAnswer}`);
+  }, [currentQuestionIndex, question.question, selectedAnswer]);
+  
+  // Handle local selection and propagate to parent
+  const handleLocalAnswerSelect = (value: string) => {
+    const index = parseInt(value);
+    setLocalSelectedAnswer(index);
+    onAnswerSelect(index);
+  };
   
   return (
     <Card className="border-2 max-w-3xl mx-auto">
@@ -101,8 +110,8 @@ const QuizQuestionComponent = ({
         )}
         
         <RadioGroup
-          value={selectedAnswer !== null ? selectedAnswer.toString() : undefined}
-          onValueChange={(value) => onAnswerSelect(parseInt(value))}
+          value={localSelectedAnswer !== null ? localSelectedAnswer.toString() : undefined}
+          onValueChange={handleLocalAnswerSelect}
           className="space-y-3"
           disabled={isAnswerSubmitted}
         >
@@ -113,7 +122,7 @@ const QuizQuestionComponent = ({
                 isAnswerSubmitted
                   ? index === question.correctAnswer
                     ? 'border-green-500 bg-green-50'
-                    : index === selectedAnswer
+                    : index === localSelectedAnswer
                     ? 'border-red-500 bg-red-50'
                     : ''
                   : 'hover:border-primary'
@@ -127,7 +136,7 @@ const QuizQuestionComponent = ({
                 <div className="ml-2">
                   {index === question.correctAnswer ? (
                     <CheckCircle className="h-5 w-5 text-green-500" />
-                  ) : index === selectedAnswer ? (
+                  ) : index === localSelectedAnswer ? (
                     <XCircle className="h-5 w-5 text-red-500" />
                   ) : null}
                 </div>
@@ -163,7 +172,7 @@ const QuizQuestionComponent = ({
           {!isAnswerSubmitted ? (
             <Button
               onClick={onSubmitAnswer}
-              disabled={selectedAnswer === null}
+              disabled={localSelectedAnswer === null}
             >
               Controleer antwoord
             </Button>
