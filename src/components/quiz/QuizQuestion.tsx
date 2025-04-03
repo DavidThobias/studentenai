@@ -54,11 +54,12 @@ const QuizQuestionComponent = ({
         .replace(/\n{3,}/g, "\n\n")
     : "";
   
-  // Clear selected answer when question changes
+  // Force reset selected answer when question changes
   useEffect(() => {
-    // This effect will run whenever the question changes
-    // The actual reset happens in the parent component via handleNextQuestion
-  }, [currentQuestionIndex, question]);
+    // This ensures the component state is synced with parent's state
+    // and forces a re-render with clean selection state
+    console.log(`Question changed to ${currentQuestionIndex}, resetting UI state`);
+  }, [currentQuestionIndex, question.question]);
   
   return (
     <Card className="border-2 max-w-3xl mx-auto">

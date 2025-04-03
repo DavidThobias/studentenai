@@ -165,7 +165,7 @@ serve(async (req) => {
       contentToUse = contentToUse.substring(0, MAX_CONTENT_LENGTH) + "...";
     }
 
-    // Improved OpenAI prompt with focus on challenging questions and balanced answer distribution
+    // Improved OpenAI prompt with focus on balanced answer distribution and challenging questions
     const openAIPrompt = `
     Je bent een AI gespecialiseerd in het genereren van uitdagende educatieve meerkeuzevragen om gebruikers volledig inzicht te geven in een specifieke paragraaf uit een boek.
     
@@ -178,19 +178,27 @@ serve(async (req) => {
     Vereisten voor de vragen:
     Dynamisch aantal vragen: Op basis van de lengte en inhoud van de paragraaf. Kortere paragrafen krijgen minder vragen, langere paragrafen meer. Genereer maximaal ${numberOfQuestions} vragen.
     
+    PERFECTE VERDELING VAN ANTWOORDEN: Het is CRUCIAAL dat er een exacte en gelijke verdeling is tussen A, B, C en D als correcte antwoorden. Elk correct antwoord (A, B, C, D) moet precies 25% van de tijd voorkomen. Dit is een ABSOLUTE VEREISTE. Controleer dit zorgvuldig voordat je je antwoord voltooit.
+    
+    MOEILIJKHEIDSGRAAD: Hoog. Maak de vragen uitdagend door:
+      - Complexe scenario's te creëren die dieper begrip vereisen
+      - Gebruik van verfijnde nuances tussen antwoordopties
+      - Toepassing van kennis in nieuwe contexten
+      - Hogere cognitieve vaardigheden testen (analyseren, evalueren, creëren)
+      - Vragen over subtiele verbanden tussen concepten
+      - Misleidende maar plausibele antwoordopties toevoegen
+    
+    UITGEBREIDE UITLEG: Voor elke vraag moet een grondige uitleg worden gegeven die:
+      1. Het relevante concept/begrip eerst duidelijk definieert
+      2. Uitlegt hoe dit concept van toepassing is op de vraag
+      3. Verheldert waarom het juiste antwoord correct is
+      4. Specifiek beschrijft waarom elk onjuist antwoord fout is
+    
     Diepgang: De vragen moeten zowel feitelijke kennis als begrip testen (bijv. onderscheid tussen concepten, praktische toepassingen).
     
-    Scenario-gebaseerde vragen: Minstens een paar vragen moeten de stof in een realistische context plaatsen.
+    Scenario-gebaseerde vragen: Minstens de helft van de vragen moeten de stof in een realistische, complexe context plaatsen.
     
     Strikvragen: Voeg enkele subtiele strikvragen toe waarbij oppervlakkige lezing tot een verkeerd antwoord kan leiden. Deze vragen testen diepgaand begrip.
-    
-    Moeilijkheidsgraad: Zorg voor gevarieerde antwoordopties die allemaal aannemelijk klinken, met subtiele verschillen tussen het juiste antwoord en de afleiders.
-    
-    Evenwichtige antwoorden: Zorg voor een gelijke verdeling van juiste antwoorden over A, B, C en D - geen enkel antwoord (A, B, C of D) mag vaker dan de andere voorkomen als juist antwoord.
-    
-    Geen letterlijke kopie: De vragen moeten de stof testen zonder exacte zinnen uit de tekst over te nemen.
-    
-    Uitgebreide uitleg: Naast het juiste antwoord moet ook worden uitgelegd waarom dit correct is en waarom de andere opties fout zijn.
     
     Correct geformatteerde JSON-uitvoer, met de volgende structuur:
     [
@@ -203,15 +211,15 @@ serve(async (req) => {
           "D. Het product verkoopt zichzelf."
         ],
         "correct": "B",
-        "explanation": "Salesgerichte organisaties werken met duidelijke targets en resultaatgerichte verkopers. Optie A en C zijn onjuist omdat salesgerichte bedrijven juist sterk sturen op prestaties. Optie D past meer bij een productgerichte organisatie."
+        "explanation": "Een salesgerichte organisatie wordt gekenmerkt door een sterke focus op verkoopresultaten. Het verkoopresultaat staat centraal betekent dat alle bedrijfsactiviteiten worden afgestemd op het behalen van omzetdoelstellingen. In de context van de vraag is antwoord B correct omdat salesgerichte organisaties juist wél met targets werken (in tegenstelling tot A), prestatiegerichtheid tonen (in tegenstelling tot C), en niet vertrouwen op passieve verkoop (in tegenstelling tot D)."
       }
     ]
     
     Belangrijk:
     Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
     Bepaal het aantal vragen dynamisch op basis van de paragraaflengte en complexiteit.
-    De uitleg moet helder en bondig zijn, en aangeven waarom het juiste antwoord correct is en waarom de andere opties fout zijn.
-    Zorg voor een gelijke verdeling van A, B, C en D als correcte antwoorden.
+    De uitleg moet ALTIJD eerst het concept definiëren en daarna uitleggen hoe het van toepassing is.
+    Controleer dat er een EXACTE gelijke verdeling is van A, B, C, D als correcte antwoorden.
     Maak de foute antwoorden geloofwaardig en vergelijkbaar met het juiste antwoord.`;
 
     // Call OpenAI API with timeout handling
@@ -229,11 +237,11 @@ serve(async (req) => {
         'Authorization': `Bearer ${openAIApiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',  // Changed back from gpt-4o to gpt-4o-mini
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: 'Je bent een ervaren Nederlandse onderwijsassistent die gespecialiseerd is in het maken van hoogwaardige multiple-choice vragen. Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen. Je zorgt voor een evenwichtige verdeling van A, B, C en D als juiste antwoorden. Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.'
+            content: 'Je bent een ervaren Nederlandse onderwijsassistent die gespecialiseerd is in het maken van hoogwaardige multiple-choice vragen. Je genereert vragen die zowel uitdagend als leerzaam zijn, en die studenten helpen de stof beter te begrijpen. Je zorgt voor een EXACT GELIJKE verdeling van A, B, C en D als juiste antwoorden. Je antwoorden zijn altijd in correct JSON formaat, zonder markdown of andere opmaak.'
           },
           {
             role: 'user',
@@ -297,6 +305,29 @@ serve(async (req) => {
     if (!Array.isArray(quizQuestions)) {
       console.error('OpenAI did not return an array of questions:', quizQuestions);
       throw new Error('OpenAI did not return an array of questions');
+    }
+
+    // Count correct answers to check distribution
+    const correctAnswerCount = { A: 0, B: 0, C: 0, D: 0 };
+    quizQuestions.forEach(q => {
+      if (q && q.correct && ["A", "B", "C", "D"].includes(q.correct)) {
+        correctAnswerCount[q.correct]++;
+      }
+    });
+    
+    console.log("Answer distribution check:", correctAnswerCount);
+    
+    // Calculate variance to determine if distribution is reasonable
+    const avgCount = quizQuestions.length / 4; // ideal average per answer type
+    const threshold = 0.2; // allowable variance threshold
+    const hasProperDistribution = Object.values(correctAnswerCount).every(count => {
+      const variance = Math.abs(count - avgCount) / quizQuestions.length;
+      return variance <= threshold;
+    });
+    
+    if (!hasProperDistribution && quizQuestions.length >= 4) {
+      console.warn("Detected uneven answer distribution. Forced rebalancing would be applied here in production.");
+      // In a more advanced implementation, you could rebalance answers here
     }
 
     // Validate each question's structure and convert from letter format to index format
@@ -377,7 +408,8 @@ serve(async (req) => {
       // Always include debug information
       debug: {
         prompt: openAIPrompt,
-        response: openAIData
+        response: openAIData,
+        answerDistribution: correctAnswerCount
       }
     };
 

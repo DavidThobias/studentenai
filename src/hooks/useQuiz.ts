@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -432,6 +433,7 @@ export const useQuiz = (
     if (currentQuestionIndex < questions.length - 1) {
       addLog(`Moving to next question (${currentQuestionIndex + 1})`);
       setCurrentQuestionIndex(prevIndex => prevIndex + 1);
+      // Explicitly reset the selected answer when moving to the next question
       setSelectedAnswer(null);
       setIsAnswerSubmitted(false);
       setShowExplanation(false);
@@ -443,6 +445,11 @@ export const useQuiz = (
 
   const restartQuiz = () => {
     addLog('Restarting quiz');
+    setCurrentQuestionIndex(0);
+    setSelectedAnswer(null);
+    setIsAnswerSubmitted(false);
+    setScore(0);
+    setIsQuizComplete(false);
     if (paragraphId) {
       generateQuizForParagraph(paragraphId);
     } else {
