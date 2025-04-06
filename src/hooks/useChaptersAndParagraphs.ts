@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 
@@ -106,17 +105,20 @@ export const useChaptersAndParagraphs = (
         }
 
         const uniqueChapters = new Map<number, ChapterData>();
-        chapterData?.forEach(ch => {
-          if (!uniqueChapters.has(ch.chapter_number)) {
-            uniqueChapters.set(ch.chapter_number, {
-              id: ch.chapter_number,
-              chapter_title: ch.chapter_title,
-              chapter_number: ch.chapter_number,
-              book_id: numericBookId,
-              objectives: ch.objectives
-            });
-          }
-        });
+        
+        if (chapterData) {
+          chapterData.forEach(ch => {
+            if (!uniqueChapters.has(ch.chapter_number)) {
+              uniqueChapters.set(ch.chapter_number, {
+                id: ch.chapter_number,
+                chapter_title: ch.chapter_title,
+                chapter_number: ch.chapter_number,
+                book_id: numericBookId,
+                objectives: ch.objectives
+              });
+            }
+          });
+        }
         
         const chaptersArray = Array.from(uniqueChapters.values());
         setChapters(chaptersArray);
@@ -211,6 +213,11 @@ export const useChaptersAndParagraphs = (
         console.error('Error fetching paragraphs:', paragraphsError);
         setError('Error fetching paragraphs');
         throw paragraphsError;
+      }
+      
+      if (!paragraphsData) {
+        setParagraphs([]);
+        return;
       }
       
       const typedParagraphs: ParagraphData[] = paragraphsData.map(p => ({
@@ -310,17 +317,20 @@ export const useChaptersAndParagraphs = (
       }
 
       const uniqueChapters = new Map<number, ChapterData>();
-      chapterData?.forEach(ch => {
-        if (!uniqueChapters.has(ch.chapter_number)) {
-          uniqueChapters.set(ch.chapter_number, {
-            id: ch.chapter_number,
-            chapter_title: ch.chapter_title,
-            chapter_number: ch.chapter_number,
-            book_id: bookId,
-            objectives: ch.objectives
-          });
-        }
-      });
+      
+      if (chapterData) {
+        chapterData.forEach(ch => {
+          if (!uniqueChapters.has(ch.chapter_number)) {
+            uniqueChapters.set(ch.chapter_number, {
+              id: ch.chapter_number,
+              chapter_title: ch.chapter_title,
+              chapter_number: ch.chapter_number,
+              book_id: bookId,
+              objectives: ch.objectives
+            });
+          }
+        });
+      }
       
       const chaptersArray = Array.from(uniqueChapters.values());
       setChapters(chaptersArray);

@@ -14,6 +14,12 @@ const QuizContainer = ({ children, sidebar, className, objectives }: QuizContain
     <div className={cn("flex flex-col lg:flex-row gap-6", className)}>
       {sidebar}
       <div className="flex-1 bg-card p-6 rounded-lg shadow-sm border">
+        {objectives && (
+          <div className="mb-6 p-4 bg-muted/50 rounded border">
+            <h3 className="text-sm font-medium mb-2">Leerdoelen:</h3>
+            <div className="text-sm whitespace-pre-line">{objectives}</div>
+          </div>
+        )}
         {children}
       </div>
     </div>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,11 +107,9 @@ export const useQuiz = (
     }
   }, [questions, currentQuestionIndex, selectedAnswer, isAnswerSubmitted, score, isQuizComplete, bookId, chapterId, paragraphId, quizType, addLog]);
 
-  // Client-side function to balance answer distribution if needed
   const balanceAnswerDistribution = (quizQuestions: QuizQuestion[]): QuizQuestion[] => {
     if (quizQuestions.length < 4) return quizQuestions;
     
-    // Count answers by letter
     const letterCounts = {
       0: 0, // A
       1: 0, // B
@@ -128,7 +125,6 @@ export const useQuiz = (
     
     addLog(`Client-side answer distribution check: A=${letterCounts[0]}, B=${letterCounts[1]}, C=${letterCounts[2]}, D=${letterCounts[3]}`);
     
-    // Check if distribution is balanced
     const expectedCount = Math.ceil(quizQuestions.length / 4);
     const isBalanced = Object.values(letterCounts).every(count => 
       Math.abs(count - expectedCount) <= 1
@@ -139,7 +135,6 @@ export const useQuiz = (
       return quizQuestions;
     }
     
-    // Find over-represented and under-represented answers
     const overRepresented = Object.entries(letterCounts)
       .filter(([_, count]) => count > expectedCount)
       .map(([index]) => parseInt(index));
@@ -154,50 +149,37 @@ export const useQuiz = (
     
     addLog(`Rebalancing answers: over-represented=${overRepresented.join(',')}, under-represented=${underRepresented.join(',')}`);
     
-    // Clone questions to avoid modifying the original array
     const balancedQuestions: QuizQuestion[] = JSON.parse(JSON.stringify(quizQuestions));
     
-    // Start rebalancing
     let overRepIndex = 0;
     let underRepIndex = 0;
     
     for (let i = 0; i < balancedQuestions.length; i++) {
       const q = balancedQuestions[i];
       
-      // If this question has an over-represented answer
       if (overRepresented.includes(q.correctAnswer)) {
-        // And there are still under-represented answers to use
         if (underRepIndex < underRepresented.length) {
           const newAnswerIndex = underRepresented[underRepIndex];
           
-          // Save the original correct option
           const correctOption = q.options[q.correctAnswer];
           
-          // Swap options
           q.options[q.correctAnswer] = q.options[newAnswerIndex];
           q.options[newAnswerIndex] = correctOption;
           
-          // Update the correct answer
           q.correctAnswer = newAnswerIndex;
           
-          // Clean the explanation to remove any references to specific options
           if (q.explanation) {
             q.explanation = q.explanation
-              // Replace direct option letter references with more generic language
               .replace(/\b(optie|option|antwoord|answer)\s+[A-D]\b/gi, "het juiste antwoord")
-              // Remove any remaining direct letter references
               .replace(/\b[Oo]ptie [A-D]\b/g, "een optie")
               .replace(/\b[Aa]ntwoord [A-D]\b/g, "een antwoord");
           }
           
-          // Move to the next under-represented answer
           underRepIndex++;
           
-          // Update counts
           letterCounts[overRepresented[overRepIndex]]--;
           letterCounts[newAnswerIndex]++;
           
-          // If we've fixed this over-represented answer, move to the next one
           if (letterCounts[overRepresented[overRepIndex]] <= expectedCount) {
             overRepIndex++;
             if (overRepIndex >= overRepresented.length) break;
@@ -212,7 +194,7 @@ export const useQuiz = (
   };
 
   const validateAnswerDistribution = (quizQuestions: QuizQuestion[]): boolean => {
-    if (quizQuestions.length < 4) return true; // Not enough questions to balance
+    if (quizQuestions.length < 4) return true;
     
     const distribution = {
       0: 0, // A
@@ -351,7 +333,6 @@ export const useQuiz = (
           objectives: data.debug.objectives
         }));
         
-        // Set objectives from the response if available
         if (data.debug.objectives) {
           setObjectives(data.debug.objectives);
         }
@@ -363,7 +344,6 @@ export const useQuiz = (
       
       let formattedQuestions = formatQuestions(data.questions);
       
-      // Apply client-side balancing if needed
       if (formattedQuestions.length >= 4) {
         const isBalanced = validateAnswerDistribution(formattedQuestions);
         if (!isBalanced) {
@@ -400,10 +380,8 @@ export const useQuiz = (
         correctAnswerIndex = 0;
       }
       
-      // Clean the explanation to avoid any references to specific options
       let cleanedExplanation = q.explanation || "Dit is het correcte antwoord volgens de theorie.";
       
-      // Remove specific option references from explanation
       cleanedExplanation = cleanedExplanation
         .replace(/\b(optie|option|antwoord|answer)\s+[A-D]\b/gi, "het juiste antwoord")
         .replace(/\b[Oo]ptie [A-D]\b/g, "een optie")
@@ -445,18 +423,12 @@ export const useQuiz = (
     addLog(`Starting batch processing for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}, quizType=${quizType || 'default'}`);
     
     try {
-      // Fetch chapter objectives if we have a chapter ID
       if (chapterId) {
         try {
-          const { data, error } = await supabase
-            .from('books')
-            .select('objectives')
-            .eq('chapter_number', chapterId)
-            .limit(1)
-            .maybeSingle();
+          const objectives = await fetchFirstChapterObjectives(bookId, chapterId);
           
-          if (!error && data && data.objectives) {
-            setObjectives(data.objectives);
+          if (objectives) {
+            setObjectives(objectives);
             addLog(`Fetched objectives for chapter ${chapterId}`);
           } else {
             setObjectives(null);
@@ -584,36 +556,24 @@ export const useQuiz = (
     try {
       setParagraphId(paragraphId);
       
-      // Fetch paragraph objectives
-      try {
-        const { data, error } = await supabase
-          .from('books')
-          .select('objectives')
-          .eq('id', paragraphId)
-          .maybeSingle();
+      const { data, error } = await supabase
+        .from('books')
+        .select('objectives')
+        .eq('id', paragraphId)
+        .maybeSingle();
         
-        if (!error && data && data.objectives) {
-          setObjectives(data.objectives);
-          addLog(`Fetched objectives for paragraph ${paragraphId}`);
+      if (!error && data && data.objectives) {
+        setObjectives(data.objectives);
+        addLog(`Fetched objectives for paragraph ${paragraphId}`);
+      } else {
+        const chapterObjectives = await fetchFirstChapterObjectives(bookId, chapterId);
+        
+        if (chapterObjectives) {
+          setObjectives(chapterObjectives);
+          addLog(`Fetched objectives for chapter ${chapterId} (paragraph ${paragraphId})`);
         } else {
-          // If paragraph doesn't have objectives, try to get chapter objectives
-          const { data: chapterData, error: chapterError } = await supabase
-            .from('books')
-            .select('objectives')
-            .eq('chapter_number', chapterId)
-            .limit(1)
-            .maybeSingle();
-          
-          if (!chapterError && chapterData && chapterData.objectives) {
-            setObjectives(chapterData.objectives);
-            addLog(`Fetched objectives for chapter ${chapterId} (paragraph ${paragraphId})`);
-          } else {
-            setObjectives(null);
-          }
+          setObjectives(null);
         }
-      } catch (err) {
-        console.error('Error fetching objectives:', err);
-        addLog(`Error fetching objectives: ${err instanceof Error ? err.message : String(err)}`);
       }
       
       await generateQuiz(5);
@@ -649,7 +609,6 @@ export const useQuiz = (
           objectives: data.debug.objectives
         });
         
-        // Set objectives from the response if available
         if (data.debug.objectives) {
           setObjectives(data.debug.objectives);
         }
@@ -751,6 +710,27 @@ export const useQuiz = (
       localStorage.removeItem(stateKey);
       localStorage.removeItem('lastActiveQuiz');
       addLog(`Removed quiz state from localStorage with key: ${stateKey}`);
+    }
+  };
+
+  const fetchFirstChapterObjectives = async (bookId: number, chapterId: number) => {
+    try {
+      const { data, error } = await supabase
+        .from('books')
+        .select('objectives')
+        .eq('chapter_number', chapterId)
+        .limit(1)
+        .maybeSingle();
+        
+      if (error) {
+        console.error('Error fetching objectives:', error);
+        return null;
+      }
+      
+      return data?.objectives || null;
+    } catch (error) {
+      console.error('Error fetching objectives:', error);
+      return null;
     }
   };
 

@@ -89,17 +89,20 @@ export const useBookDetail = (id: string | undefined) => {
 
         // Deduplicate chapters and map to ChapterData format
         const uniqueChapters = new Map<number, ChapterData>();
-        chapterData?.forEach(ch => {
-          if (!uniqueChapters.has(ch.chapter_number)) {
-            uniqueChapters.set(ch.chapter_number, {
-              id: ch.chapter_number,
-              chapter_title: ch.chapter_title,
-              chapter_number: ch.chapter_number,
-              book_id: numericBookId,
-              objectives: ch.objectives
-            });
-          }
-        });
+        
+        if (chapterData) {
+          chapterData.forEach(ch => {
+            if (!uniqueChapters.has(ch.chapter_number)) {
+              uniqueChapters.set(ch.chapter_number, {
+                id: ch.chapter_number,
+                chapter_title: ch.chapter_title,
+                chapter_number: ch.chapter_number,
+                book_id: numericBookId,
+                objectives: ch.objectives
+              });
+            }
+          });
+        }
         
         const chaptersArray = Array.from(uniqueChapters.values());
         console.log(`Retrieved ${chaptersArray.length} chapters:`, chaptersArray);
