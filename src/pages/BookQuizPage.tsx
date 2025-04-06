@@ -18,10 +18,12 @@ const BookQuizPage = () => {
   const [searchParams] = useSearchParams();
   
   const chapterIdParam = searchParams.get('chapterId');
+  const paragraphIdParam = searchParams.get('paragraphId');
   const isOnlineMarketingParam = searchParams.get('isOnlineMarketing');
   
   const numericBookId = bookId ? parseInt(bookId) : null;
   const numericChapterId = chapterIdParam ? parseInt(chapterIdParam) : null;
+  const numericParagraphId = paragraphIdParam ? parseInt(paragraphIdParam) : null;
   const isOnlineMarketing = isOnlineMarketingParam === 'true';
   
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -35,8 +37,10 @@ const BookQuizPage = () => {
   const {
     book,
     chapters,
+    paragraphs,
     loading: bookLoading,
-    error: bookError
+    error: bookError,
+    isOnlineMarketingBook
   } = useBookDetail(bookId);
 
   // Custom logging function for debugging
@@ -56,17 +60,24 @@ const BookQuizPage = () => {
   } = useBookQuizGenerator({
     bookId: numericBookId,
     chapterId: numericChapterId,
-    paragraphId: null,
-    isOnlineMarketing,
+    paragraphId: numericParagraphId,
+    isOnlineMarketing: isOnlineMarketingBook || isOnlineMarketing,
     addLog
   });
 
   // Start quiz generation when parameters are available
   useEffect(() => {
     if (numericBookId && numericChapterId) {
-      startQuizGeneration(5);
+      // For Online Marketing book, we don't need paragraphId
+      if (isOnlineMarketingBook || isOnlineMarketing) {
+        startQuizGeneration(5);
+      } 
+      // For other books, we need paragraphId for paragraph-specific quizzes
+      else if (numericParagraphId) {
+        startQuizGeneration(5);
+      }
     }
-  }, [numericBookId, numericChapterId]);
+  }, [numericBookId, numericChapterId, numericParagraphId, isOnlineMarketingBook, isOnlineMarketing]);
 
   // Handle selecting an answer
   const handleAnswerSelect = (index: number) => {
@@ -128,7 +139,18 @@ const BookQuizPage = () => {
 
   // Handle chapter selection
   const handleSelectChapter = (chapterId: number) => {
-    navigate(`/books/${bookId}/quiz?chapterId=${chapterId}&isOnlineMarketing=${isOnlineMarketing}`);
+    if (isOnlineMarketingBook || isOnlineMarketing) {
+      // For Online Marketing book, we navigate directly to the chapter quiz
+      navigate(`/books/${bookId}/quiz?chapterId=${chapterId}&isOnlineMarketing=true`);
+    } else {
+      // For other books, we navigate to the chapter first, allowing paragraph selection
+      navigate(`/books/${bookId}?selectedChapter=${chapterId}`);
+    }
+  };
+
+  // Handle paragraph selection (for non-Online Marketing books)
+  const handleSelectParagraph = (chapterId: number, paragraphId: number) => {
+    navigate(`/books/${bookId}/quiz?chapterId=${chapterId}&paragraphId=${paragraphId}`);
   };
 
   // Get selected chapter title
@@ -204,8 +226,39 @@ const BookQuizPage = () => {
           </Card>
         )}
 
+        {/* Paragraph selection for non-Online Marketing books when chapter is selected but no paragraph is selected */}
+        {numericChapterId && !numericParagraphId && paragraphs.length > 0 && !isOnlineMarketingBook && !isOnlineMarketing && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Kies een paragraaf</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {paragraphs.map((paragraph) => (
+                  <Button
+                    key={paragraph.id}
+                    variant="outline"
+                    className="h-auto py-6 flex items-start justify-start text-left"
+                    onClick={() => handleSelectParagraph(numericChapterId, paragraph.id)}
+                  >
+                    <Book className="h-5 w-5 mr-2 flex-shrink-0" />
+                    <div>
+                      <span className="block font-medium">Paragraaf {paragraph.paragraph_number || paragraph.id}</span>
+                      <span className="block text-sm text-muted-foreground mt-1 line-clamp-2">
+                        {paragraph.content?.substring(0, 100)}...
+                      </span>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Quiz content */}
-        {numericChapterId && (
+        {((numericChapterId && isOnlineMarketingBook) || 
+          (numericChapterId && isOnlineMarketing) || 
+          (numericChapterId && numericParagraphId && !isOnlineMarketingBook && !isOnlineMarketing)) && (
           <QuizContainer objectives={objectives}>
             {isGenerating ? (
               <div className="flex flex-col items-center justify-center py-12">

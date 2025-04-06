@@ -36,6 +36,7 @@ export const useBookDetail = (id: string | undefined) => {
   const [loadingParagraphs, setLoadingParagraphs] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
+  const [isOnlineMarketingBook, setIsOnlineMarketingBook] = useState(false);
 
   useEffect(() => {
     const fetchBookDetails = async () => {
@@ -73,6 +74,10 @@ export const useBookDetail = (id: string | undefined) => {
           book_title: bookData.book_title,
           author_name: bookData.author_name
         });
+        
+        // Check if this is the Online Marketing book
+        const isOnlineMarketing = bookData.book_title === "Basisboek Online Marketing";
+        setIsOnlineMarketingBook(isOnlineMarketing);
 
         // Get chapters for this book (based on unique chapter numbers)
         const { data: chapterData, error: chapterError } = await supabase
@@ -113,7 +118,7 @@ export const useBookDetail = (id: string | undefined) => {
           console.log(`Setting initial selected chapter ID: ${firstChapterId}`);
           setSelectedChapterId(firstChapterId);
           
-          await fetchParagraphs(firstChapterId);
+          await fetchParagraphs(firstChapterId, bookData.book_title);
         } else {
           console.log('No chapters found for this book');
         }
@@ -128,7 +133,7 @@ export const useBookDetail = (id: string | undefined) => {
     fetchBookDetails();
   }, [id, navigate]);
 
-  const fetchParagraphs = async (chapterId: number) => {
+  const fetchParagraphs = async (chapterId: number, bookTitle: string | undefined) => {
     try {
       setLoadingParagraphs(true);
       setError(null);
@@ -136,13 +141,14 @@ export const useBookDetail = (id: string | undefined) => {
       
       const numericChapterId = Number(chapterId);
       
-      console.log(`Fetching paragraphs for chapter ID: ${numericChapterId}`);
+      console.log(`Fetching paragraphs for chapter ID: ${numericChapterId} and book: ${bookTitle}`);
       
-      // Try to get paragraphs directly from books table
+      // Try to get paragraphs directly from books table - now also filtering by book_title
       const { data: booksData, error: booksError } = await supabase
         .from('books')
         .select('*')
         .eq('chapter_number', numericChapterId)
+        .eq('book_title', bookTitle)
         .order('paragraph_number', { ascending: true });
       
       console.log('Books table query result:', {
@@ -187,6 +193,7 @@ export const useBookDetail = (id: string | undefined) => {
     loadingParagraphs,
     error,
     fetchParagraphs,
-    selectedChapterId
+    selectedChapterId,
+    isOnlineMarketingBook
   };
 };
