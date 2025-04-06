@@ -37,6 +37,7 @@ export const useBookQuizGenerator = ({
   const [objectives, setObjectives] = useState<string | null>(null);
   const [loadNextBatchTrigger, setLoadNextBatchTrigger] = useState(0);
   const [hasMoreBatches, setHasMoreBatches] = useState(false);
+  const [debugData, setDebugData] = useState<any>({});
 
   // Format questions from API response
   const formatQuestions = (rawQuestions: any[]): QuizQuestion[] => {
@@ -107,8 +108,12 @@ export const useBookQuizGenerator = ({
         return null;
       }
       
-      if (data.debug?.objectives) {
-        setObjectives(data.debug.objectives);
+      if (data.debug) {
+        setDebugData(data.debug);
+        
+        if (data.debug.objectives) {
+          setObjectives(data.debug.objectives);
+        }
       }
       
       let formattedQuestions = formatQuestions(data.questions);
@@ -279,7 +284,8 @@ export const useBookQuizGenerator = ({
     currentBatch,
     totalBatches,
     startQuizGeneration,
-    triggerNextBatch
+    triggerNextBatch,
+    debugData
   };
 };
 

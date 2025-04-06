@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 import ParagraphViewer from '@/components/ParagraphViewer';
 import ChaptersList from '@/components/book/ChaptersList';
 import { useBookQuizGenerator } from '@/hooks/useBookQuizGenerator';
+import QuizDebug from '@/components/quiz/QuizDebug';
 
 // Define quiz states for each paragraph
 interface ParagraphProgress {
@@ -68,6 +69,7 @@ const StructuredLearningPage = () => {
   const [isStudyMode, setIsStudyMode] = useState(false);
   const [isChapterSelectionMode, setIsChapterSelectionMode] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
+  const [debugData, setDebugData] = useState<any>({});
 
   // Function to add log messages
   const addLog = (message: string) => {
@@ -97,7 +99,8 @@ const StructuredLearningPage = () => {
     batchProgress,
     hasMoreBatches,
     startQuizGeneration,
-    triggerNextBatch
+    triggerNextBatch,
+    debugData: quizDebugData
   } = useBookQuizGenerator({
     bookId: book?.id || null,
     chapterId: selectedChapterId,
@@ -105,6 +108,13 @@ const StructuredLearningPage = () => {
     isOnlineMarketing: isOnlineMarketingBook,
     addLog
   });
+
+  // Update debug data whenever it changes
+  useEffect(() => {
+    if (quizDebugData) {
+      setDebugData(quizDebugData);
+    }
+  }, [quizDebugData]);
 
   // Check for chapter in URL parameters
   useEffect(() => {
@@ -229,7 +239,7 @@ const StructuredLearningPage = () => {
             bookId: book.id,
             chapterId: selectedChapterId,
             paragraphId: paragraphId,
-            debug: false
+            debug: true
           }
         });
         
@@ -753,6 +763,21 @@ const StructuredLearningPage = () => {
                 </CardContent>
               </Card>
             )}
+            
+            {/* Add debug panel */}
+            <QuizDebug
+              stateLog={logs}
+              debugData={debugData}
+              bookId={book?.id || null}
+              chapterId={selectedChapterId}
+              paragraphId={activeParagraphId}
+              isStructuredLearning={true}
+              questionsCount={questions.length}
+              currentQuestionIndex={currentQuestionIndex}
+              isGenerating={isGeneratingQuiz}
+              paragraphsCount={paragraphs.length}
+              batchProgress={batchProgress || undefined}
+            />
           </>
         )}
       </div>

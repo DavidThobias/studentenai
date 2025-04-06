@@ -116,7 +116,6 @@ serve(async (req) => {
       }
     } else {
       // For the entire book (or multiple chapters)
-      // This is just a basic implementation, might need refinement
       const { data: bookParagraphs, error: bookError } = await supabase
         .from('books')
         .select('content, chapter_title, objectives')
@@ -148,18 +147,51 @@ serve(async (req) => {
       }
     }
 
+    // Extract key terms or concepts from the content for batching
+    const extractTermsFromContent = (content) => {
+      // Simple extraction of terms in **bold** format
+      const boldTerms = content.match(/\*\*(.*?)\*\*/g)?.map(term => term.replace(/\*\*/g, '')) || [];
+      
+      // Extract terms from lists (bullet points)
+      const listItems = content.match(/^-\s+(.*?)$/gm)?.map(item => item.replace(/^-\s+/, '')) || [];
+      
+      // Extract terms after colons (definitions)
+      const definitions = content.match(/([A-Za-z\s/]+):\s/g)?.map(def => def.replace(':', '').trim()) || [];
+      
+      // Combine all terms and remove duplicates
+      const allTerms = [...boldTerms, ...listItems, ...definitions];
+      return [...new Set(allTerms)].filter(term => term.length > 3);
+    };
+
+    // Extract relevant terms from the content
+    const extractedTerms = extractTermsFromContent(chapterContent);
+    const totalTerms = extractedTerms.length;
+    
+    // Calculate batch information
+    const totalBatches = Math.max(1, Math.ceil(totalTerms / batchSize));
+    const startIndex = batchIndex * batchSize;
+    const endIndex = Math.min(startIndex + batchSize, totalTerms);
+    const currentBatchTerms = extractedTerms.slice(startIndex, endIndex);
+    const isLastBatch = endIndex >= totalTerms;
+    
     // Limit chapter content to avoid token limit issues
-    const maxContentLength = 10000;
-    if (chapterContent.length > maxContentLength) {
-      chapterContent = chapterContent.substring(0, maxContentLength);
+    const maxContentLength = 8000; // reduced from 10000 to account for batch processing
+    let contentForPrompt = chapterContent;
+    if (contentForPrompt.length > maxContentLength) {
+      contentForPrompt = contentForPrompt.substring(0, maxContentLength);
       console.log(`Content truncated to ${maxContentLength} characters`);
     }
 
     // Build the prompt for OpenAI
+    // Emphasize the specific terms for this batch
+    const batchTermsText = currentBatchTerms.length > 0 
+      ? `Voor deze batch focus je op de volgende termen/concepten: ${currentBatchTerms.join(', ')}`
+      : 'Kies zelf enkele belangrijke concepten uit de inhoud om vragen over te stellen.';
+      
     const prompt = `
-Genereer meervoudige-keuzevragen op basis van de theorie en doelstellingen van het meegeleverde hoofdstuk. Zorg ervoor dat er voldoende vragen zijn om elk aspect van de theorie en elke doelstelling volledig te dekken. Maak zoveel vragen als nodig is, zodat de gebruiker elk concept grondig kan begrijpen; liever te veel vragen dan te weinig. Zorg dat er voor elke doelstelling genoeg vragen zijn om alles volledig te snappen. 
+Genereer meervoudige-keuzevragen over online marketing op basis van de theorie en doelstellingen van het meegeleverde hoofdstuk.
 
-Elke vraag moet een realistisch scenario bevatten dat past bij het onderwerp van het hoofdstuk en op toepassingsniveau is, zodat de gebruiker de concepten in praktische situaties moet toepassen. Elke vraag heeft vier antwoordopties, waarvan één correct is. Maak de antwoorden misleidend: de foute opties moeten lijken op het correcte antwoord, maar subtiele fouten bevatten, of ze moeten gaan over dezelfde theorie/modellen maar net een ander begrip tonen (bijvoorbeeld een verkeerde interpretatie van een model of een gerelateerd maar incorrect concept). Zorg dat de vragen duidelijk, grammaticaal correct en uitdagend zijn.
+${batchTermsText}
 
 Boektitel: ${bookTitle}
 Hoofdstuktitel: ${chapterTitle}
@@ -168,9 +200,9 @@ Doelstellingen:
 ${objectives || 'Geen specifieke doelstellingen gedefinieerd.'}
 
 Inhoud:
-${chapterContent}
+${contentForPrompt}
 
-Genereer de vragen in JSON-format. Elke vraag moet de volgende structuur hebben:
+Genereer voor deze batch ${Math.min(batchSize, currentBatchTerms.length || batchSize)} quizvragen. Elke vraag moet de volgende structuur hebben:
 {
   "question": "De vraag hier",
   "options": ["Optie A", "Optie B", "Optie C", "Optie D"],
@@ -178,11 +210,11 @@ Genereer de vragen in JSON-format. Elke vraag moet de volgende structuur hebben:
   "explanation": "Uitleg waarom dit het juiste antwoord is"
 }
 
-Geef minimaal 5 vragen terug, maar niet meer dan 15. Geef alleen de JSON-array terug, geen omliggende tekst.
+Geef alleen de JSON-array terug, geen omliggende tekst.
 `;
 
     // Call OpenAI API
-    console.log('Calling OpenAI API...');
+    console.log('Calling OpenAI API for batch', batchIndex);
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -201,7 +233,7 @@ Geef minimaal 5 vragen terug, maar niet meer dan 15. Geef alleen de JSON-array t
     });
 
     const responseData = await openAIResponse.json();
-    console.log('OpenAI API response received');
+    console.log('OpenAI API response received for batch', batchIndex);
 
     if (!responseData.choices || !responseData.choices[0]) {
       console.error('Invalid response from OpenAI:', responseData);
@@ -279,9 +311,10 @@ Geef minimaal 5 vragen terug, maar niet meer dan 15. Geef alleen de JSON-array t
         chapterId,
         paragraphId,
         batchIndex,
-        totalTerms: questions.length,
-        isLastBatch: true,
-        totalBatches: 1
+        totalTerms: extractedTerms.length,
+        processedTerms: Math.min(endIndex, extractedTerms.length),
+        isLastBatch,
+        totalBatches
       },
       context: {
         bookTitle,
@@ -296,6 +329,8 @@ Geef minimaal 5 vragen terug, maar niet meer dan 15. Geef alleen de JSON-array t
         response: aiResponse,
         answerDistribution,
         objectives,
+        extractedTerms,
+        batchTerms: currentBatchTerms,
         tokenEstimates: {
           promptTokens: Math.ceil(prompt.length / 4),
           requestedMaxTokens: 2500
