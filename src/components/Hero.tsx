@@ -1,98 +1,83 @@
 
-import { ArrowRight, BookOpen } from "lucide-react";
-import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { Button } from "@/components/ui/button";
+import { BookOpen, Users, ArrowRight } from 'lucide-react';
 
-export default function Hero() {
+const Hero = () => {
   return (
-    <section className="min-h-[80vh] flex items-center hero-gradient relative overflow-hidden pt-28 pb-20 px-6 bg-gradient-to-br from-study-50 to-blue-50">
-      <div className="max-w-7xl mx-auto w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <motion.div 
-            className="space-y-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <div className="space-y-4">
-              <motion.div 
-                className="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium bg-study-100 text-study-800 mb-4"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-              >
-                <BookOpen className="mr-1 h-4 w-4" />
-                <span>Leer actief met AI</span>
-              </motion.div>
-              
+    <section className="py-24 lg:py-32 bg-background flex items-center">
+      <div className="container px-4 md:px-6">
+        <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
+          <div className="flex flex-col justify-center space-y-8">
+            <div className="space-y-6">
               <motion.h1 
-                className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3, duration: 0.7 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none text-foreground"
               >
-                Maak studeren <br />
-                <span className="text-study-600">effectiever</span>
+                Leer sneller en effectiever met AI
               </motion.h1>
-              
               <motion.p 
-                className="text-lg text-gray-700 max-w-lg"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4, duration: 0.7 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="max-w-[600px] text-gray-500 md:text-xl dark:text-gray-400"
               >
-                Upload je studieboeken en ga direct aan de slag met AI-gegenereerde quizzen.
+                Verbeter je studieresultaten met AI-gestuurde quizzen en samenvattingen gebaseerd op jouw studiemateriaal.
               </motion.p>
             </div>
-
             <motion.div 
-              className="flex flex-col sm:flex-row gap-4"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.6 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="flex flex-col gap-4 min-[400px]:flex-row"
             >
-              <Link 
-                to="/learn" 
-                className="btn-primary group inline-flex items-center justify-center py-3 px-6 text-lg font-medium rounded-lg bg-study-600 text-white hover:bg-study-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                Begin nu
-                <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+              <Link to="/books">
+                <Button size="lg" className="bg-study-600 hover:bg-study-700">
+                  Begin nu
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+              <Link to="/learn">
+                <Button size="lg" variant="outline">
+                  Meer informatie
+                </Button>
               </Link>
             </motion.div>
-          </motion.div>
-
-          <motion.div 
-            className="relative hidden lg:block"
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4, duration: 0.8 }}
-          >
-            <div className="aspect-square w-full max-w-md mx-auto lg:mx-0 lg:ml-auto relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-200 to-study-200 rounded-3xl -rotate-6 transform shadow-lg"></div>
-              <div className="absolute inset-0 bg-gradient-to-tr from-study-100 to-blue-100 rounded-3xl rotate-3 transform shadow-lg"></div>
-              <div className="rounded-2xl overflow-hidden shadow-2xl relative z-10 bg-white h-full flex items-center justify-center">
-                <img 
-                  src="/basisboek-sales-cover.jpg" 
-                  alt="Studieboek" 
-                  className="object-cover h-full w-full"
-                />
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="flex items-center space-x-4 text-sm"
+            >
+              <div className="flex items-center">
+                <BookOpen className="mr-2 h-4 w-4 text-study-600" />
+                <span>AI-gestuurde quizzen</span>
               </div>
-              
-              <motion.div 
-                className="absolute -bottom-10 -right-10 w-28 h-28 bg-study-50 rounded-full flex items-center justify-center shadow-lg z-20"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.8, duration: 0.5, type: "spring" }}
-              >
-                <div className="text-center">
-                  <span className="block text-2xl font-bold text-study-600">100%</span>
-                  <span className="text-xs text-gray-600">Effectief</span>
-                </div>
-              </motion.div>
-            </div>
+              <div className="flex items-center">
+                <Users className="mr-2 h-4 w-4 text-study-600" />
+                <span>Gratis registreren</span>
+              </div>
+            </motion.div>
+          </div>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.7 }}
+            className="mx-auto aspect-video overflow-hidden rounded-xl object-cover sm:w-full lg:order-last bg-study-50 flex items-center justify-center"
+          >
+            <img 
+              src="https://ncipejuazrewiizxtkcj.supabase.co/storage/v1/object/public/afbeeldingen/hero-image.webp" 
+              alt="AI Learning with SmartStudy"
+              className="w-full h-full object-cover"
+            />
           </motion.div>
         </div>
       </div>
     </section>
   );
-}
+};
+
+export default Hero;

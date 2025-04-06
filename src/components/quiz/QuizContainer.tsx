@@ -1,6 +1,7 @@
 
 import { ReactNode } from 'react';
 import { cn } from "@/lib/utils";
+import ReactMarkdown from 'react-markdown';
 
 interface QuizContainerProps {
   children: ReactNode;
@@ -17,7 +18,9 @@ const QuizContainer = ({ children, sidebar, className, objectives }: QuizContain
         {objectives && (
           <div className="mb-6 p-4 bg-muted/50 rounded border">
             <h3 className="text-sm font-medium mb-2">Leerdoelen:</h3>
-            <div className="text-sm whitespace-pre-line">{objectives}</div>
+            <div className="text-sm prose prose-sm max-w-none">
+              <ReactMarkdown>{objectives}</ReactMarkdown>
+            </div>
           </div>
         )}
         {children}
