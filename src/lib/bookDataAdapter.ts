@@ -11,6 +11,7 @@ interface BookRecord {
   book_title: string;
   chapter_title: string;
   content: string;
+  objectives?: string;
 }
 
 interface ParagraphData {
@@ -18,6 +19,7 @@ interface ParagraphData {
   "paragraaf nummer"?: number;
   content?: string;
   chapter_id: number;
+  objectives?: string;
 }
 
 /**
@@ -29,7 +31,8 @@ export function mapBooksDataToParagraphs(booksData: BookRecord[]): ParagraphData
     id: book.id || index + 1000, // Use book id or generate a unique one
     "paragraaf nummer": book.paragraph_number,
     content: book.content,
-    chapter_id: book.chapter_number
+    chapter_id: book.chapter_number,
+    objectives: book.objectives
   }));
 }
 
@@ -48,6 +51,7 @@ export function mapParagraphsToBookData(
     paragraph_number: para["paragraaf nummer"] || 0,
     book_title: bookTitle,
     chapter_title: chapterTitle,
-    content: para.content || ""
+    content: para.content || "",
+    objectives: para.objectives
   }));
 }
