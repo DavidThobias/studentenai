@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -25,15 +24,13 @@ const BookDetail = () => {
     loadingParagraphs,
     error,
     fetchParagraphs,
-    selectedChapterId
+    selectedChapterId,
+    isOnlineMarketingBook
   } = useBookDetail(id);
-
-  // Determine if this is the online marketing book (for special handling)
-  const isOnlineMarketingBook = book?.book_title?.toLowerCase().includes('online marketing');
 
   // Handle chapter click to load its paragraphs
   const handleChapterClick = (chapterId: number) => {
-    fetchParagraphs(chapterId);
+    fetchParagraphs(chapterId, book?.book_title);
   };
 
   // Navigate to structured learning
@@ -46,7 +43,6 @@ const BookDetail = () => {
     if (isOnlineMarketingBook) {
       navigate(`/books/${id}/quiz?chapterId=${chapterId}&isOnlineMarketing=true`);
     } else {
-      // For normal books, we go to the regular quiz page with chapter selection
       navigate(`/quiz?bookId=${id}&chapterId=${chapterId}`);
     }
   };
@@ -187,7 +183,6 @@ const BookDetail = () => {
                       ) : (
                         <>
                           {isOnlineMarketingBook ? (
-                            // For Online Marketing book, just show chapter info
                             <div className="space-y-3">
                               <p className="text-sm text-muted-foreground">
                                 Dit hoofdstuk bevat informatie over {chapter.chapter_title}.
@@ -212,7 +207,6 @@ const BookDetail = () => {
                               </div>
                             </div>
                           ) : (
-                            // For regular books, show paragraphs
                             <div className="space-y-3">
                               {paragraphs.length > 0 && selectedChapterId === chapter.id ? (
                                 paragraphs.map((paragraph) => (
@@ -253,7 +247,6 @@ const BookDetail = () => {
           <TabsContent value="quizzes">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {isOnlineMarketingBook ? (
-                // Special quiz layout for Online Marketing book
                 <Card>
                   <CardHeader>
                     <CardTitle>Quiz per hoofdstuk</CardTitle>
@@ -280,7 +273,6 @@ const BookDetail = () => {
                   </CardFooter>
                 </Card>
               ) : (
-                // Standard quiz options for regular books
                 <>
                   <Card>
                     <CardHeader>
