@@ -84,6 +84,42 @@ const QuizQuestionComponent = ({
     return question.explanation;
   };
   
+  // Function to clean up option text to show just the concept name without explanation
+  const cleanOptionText = (option: string) => {
+    // Remove any A., B., C., D. prefixes
+    let cleaned = option.replace(/^[A-D][:.]\s*/, '');
+    
+    // If there's a colon with explanation, take only the part before it
+    // This pattern matches a concept name followed by a colon and explanation
+    if (cleaned.includes(':') && !cleaned.startsWith('http')) {
+      const parts = cleaned.split(/:(.*)/s);
+      if (parts.length >= 2) {
+        cleaned = parts[0].trim();
+      }
+    }
+    
+    // If there's a dash with explanation, take only the part before it
+    // This pattern matches a concept name followed by a dash and explanation
+    if (cleaned.includes(' - ')) {
+      const parts = cleaned.split(/ - (.*)/s);
+      if (parts.length >= 2) {
+        cleaned = parts[0].trim();
+      }
+    }
+    
+    // For options that have a "waarbij" explanation
+    if (cleaned.includes(' waarbij ')) {
+      cleaned = cleaned.split(' waarbij ')[0].trim();
+    }
+    
+    // For options that have a "die" explanation
+    if (cleaned.includes(' die ')) {
+      cleaned = cleaned.split(' die ')[0].trim();
+    }
+    
+    return cleaned;
+  };
+  
   return (
     <Card className="border-2 max-w-3xl mx-auto">
       <CardHeader>
@@ -133,8 +169,8 @@ const QuizQuestionComponent = ({
           disabled={isAnswerSubmitted}
         >
           {question.options.map((option, index) => {
-            // Remove any A., B., C., D. prefixes from the options
-            const cleanedOption = option.replace(/^[A-D][:.]\s*/, '');
+            // Clean the option text to show just the concept without explanation
+            const cleanedOption = cleanOptionText(option);
             
             return (
               <div
