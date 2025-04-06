@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { 
@@ -18,7 +18,8 @@ import {
   ArrowLeft, 
   Loader2,
   FileText,
-  Play
+  Play,
+  List
 } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
@@ -27,6 +28,8 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
 import ParagraphViewer from '@/components/ParagraphViewer';
+import ChaptersList from '@/components/book/ChaptersList';
+import { useBookQuizGenerator } from '@/hooks/useBookQuizGenerator';
 
 // Define quiz states for each paragraph
 interface ParagraphProgress {
@@ -48,6 +51,7 @@ interface QuizQuestion {
 
 const StructuredLearningPage = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [progressData, setProgressData] = useState<ParagraphProgress[]>([]);
   const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
@@ -62,8 +66,15 @@ const StructuredLearningPage = () => {
   const [currentParagraphNumber, setCurrentParagraphNumber] = useState<number | undefined>(undefined);
   const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [isStudyMode, setIsStudyMode] = useState(false);
+  const [isChapterSelectionMode, setIsChapterSelectionMode] = useState(true);
+  const [logs, setLogs] = useState<string[]>([]);
+
+  // Function to add log messages
+  const addLog = (message: string) => {
+    setLogs(prev => [...prev, `${new Date().toISOString()}: ${message}`]);
+  };
   
-  // Get book details including paragraphs
+  // Get book details including chapters
   const { 
     book, 
     chapters, 
@@ -72,8 +83,57 @@ const StructuredLearningPage = () => {
     loadingParagraphs, 
     error, 
     fetchParagraphs,
-    selectedChapterId
+    selectedChapterId,
+    isOnlineMarketingBook
   } = useBookDetail(id);
+
+  // Get quiz generator hook
+  const {
+    questions: batchQuestions,
+    allQuestions: allGeneratedQuestions,
+    isGenerating: isGeneratingQuiz,
+    quizError,
+    objectives,
+    batchProgress,
+    hasMoreBatches,
+    startQuizGeneration,
+    triggerNextBatch
+  } = useBookQuizGenerator({
+    bookId: book?.id || null,
+    chapterId: selectedChapterId,
+    paragraphId: activeParagraphId,
+    isOnlineMarketing: isOnlineMarketingBook,
+    addLog
+  });
+
+  // Check for chapter in URL parameters
+  useEffect(() => {
+    const chapterIdParam = searchParams.get('chapterId');
+    if (chapterIdParam && chapters.length > 0) {
+      const chapterId = parseInt(chapterIdParam);
+      const chapterExists = chapters.some(ch => ch.id === chapterId);
+      
+      if (chapterExists) {
+        fetchParagraphs(chapterId, book?.book_title);
+        setIsChapterSelectionMode(false);
+      }
+    } else if (chapters.length > 0 && selectedChapterId === null) {
+      // Default to first chapter if none selected
+      fetchParagraphs(chapters[0].id, book?.book_title);
+    }
+  }, [chapters, searchParams, book]);
+
+  // Update questions when batch questions change
+  useEffect(() => {
+    if (batchQuestions.length > 0) {
+      setQuestions(batchQuestions);
+      
+      // If this is the first question of the first batch, trigger the next batch loading
+      if (currentQuestionIndex === 0 && hasMoreBatches) {
+        triggerNextBatch();
+      }
+    }
+  }, [batchQuestions]);
 
   // Initialize progress data when paragraphs are loaded
   useEffect(() => {
@@ -102,6 +162,14 @@ const StructuredLearningPage = () => {
     if (progressData.length === 0) return 0;
     const completedCount = progressData.filter(p => p.completed).length;
     return Math.round((completedCount / progressData.length) * 100);
+  };
+
+  // Handle chapter selection
+  const handleChapterSelect = (chapterId: number) => {
+    addLog(`Selecting chapter: ${chapterId}`);
+    fetchParagraphs(chapterId, book?.book_title);
+    setIsChapterSelectionMode(false);
+    setSearchParams({ chapterId: chapterId.toString() });
   };
 
   // Start study mode for a specific paragraph
@@ -143,50 +211,58 @@ const StructuredLearningPage = () => {
       setScore(0);
       setIsQuizComplete(false);
       
-      // Generate questions specific to this paragraph
+      // Generate questions specific to this paragraph using the correct edge function
       if (!book?.id || !selectedChapterId) {
         toast.error('Book or chapter information missing');
         return;
       }
       
-      const { data, error } = await supabase.functions.invoke('generate-sales-question', {
-        body: { 
-          bookId: book.id,
-          chapterId: selectedChapterId,
-          paragraphId: paragraphId,
-          debug: false
-        }
-      });
+      addLog(`Starting quiz generation for paragraph ${paragraphId}`);
       
-      if (error) {
-        toast.error(`Error generating questions: ${error.message}`);
-        return;
-      }
-      
-      if (data && data.success && data.questions && Array.isArray(data.questions)) {
-        // Process questions from API response
-        const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
-          // Determine correct answer index
-          let correctAnswerIndex;
-          if (typeof q.correct === 'string' && q.correct.length === 1) {
-            correctAnswerIndex = q.correct.charCodeAt(0) - 65; // 'A' -> 0, 'B' -> 1, etc.
-          } else if (typeof q.correct === 'number') {
-            correctAnswerIndex = q.correct;
-          } else {
-            correctAnswerIndex = 0;
+      if (isOnlineMarketingBook) {
+        addLog('Using online marketing quiz generator');
+        await startQuizGeneration(5);
+      } else {
+        addLog('Using sales question generator');
+        const { data, error } = await supabase.functions.invoke('generate-sales-question', {
+          body: { 
+            bookId: book.id,
+            chapterId: selectedChapterId,
+            paragraphId: paragraphId,
+            debug: false
           }
-          
-          return {
-            question: q.question,
-            options: q.options,
-            correctAnswer: correctAnswerIndex,
-            explanation: q.explanation || "Dit is het correcte antwoord."
-          };
         });
         
-        setQuestions(formattedQuestions);
-      } else {
-        toast.error('Invalid response received from question generator');
+        if (error) {
+          toast.error(`Error generating questions: ${error.message}`);
+          return;
+        }
+        
+        if (data && data.success && data.questions && Array.isArray(data.questions)) {
+          // Process questions from API response
+          const formattedQuestions: QuizQuestion[] = data.questions.map((q: any) => {
+            // Determine correct answer index
+            let correctAnswerIndex;
+            if (typeof q.correct === 'string' && q.correct.length === 1) {
+              correctAnswerIndex = q.correct.charCodeAt(0) - 65; // 'A' -> 0, 'B' -> 1, etc.
+            } else if (typeof q.correct === 'number') {
+              correctAnswerIndex = q.correct;
+            } else {
+              correctAnswerIndex = 0;
+            }
+            
+            return {
+              question: q.question,
+              options: q.options,
+              correctAnswer: correctAnswerIndex,
+              explanation: q.explanation || "Dit is het correcte antwoord."
+            };
+          });
+          
+          setQuestions(formattedQuestions);
+        } else {
+          toast.error('Invalid response received from question generator');
+        }
       }
     } catch (err) {
       console.error('Error starting paragraph quiz:', err);
@@ -217,6 +293,12 @@ const StructuredLearningPage = () => {
       if (selectedAnswer === currentQuestion.correctAnswer) {
         setScore(prevScore => prevScore + 1);
       }
+    }
+    
+    // If this is the first question answered, trigger loading of next batch
+    if (currentQuestionIndex === 0 && isOnlineMarketingBook && hasMoreBatches) {
+      addLog('First question answered, triggering next batch');
+      triggerNextBatch();
     }
   };
 
@@ -292,6 +374,13 @@ const StructuredLearningPage = () => {
     }
   };
   
+  // Back to chapter selection
+  const backToChapterSelection = () => {
+    setIsChapterSelectionMode(true);
+    resetQuiz();
+    setSearchParams({});
+  };
+
   // Handle going back to book detail
   const handleBackToBook = () => {
     navigate(`/books/${id}`);
@@ -303,7 +392,7 @@ const StructuredLearningPage = () => {
       <div className="min-h-screen bg-background pt-28 pb-20 px-6">
         <div className="max-w-4xl mx-auto flex flex-col items-center justify-center">
           <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-          <p className="text-muted-foreground">Laden...</p>
+          <p className="text-center font-medium">Laden...</p>
         </div>
       </div>
     );
@@ -326,291 +415,345 @@ const StructuredLearningPage = () => {
           </Alert>
         )}
         
-        {/* Chapter progress */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex justify-between">
-              <span>Voortgang Hoofdstuk {selectedChapterId}</span>
-              <Badge variant="outline">{calculateChapterProgress()}% voltooid</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Progress value={calculateChapterProgress()} className="h-3 mb-2" />
-            <p className="text-sm text-muted-foreground">
-              Werk alle paragrafen door om het hoofdstuk te voltooien.
-            </p>
-          </CardContent>
-        </Card>
-        
-        {/* Study Mode - Show paragraph content before quiz */}
-        {isStudyMode && activeParagraphId && (
+        {isChapterSelectionMode ? (
+          // Chapter selection mode
           <div className="mb-8">
-            <ParagraphViewer 
-              content={currentParagraphContent}
-              paragraphNumber={currentParagraphNumber}
-            />
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Kies een hoofdstuk om mee te beginnen</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                  Selecteer een hoofdstuk om gestructureerd te leren. Je kunt per paragraaf je kennis testen met een quiz.
+                </p>
+              </CardContent>
+            </Card>
             
-            <div className="flex justify-end">
-              <Button 
-                onClick={() => startParagraphQuiz(activeParagraphId)}
-                className="bg-study-600 hover:bg-study-700"
-              >
-                <Play className="mr-2 h-4 w-4" />
-                Start Quiz
-              </Button>
-            </div>
+            <ChaptersList 
+              chapters={chapters}
+              onChapterSelect={handleChapterSelect}
+              selectedChapterId={selectedChapterId}
+            />
           </div>
-        )}
-        
-        {/* Paragraphs list with progress indicators */}
-        <div className="grid grid-cols-1 gap-4 mb-8">
-          <h2 className="text-xl font-semibold">Paragrafen</h2>
+        ) : (
+          // Chapter learning mode
+          <>
+            <Button 
+              variant="outline" 
+              onClick={backToChapterSelection}
+              className="mb-4"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Terug naar hoofdstukkenoverzicht
+            </Button>
           
-          {loadingParagraphs ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-              <span>Paragrafen laden...</span>
-            </div>
-          ) : paragraphs.length > 0 ? (
-            <Accordion type="single" collapsible value={activeAccordion} onValueChange={setActiveAccordion}>
-              {paragraphs.map((paragraph, index) => {
-                const progress = progressData.find(p => p.id === paragraph.id);
-                const isActive = activeParagraphId === paragraph.id;
-                const paragraphNumber = paragraph.paragraph_number || index + 1;
+            {/* Chapter progress */}
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="flex justify-between">
+                  <span>Voortgang Hoofdstuk {selectedChapterId}</span>
+                  <Badge variant="outline">{calculateChapterProgress()}% voltooid</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Progress value={calculateChapterProgress()} className="h-3 mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Werk alle paragrafen door om het hoofdstuk te voltooien.
+                </p>
+              </CardContent>
+            </Card>
+            
+            {/* Study Mode - Show paragraph content before quiz */}
+            {isStudyMode && activeParagraphId && (
+              <div className="mb-8">
+                <ParagraphViewer 
+                  content={currentParagraphContent}
+                  paragraphNumber={currentParagraphNumber}
+                />
                 
-                return (
-                  <AccordionItem key={paragraph.id} value={`paragraph-${paragraph.id}`}>
-                    <AccordionTrigger className={`hover:bg-slate-50 px-3 ${isActive ? 'bg-slate-50' : ''}`}>
-                      <div className="flex items-center justify-between w-full pr-4">
-                        <div className="flex items-center">
-                          {progress?.completed ? (
-                            <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                          ) : (
-                            <span className="h-5 w-5 flex items-center justify-center rounded-full bg-gray-200 text-gray-700 mr-2">
-                              {paragraphNumber}
-                            </span>
-                          )}
-                          <span>
-                            Paragraaf {paragraphNumber}
-                          </span>
-                        </div>
-                        
-                        {progress?.completed && progress.score !== undefined && progress.totalQuestions !== undefined && (
-                          <Badge 
-                            variant="outline"
-                            className="ml-auto mr-4 bg-green-50 text-green-700 hover:bg-green-100"
-                          >
-                            Score: {progress.score}/{progress.totalQuestions}
-                          </Badge>
-                        )}
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-6 py-3">
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground whitespace-pre-line">
-                          {paragraph.content ? 
-                            paragraph.content.substring(0, 150) + (paragraph.content.length > 150 ? '...' : '') : 
-                            'Geen inhoud beschikbaar'}
-                        </p>
-                        
-                        <div className="flex flex-wrap gap-2">
-                          {isActive && (isStudyMode || questions.length > 0) ? (
-                            <Button variant="outline" onClick={resetQuiz}>
-                              Annuleren
-                            </Button>
-                          ) : (
-                            <Button 
-                              onClick={() => startParagraphStudy(paragraph.id)}
-                              disabled={isGenerating}
-                              className={progress?.completed ? 'bg-green-600 hover:bg-green-700' : ''}
-                            >
-                              {isGenerating && activeParagraphId === paragraph.id ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Laden...
-                                </>
-                              ) : progress?.completed ? (
-                                <>
-                                  <CheckCircle className="mr-2 h-4 w-4" />
-                                  Opnieuw bekijken
-                                </>
-                              ) : (
-                                <>
-                                  <BookOpen className="mr-2 h-4 w-4" />
-                                  Start leren
-                                </>
-                              )}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
-          ) : (
-            <div className="text-center py-8 border border-dashed border-gray-200 rounded-lg">
-              <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-muted-foreground">
-                Geen paragrafen gevonden voor dit hoofdstuk.
-              </p>
-            </div>
-          )}
-        </div>
-        
-        {/* Active paragraph quiz */}
-        {activeParagraphId && questions.length > 0 && !isQuizComplete && !isStudyMode && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="flex justify-between items-center">
-                <span>Quiz - Paragraaf {progressData.find(p => p.id === activeParagraphId)?.paragraphNumber || '?'}</span>
-                <Badge variant="outline">
-                  Vraag {currentQuestionIndex + 1} van {questions.length}
-                </Badge>
-              </CardTitle>
-              <Progress 
-                value={(currentQuestionIndex / questions.length) * 100} 
-                className="h-2 mt-2" 
-              />
-            </CardHeader>
-            <CardContent>
-              {/* Quiz question */}
-              <div className="mb-6">
-                <h3 className="text-lg font-medium mb-4">{questions[currentQuestionIndex].question}</h3>
-                <div className="space-y-3">
-                  {questions[currentQuestionIndex].options.map((option, index) => (
-                    <div
-                      key={index}
-                      className={`flex items-center space-x-2 rounded-lg border p-4 cursor-pointer transition-colors ${
-                        selectedAnswer === index ? 'border-primary bg-primary/5' : 'hover:bg-gray-50'
-                      } ${
-                        isAnswerSubmitted
-                          ? index === questions[currentQuestionIndex].correctAnswer
-                            ? 'border-green-500 bg-green-50'
-                            : index === selectedAnswer
-                            ? 'border-red-500 bg-red-50'
-                            : ''
-                          : ''
-                      }`}
-                      onClick={() => handleAnswerSelect(index)}
-                    >
-                      <div className="flex-shrink-0">
-                        <div
-                          className={`h-5 w-5 rounded-full border flex items-center justify-center ${
-                            selectedAnswer === index
-                              ? 'border-primary bg-primary text-white'
-                              : 'border-gray-300'
-                          }`}
-                        >
-                          {String.fromCharCode(65 + index)}
-                        </div>
-                      </div>
-                      <div className="flex-grow">
-                        {option}
-                      </div>
-                      {isAnswerSubmitted && (
-                        <div className="ml-2">
-                          {index === questions[currentQuestionIndex].correctAnswer ? (
-                            <CheckCircle className="h-5 w-5 text-green-500" />
-                          ) : index === selectedAnswer ? (
-                            <XCircle className="h-5 w-5 text-red-500" />
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={() => startParagraphQuiz(activeParagraphId)}
+                    className="bg-study-600 hover:bg-study-700"
+                  >
+                    <Play className="mr-2 h-4 w-4" />
+                    Start Quiz
+                  </Button>
                 </div>
               </div>
+            )}
+            
+            {/* Paragraphs list with progress indicators */}
+            <div className="grid grid-cols-1 gap-4 mb-8">
+              <h2 className="text-xl font-semibold">Paragrafen</h2>
               
-              {/* Explanation when answer is submitted */}
-              {isAnswerSubmitted && (
-                <Alert className={selectedAnswer === questions[currentQuestionIndex].correctAnswer ? 
-                    'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}>
-                  <AlertDescription>
-                    <h4 className="font-semibold mb-1">Uitleg:</h4>
-                    <p>{questions[currentQuestionIndex].explanation}</p>
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button
-                variant="outline"
-                onClick={() => setIsStudyMode(true)}
-              >
-                Bekijk inhoud opnieuw
-              </Button>
-              
-              {!isAnswerSubmitted ? (
-                <Button
-                  onClick={handleSubmitAnswer}
-                  disabled={selectedAnswer === null}
-                >
-                  Controleer antwoord
-                </Button>
+              {loadingParagraphs ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                  <span>Paragrafen laden...</span>
+                </div>
+              ) : paragraphs.length > 0 ? (
+                <Accordion type="single" collapsible value={activeAccordion} onValueChange={setActiveAccordion}>
+                  {paragraphs.map((paragraph, index) => {
+                    const progress = progressData.find(p => p.id === paragraph.id);
+                    const isActive = activeParagraphId === paragraph.id;
+                    const paragraphNumber = paragraph.paragraph_number || index + 1;
+                    
+                    return (
+                      <AccordionItem key={paragraph.id} value={`paragraph-${paragraph.id}`}>
+                        <AccordionTrigger className={`hover:bg-slate-50 px-3 ${isActive ? 'bg-slate-50' : ''}`}>
+                          <div className="flex items-center justify-between w-full pr-4">
+                            <div className="flex items-center">
+                              {progress?.completed ? (
+                                <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                              ) : (
+                                <span className="h-5 w-5 flex items-center justify-center rounded-full bg-gray-200 text-gray-700 mr-2">
+                                  {paragraphNumber}
+                                </span>
+                              )}
+                              <span>
+                                Paragraaf {paragraphNumber}
+                              </span>
+                            </div>
+                            
+                            {progress?.completed && progress.score !== undefined && progress.totalQuestions !== undefined && (
+                              <Badge 
+                                variant="outline"
+                                className="ml-auto mr-4 bg-green-50 text-green-700 hover:bg-green-100"
+                              >
+                                Score: {progress.score}/{progress.totalQuestions}
+                              </Badge>
+                            )}
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-6 py-3">
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground whitespace-pre-line">
+                              {paragraph.content ? 
+                                paragraph.content.substring(0, 150) + (paragraph.content.length > 150 ? '...' : '') : 
+                                'Geen inhoud beschikbaar'}
+                            </p>
+                            
+                            <div className="flex flex-wrap gap-2">
+                              {isActive && (isStudyMode || questions.length > 0) ? (
+                                <Button variant="outline" onClick={resetQuiz}>
+                                  Annuleren
+                                </Button>
+                              ) : (
+                                <Button 
+                                  onClick={() => startParagraphStudy(paragraph.id)}
+                                  disabled={isGenerating || isGeneratingQuiz}
+                                  className={progress?.completed ? 'bg-green-600 hover:bg-green-700' : ''}
+                                >
+                                  {(isGenerating || isGeneratingQuiz) && activeParagraphId === paragraph.id ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Laden...
+                                    </>
+                                  ) : progress?.completed ? (
+                                    <>
+                                      <CheckCircle className="mr-2 h-4 w-4" />
+                                      Opnieuw bekijken
+                                    </>
+                                  ) : (
+                                    <>
+                                      <BookOpen className="mr-2 h-4 w-4" />
+                                      Start leren
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
               ) : (
-                <Button onClick={handleNextQuestion}>
-                  {currentQuestionIndex < questions.length - 1 ? (
-                    <>
-                      Volgende vraag
-                      <ChevronRight className="ml-1 h-4 w-4" />
-                    </>
-                  ) : (
-                    'Voltooien'
-                  )}
-                </Button>
+                <div className="text-center py-8 border border-dashed border-gray-200 rounded-lg">
+                  <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    Geen paragrafen gevonden voor dit hoofdstuk.
+                  </p>
+                </div>
               )}
-            </CardFooter>
-          </Card>
-        )}
-        
-        {/* Quiz results */}
-        {isQuizComplete && activeParagraphId && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Quiz Resultaten</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center">
-              <div className="w-24 h-24 rounded-full border-4 flex items-center justify-center mb-4">
-                <span className="text-2xl font-bold">{score}/{questions.length}</span>
-              </div>
-              
-              <Progress 
-                value={Math.round((score / questions.length) * 100)} 
-                className="h-4 w-full max-w-xs mb-2" 
-              />
-              
-              <p className="text-center mb-6">
-                {Math.round((score / questions.length) * 100) >= 70 
-                  ? 'Gefeliciteerd! Je hebt deze paragraaf met succes afgerond.'
-                  : 'Je moet minimaal 70% van de vragen goed beantwoorden om door te gaan.'}
-              </p>
-              
-              <div className="flex gap-3">
-                <Button 
-                  variant="outline" 
-                  onClick={() => startParagraphStudy(activeParagraphId)}
-                >
-                  Bekijk inhoud opnieuw
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  onClick={() => startParagraphQuiz(activeParagraphId)}
-                >
-                  Probeer opnieuw
-                </Button>
-                
-                {Math.round((score / questions.length) * 100) >= 70 && (
-                  <Button onClick={goToNextParagraph}>
-                    Volgende paragraaf
-                    <ChevronRight className="ml-1 h-4 w-4" />
+            </div>
+            
+            {/* Active paragraph quiz */}
+            {activeParagraphId && questions.length > 0 && !isQuizComplete && !isStudyMode && (
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle className="flex justify-between items-center">
+                    <span>Quiz - Paragraaf {progressData.find(p => p.id === activeParagraphId)?.paragraphNumber || '?'}</span>
+                    <Badge variant="outline">
+                      Vraag {currentQuestionIndex + 1} van {questions.length}
+                      {hasMoreBatches && (
+                        <span className="ml-1 text-xs">(meer wordt geladen)</span>
+                      )}
+                    </Badge>
+                  </CardTitle>
+                  <Progress 
+                    value={(currentQuestionIndex / questions.length) * 100} 
+                    className="h-2 mt-2" 
+                  />
+                </CardHeader>
+                <CardContent>
+                  {/* Quiz question */}
+                  <div className="mb-6">
+                    <h3 className="text-lg font-medium mb-4">{questions[currentQuestionIndex].question}</h3>
+                    <div className="space-y-3">
+                      {questions[currentQuestionIndex].options.map((option, index) => (
+                        <div
+                          key={index}
+                          className={`flex items-center space-x-2 rounded-lg border p-4 cursor-pointer transition-colors ${
+                            selectedAnswer === index ? 'border-primary bg-primary/5' : 'hover:bg-gray-50'
+                          } ${
+                            isAnswerSubmitted
+                              ? index === questions[currentQuestionIndex].correctAnswer
+                                ? 'border-green-500 bg-green-50'
+                                : index === selectedAnswer
+                                ? 'border-red-500 bg-red-50'
+                                : ''
+                              : ''
+                          }`}
+                          onClick={() => handleAnswerSelect(index)}
+                        >
+                          <div className="flex-shrink-0">
+                            <div
+                              className={`h-5 w-5 rounded-full border flex items-center justify-center ${
+                                selectedAnswer === index
+                                  ? 'border-primary bg-primary text-white'
+                                  : 'border-gray-300'
+                              }`}
+                            >
+                              {String.fromCharCode(65 + index)}
+                            </div>
+                          </div>
+                          <div className="flex-grow">
+                            {option}
+                          </div>
+                          {isAnswerSubmitted && (
+                            <div className="ml-2">
+                              {index === questions[currentQuestionIndex].correctAnswer ? (
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                              ) : index === selectedAnswer ? (
+                                <XCircle className="h-5 w-5 text-red-500" />
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Explanation when answer is submitted */}
+                  {isAnswerSubmitted && (
+                    <Alert className={selectedAnswer === questions[currentQuestionIndex].correctAnswer ? 
+                        'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}>
+                      <AlertDescription>
+                        <h4 className="font-semibold mb-1">Uitleg:</h4>
+                        <p>{questions[currentQuestionIndex].explanation}</p>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {/* Batch progress indicator */}
+                  {hasMoreBatches && batchProgress && (
+                    <div className="mt-4 text-xs text-muted-foreground">
+                      <div className="flex items-center">
+                        <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" />
+                        <span>
+                          Batch {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}: 
+                          {batchProgress.processedTerms}/{batchProgress.totalTerms} begrippen verwerkt
+                        </span>
+                      </div>
+                      <Progress 
+                        value={(batchProgress.processedTerms / batchProgress.totalTerms) * 100} 
+                        className="h-1 mt-1" 
+                      />
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter className="flex justify-between">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsStudyMode(true)}
+                  >
+                    Bekijk inhoud opnieuw
                   </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  
+                  {!isAnswerSubmitted ? (
+                    <Button
+                      onClick={handleSubmitAnswer}
+                      disabled={selectedAnswer === null}
+                    >
+                      Controleer antwoord
+                    </Button>
+                  ) : (
+                    <Button onClick={handleNextQuestion}>
+                      {currentQuestionIndex < questions.length - 1 ? (
+                        <>
+                          Volgende vraag
+                          <ChevronRight className="ml-1 h-4 w-4" />
+                        </>
+                      ) : (
+                        'Voltooien'
+                      )}
+                    </Button>
+                  )}
+                </CardFooter>
+              </Card>
+            )}
+            
+            {/* Quiz results */}
+            {isQuizComplete && activeParagraphId && (
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle>Quiz Resultaten</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center">
+                  <div className="w-24 h-24 rounded-full border-4 flex items-center justify-center mb-4">
+                    <span className="text-2xl font-bold">{score}/{questions.length}</span>
+                  </div>
+                  
+                  <Progress 
+                    value={Math.round((score / questions.length) * 100)} 
+                    className="h-4 w-full max-w-xs mb-2" 
+                  />
+                  
+                  <p className="text-center mb-6">
+                    {Math.round((score / questions.length) * 100) >= 70 
+                      ? 'Gefeliciteerd! Je hebt deze paragraaf met succes afgerond.'
+                      : 'Je moet minimaal 70% van de vragen goed beantwoorden om door te gaan.'}
+                  </p>
+                  
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => startParagraphStudy(activeParagraphId)}
+                    >
+                      Bekijk inhoud opnieuw
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      onClick={() => startParagraphQuiz(activeParagraphId)}
+                    >
+                      Probeer opnieuw
+                    </Button>
+                    
+                    {Math.round((score / questions.length) * 100) >= 70 && (
+                      <Button onClick={goToNextParagraph}>
+                        Volgende paragraaf
+                        <ChevronRight className="ml-1 h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </div>
     </div>
