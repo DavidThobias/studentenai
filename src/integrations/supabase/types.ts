@@ -17,6 +17,7 @@ export type Database = {
           chapter_title: string
           content: string
           id: number
+          objectives: string | null
           paragraph_number: number
         }
         Insert: {
@@ -26,6 +27,7 @@ export type Database = {
           chapter_title: string
           content: string
           id?: number
+          objectives?: string | null
           paragraph_number: number
         }
         Update: {
@@ -35,6 +37,7 @@ export type Database = {
           chapter_title?: string
           content?: string
           id?: number
+          objectives?: string | null
           paragraph_number?: number
         }
         Relationships: []

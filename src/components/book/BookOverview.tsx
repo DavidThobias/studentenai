@@ -1,11 +1,12 @@
 
-import { BookOpen, FileText, Brain, Bug } from 'lucide-react';
+import { BookOpen, FileText, Brain, Bug, Target } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface BookData {
   id: number;
@@ -27,16 +28,23 @@ const BookOverview = ({ book }: BookOverviewProps) => {
   const [showDebug, setShowDebug] = useState(false);
   const [bookDetails, setBookDetails] = useState<ChapterInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showObjectives, setShowObjectives] = useState(false);
+  const [objectives, setObjectives] = useState<string | null>(null);
   
   const isSalesBook = book?.book_title?.toLowerCase().includes('sales');
+  const isOnlineMarketingBook = book?.book_title?.toLowerCase().includes('online marketing');
+  
   // Update the book cover URL to use the Supabase storage URL
   const bookCoverImage = isSalesBook 
     ? "https://ncipejuazrewiizxtkcj.supabase.co/storage/v1/object/public/afbeeldingen//shopping.webp" 
+    : isOnlineMarketingBook
+    ? "https://ncipejuazrewiizxtkcj.supabase.co/storage/v1/object/public/afbeeldingen//digital-marketing.webp"
     : null;
 
   useEffect(() => {
     if (book?.id) {
       fetchBookDetails(book.id);
+      fetchFirstChapterObjectives(book.id);
     }
   }, [book?.id]);
 
@@ -89,6 +97,31 @@ const BookOverview = ({ book }: BookOverviewProps) => {
     }
   };
 
+  const fetchFirstChapterObjectives = async (bookId: number) => {
+    try {
+      if (!book?.book_title) return;
+      
+      const { data, error } = await supabase
+        .from('books')
+        .select('objectives')
+        .eq('book_title', book.book_title)
+        .eq('chapter_number', 1)
+        .limit(1)
+        .maybeSingle();
+        
+      if (error) {
+        console.error('Error fetching objectives:', error);
+        return;
+      }
+      
+      if (data && data.objectives) {
+        setObjectives(data.objectives);
+      }
+    } catch (error) {
+      console.error('Error fetching objectives:', error);
+    }
+  };
+
   const handleNavigateToQuiz = () => {
     if (book?.id) {
       console.log(`Navigating to quiz with bookId: ${book.id}`);
@@ -97,6 +130,11 @@ const BookOverview = ({ book }: BookOverviewProps) => {
       const params = new URLSearchParams();
       params.append('bookId', book.id.toString());
       params.append('structured', 'true'); // Add structured learning parameter
+      
+      // Use the appropriate quiz generator based on the book type
+      if (isOnlineMarketingBook) {
+        params.append('quizType', 'online-marketing');
+      }
       
       // Navigate to the quiz page with parameters
       navigate(`/quiz?${params.toString()}`);
@@ -166,6 +204,31 @@ const BookOverview = ({ book }: BookOverviewProps) => {
             </Table>
           </div>
 
+          {objectives && (
+            <Collapsible 
+              open={showObjectives} 
+              onOpenChange={setShowObjectives}
+              className="border rounded-md p-4 bg-gray-50"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Target className="h-5 w-5 text-study-500" />
+                  <span className="font-medium">Leerdoelen (Hoofdstuk 1)</span>
+                </div>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    {showObjectives ? 'Verbergen' : 'Tonen'}
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+              <CollapsibleContent className="pt-4">
+                <div className="text-sm whitespace-pre-line">
+                  {objectives}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-4">
             <Button 
               size="lg" 
@@ -179,7 +242,7 @@ const BookOverview = ({ book }: BookOverviewProps) => {
               Bekijk samenvatting
             </Button>
             
-            {isSalesBook && (
+            {(isSalesBook || isOnlineMarketingBook) && (
               <Button 
                 size="lg" 
                 onClick={handleNavigateToQuiz} 

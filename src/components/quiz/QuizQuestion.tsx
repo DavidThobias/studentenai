@@ -5,10 +5,11 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, HelpCircle, ArrowRight, Eye, Calculator } from "lucide-react";
+import { CheckCircle, XCircle, HelpCircle, ArrowRight, Eye, Calculator, Target } from "lucide-react";
 import { QuizQuestion } from "@/hooks/useQuiz";
 import { useEffect, useState } from "react";
 import ReactMarkdown from 'react-markdown';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface QuizQuestionProps {
   question: QuizQuestion;
@@ -21,6 +22,7 @@ interface QuizQuestionProps {
   showParagraphContent: boolean;
   currentParagraphContent: string | null;
   structuredLearning: boolean;
+  objectives?: string | null;
   onAnswerSelect: (index: number) => void;
   onSubmitAnswer: () => void;
   onNextQuestion: () => void;
@@ -39,6 +41,7 @@ const QuizQuestionComponent = ({
   showParagraphContent,
   currentParagraphContent,
   structuredLearning,
+  objectives,
   onAnswerSelect,
   onSubmitAnswer,
   onNextQuestion,
@@ -47,6 +50,7 @@ const QuizQuestionComponent = ({
 }: QuizQuestionProps) => {
   // Add local state to ensure UI is properly reset between questions
   const [localSelectedAnswer, setLocalSelectedAnswer] = useState<number | null>(selectedAnswer);
+  const [showObjectives, setShowObjectives] = useState<boolean>(false);
   
   // Format the paragraph content for better rendering with null check
   const formattedParagraphContent = currentParagraphContent 
@@ -143,6 +147,31 @@ const QuizQuestionComponent = ({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {objectives && (
+          <Collapsible 
+            open={showObjectives} 
+            onOpenChange={setShowObjectives}
+            className="mb-4 border rounded-md p-2 bg-gray-50"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Target className="h-4 w-4 text-study-500" />
+                <span className="font-medium text-sm">Leerdoelen</span>
+              </div>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="p-1 h-7">
+                  {showObjectives ? "Verbergen" : "Tonen"}
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+            <CollapsibleContent className="pt-2">
+              <div className="text-sm whitespace-pre-line">
+                {objectives}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+        
         {structuredLearning && showParagraphContent && (
           <div className="mb-6 p-4 bg-gray-50 rounded-md border">
             <h3 className="font-medium mb-2">Paragraaf inhoud:</h3>

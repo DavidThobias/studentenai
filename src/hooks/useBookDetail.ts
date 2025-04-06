@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
@@ -15,6 +16,7 @@ interface ChapterData {
   chapter_title?: string;
   chapter_number: number;
   book_id: number;
+  objectives?: string;
 }
 
 export interface ParagraphData {
@@ -22,6 +24,7 @@ export interface ParagraphData {
   paragraph_number?: number;
   content?: string;
   chapter_number: number;
+  objectives?: string;
 }
 
 export const useBookDetail = (id: string | undefined) => {
@@ -74,7 +77,7 @@ export const useBookDetail = (id: string | undefined) => {
         // Get chapters for this book (based on unique chapter numbers)
         const { data: chapterData, error: chapterError } = await supabase
           .from('books')
-          .select('id, chapter_number, chapter_title')
+          .select('id, chapter_number, chapter_title, objectives')
           .eq('book_title', bookData.book_title)
           .order('chapter_number', { ascending: true });
 
@@ -92,7 +95,8 @@ export const useBookDetail = (id: string | undefined) => {
               id: ch.chapter_number,
               chapter_title: ch.chapter_title,
               chapter_number: ch.chapter_number,
-              book_id: numericBookId
+              book_id: numericBookId,
+              objectives: ch.objectives
             });
           }
         });
@@ -154,7 +158,8 @@ export const useBookDetail = (id: string | undefined) => {
           id: p.id,
           paragraph_number: p["paragraaf nummer"],
           content: p.content,
-          chapter_number: p.chapter_id
+          chapter_number: p.chapter_id,
+          objectives: p.objectives
         })) as ParagraphData[];
         
         setParagraphs(typedParagraphs);

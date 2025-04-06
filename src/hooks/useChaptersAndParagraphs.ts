@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 
@@ -6,6 +7,7 @@ export interface ChapterData {
   chapter_title?: string;
   chapter_number: number;
   book_id: number;
+  objectives?: string;
 }
 
 export interface ParagraphData {
@@ -13,6 +15,7 @@ export interface ParagraphData {
   paragraph_number?: number;
   content?: string;
   chapter_number: number;
+  objectives?: string;
 }
 
 export interface ParagraphProgress {
@@ -92,7 +95,7 @@ export const useChaptersAndParagraphs = (
         
         const { data: chapterData, error: chapterError } = await supabase
           .from('books')
-          .select('id, chapter_number, chapter_title')
+          .select('id, chapter_number, chapter_title, objectives')
           .eq('book_title', bookData.book_title)
           .order('chapter_number', { ascending: true });
 
@@ -109,7 +112,8 @@ export const useChaptersAndParagraphs = (
               id: ch.chapter_number,
               chapter_title: ch.chapter_title,
               chapter_number: ch.chapter_number,
-              book_id: numericBookId
+              book_id: numericBookId,
+              objectives: ch.objectives
             });
           }
         });
@@ -199,7 +203,7 @@ export const useChaptersAndParagraphs = (
       
       const { data: paragraphsData, error: paragraphsError } = await supabase
         .from('books')
-        .select('id, paragraph_number, content, chapter_number')
+        .select('id, paragraph_number, content, chapter_number, objectives')
         .eq('chapter_number', chapterId)
         .order('paragraph_number', { ascending: true });
       
@@ -213,7 +217,8 @@ export const useChaptersAndParagraphs = (
         id: p.id,
         paragraph_number: p.paragraph_number,
         content: p.content,
-        chapter_number: p.chapter_number
+        chapter_number: p.chapter_number,
+        objectives: p.objectives
       }));
       
       setParagraphs(typedParagraphs);
@@ -294,7 +299,7 @@ export const useChaptersAndParagraphs = (
       
       const { data: chapterData, error: chapterError } = await supabase
         .from('books')
-        .select('id, chapter_number, chapter_title')
+        .select('id, chapter_number, chapter_title, objectives')
         .eq('book_title', bookData.book_title)
         .order('chapter_number', { ascending: true });
 
@@ -311,7 +316,8 @@ export const useChaptersAndParagraphs = (
             id: ch.chapter_number,
             chapter_title: ch.chapter_title,
             chapter_number: ch.chapter_number,
-            book_id: bookId
+            book_id: bookId,
+            objectives: ch.objectives
           });
         }
       });

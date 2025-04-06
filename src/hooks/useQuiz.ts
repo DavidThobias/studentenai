@@ -22,6 +22,7 @@ interface QuizState {
   paragraphId: number | null;
   showingParagraphContent?: boolean;
   selectedParagraphForStudy?: number | null;
+  quizType?: 'sales' | 'online-marketing';
 }
 
 interface BatchProgress {
@@ -43,7 +44,8 @@ export const useQuiz = (
   initialBookId: number | null, 
   initialChapterId: number | null, 
   initialParagraphId: number | null,
-  addLog: (message: string) => void
+  addLog: (message: string) => void,
+  initialQuizType?: 'sales' | 'online-marketing'
 ) => {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [quizError, setQuizError] = useState<string | null>(null);
@@ -59,9 +61,11 @@ export const useQuiz = (
   const [bookId, setBookId] = useState<number | null>(initialBookId);
   const [chapterId, setChapterId] = useState<number | null>(initialChapterId);
   const [paragraphId, setParagraphId] = useState<number | null>(initialParagraphId);
+  const [quizType, setQuizType] = useState<'sales' | 'online-marketing' | undefined>(initialQuizType);
   
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const [allQuestions, setAllQuestions] = useState<QuizQuestion[]>([]);
+  const [objectives, setObjectives] = useState<string | null>(null);
   
   const [debugData, setDebugData] = useState<{
     prompt: string | null;
@@ -70,6 +74,7 @@ export const useQuiz = (
     extractedTerms?: string[];
     batchTerms?: string[];
     answerDistribution?: AnswerDistribution;
+    objectives?: string | null;
     tokenEstimates?: {
       promptTokens?: number;
       requestedMaxTokens?: number;
@@ -92,15 +97,16 @@ export const useQuiz = (
         bookId,
         chapterId,
         paragraphId,
+        quizType
       };
       
-      const stateKey = `quizState_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}`;
+      const stateKey = `quizState_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}_${quizType || 'default'}`;
       localStorage.setItem(stateKey, JSON.stringify(quizState));
       localStorage.setItem('lastActiveQuiz', stateKey);
       
       addLog(`Saved quiz state to localStorage with key: ${stateKey}`);
     }
-  }, [questions, currentQuestionIndex, selectedAnswer, isAnswerSubmitted, score, isQuizComplete, bookId, chapterId, paragraphId, addLog]);
+  }, [questions, currentQuestionIndex, selectedAnswer, isAnswerSubmitted, score, isQuizComplete, bookId, chapterId, paragraphId, quizType, addLog]);
 
   // Client-side function to balance answer distribution if needed
   const balanceAnswerDistribution = (quizQuestions: QuizQuestion[]): QuizQuestion[] => {
@@ -231,15 +237,15 @@ export const useQuiz = (
     return isBalanced;
   };
 
-  const loadSavedQuizState = (bookIdParam: string | null, chapterIdParam: string | null, paragraphIdParam: string | null) => {
+  const loadSavedQuizState = (bookIdParam: string | null, chapterIdParam: string | null, paragraphIdParam: string | null, quizTypeParam?: string | null) => {
     let stateKey: string | null = null;
     
     if (bookIdParam && chapterIdParam && paragraphIdParam) {
-      stateKey = `quizState_${bookIdParam}_${chapterIdParam}_${paragraphIdParam}`;
+      stateKey = `quizState_${bookIdParam}_${chapterIdParam}_${paragraphIdParam}_${quizTypeParam || 'default'}`;
     } else if (bookIdParam && chapterIdParam) {
-      stateKey = `quizState_${bookIdParam}_${chapterIdParam}_none`;
+      stateKey = `quizState_${bookIdParam}_${chapterIdParam}_none_${quizTypeParam || 'default'}`;
     } else if (bookIdParam) {
-      stateKey = `quizState_${bookIdParam}_none_none`;
+      stateKey = `quizState_${bookIdParam}_none_none_${quizTypeParam || 'default'}`;
     } else {
       stateKey = localStorage.getItem('lastActiveQuiz');
     }
@@ -272,6 +278,9 @@ export const useQuiz = (
             if (!paragraphIdParam && quizState.paragraphId) {
               setParagraphId(quizState.paragraphId);
             }
+            if (!quizTypeParam && quizState.quizType) {
+              setQuizType(quizState.quizType);
+            }
             
             addLog(`Successfully loaded saved quiz state with ${quizState.questions.length} questions`);
             hasQuestions = true;
@@ -299,24 +308,28 @@ export const useQuiz = (
     try {
       addLog(`Processing batch ${batchIndex} with size ${batchSize}`);
       
+      const endpoint = quizType === 'online-marketing' 
+        ? 'generate-online-marketing-quiz' 
+        : 'generate-sales-question';
+      
       const payload: any = { 
         batchIndex,
         batchSize,
-        debug: true
+        debug: true,
+        bookId,
       };
       
-      if (bookId) payload.bookId = bookId;
       if (chapterId) payload.chapterId = chapterId;
       if (paragraphId) payload.paragraphId = paragraphId;
       
-      addLog(`Sending batch payload to generate-sales-question: ${JSON.stringify(payload)}`);
+      addLog(`Sending batch payload to ${endpoint}: ${JSON.stringify(payload)}`);
       
-      const { data, error } = await supabase.functions.invoke('generate-sales-question', {
+      const { data, error } = await supabase.functions.invoke(endpoint, {
         body: payload
       });
       
       if (error) {
-        console.error('Error calling generate-sales-question for batch:', error);
+        console.error(`Error calling ${endpoint} for batch:`, error);
         addLog(`Error with batch ${batchIndex}: ${error.message}`);
         return null;
       }
@@ -334,8 +347,14 @@ export const useQuiz = (
           batchTerms: data.debug.batchTerms,
           extractedTerms: data.debug.extractedTerms || prev.extractedTerms,
           tokenEstimates: data.debug.tokenEstimates,
-          answerDistribution: data.debug.answerDistribution
+          answerDistribution: data.debug.answerDistribution,
+          objectives: data.debug.objectives
         }));
+        
+        // Set objectives from the response if available
+        if (data.debug.objectives) {
+          setObjectives(data.debug.objectives);
+        }
         
         if (data.debug.answerDistribution) {
           addLog(`Answer distribution from API: A=${data.debug.answerDistribution.A}, B=${data.debug.answerDistribution.B}, C=${data.debug.answerDistribution.C}, D=${data.debug.answerDistribution.D}`);
@@ -355,7 +374,7 @@ export const useQuiz = (
       
       return {
         questions: formattedQuestions,
-        metadata: data.metadata,
+        metadata: data.metadata || { isLastBatch: true, totalTerms: formattedQuestions.length, totalBatches: 1 },
         context: data.context
       };
     } catch (err) {
@@ -423,9 +442,31 @@ export const useQuiz = (
       startTime: Date.now()
     });
     
-    addLog(`Starting batch processing for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}`);
+    addLog(`Starting batch processing for context: bookId=${bookId}, chapterId=${chapterId}, paragraphId=${paragraphId}, quizType=${quizType || 'default'}`);
     
     try {
+      // Fetch chapter objectives if we have a chapter ID
+      if (chapterId) {
+        try {
+          const { data, error } = await supabase
+            .from('books')
+            .select('objectives')
+            .eq('chapter_number', chapterId)
+            .limit(1)
+            .maybeSingle();
+          
+          if (!error && data && data.objectives) {
+            setObjectives(data.objectives);
+            addLog(`Fetched objectives for chapter ${chapterId}`);
+          } else {
+            setObjectives(null);
+          }
+        } catch (err) {
+          console.error('Error fetching objectives:', err);
+          addLog(`Error fetching objectives: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+      
       const firstBatchResult = await processBatch(0, batchSize);
       
       if (!firstBatchResult) {
@@ -436,20 +477,25 @@ export const useQuiz = (
       
       const { metadata, questions: firstBatchQuestions } = firstBatchResult;
       
-      addLog(`First batch complete: ${firstBatchQuestions.length} questions, ${metadata.totalTerms} total terms`);
+      const totalTerms = metadata?.totalTerms || firstBatchQuestions.length;
+      const totalBatches = metadata?.totalBatches || 1;
+      
+      addLog(`First batch complete: ${firstBatchQuestions.length} questions, ${totalTerms} total terms, ${totalBatches} batches total`);
       
       setBatchProgress({
         currentBatch: 0,
-        totalBatches: metadata.totalBatches,
+        totalBatches: totalBatches,
         processedTerms: firstBatchQuestions.length,
-        totalTerms: metadata.totalTerms,
+        totalTerms: totalTerms,
         startTime: Date.now()
       });
       
       setAllQuestions(firstBatchQuestions);
       setQuestions(firstBatchQuestions);
       
-      if (metadata.isLastBatch) {
+      const isLastBatch = metadata?.isLastBatch || totalBatches <= 1;
+      
+      if (isLastBatch) {
         setIsGenerating(false);
         addLog(`Quiz generation complete with ${firstBatchQuestions.length} questions (single batch)`);
         return;
@@ -463,8 +509,8 @@ export const useQuiz = (
       let allProcessedQuestions = [...firstBatchQuestions];
       
       const processBatches = async () => {
-        while (currentBatch < metadata.totalBatches) {
-          addLog(`Processing batch ${currentBatch + 1} of ${metadata.totalBatches}`);
+        while (currentBatch < totalBatches) {
+          addLog(`Processing batch ${currentBatch + 1} of ${totalBatches}`);
           
           setBatchProgress(prev => prev ? {
             ...prev,
@@ -497,7 +543,9 @@ export const useQuiz = (
           
           currentBatch++;
           
-          if (batchResult.metadata.isLastBatch) {
+          const isCurrentLastBatch = batchResult.metadata?.isLastBatch || currentBatch >= totalBatches;
+          
+          if (isCurrentLastBatch) {
             addLog(`Last batch complete, total questions: ${allProcessedQuestions.length}`);
             break;
           }
@@ -536,6 +584,38 @@ export const useQuiz = (
     try {
       setParagraphId(paragraphId);
       
+      // Fetch paragraph objectives
+      try {
+        const { data, error } = await supabase
+          .from('books')
+          .select('objectives')
+          .eq('id', paragraphId)
+          .maybeSingle();
+        
+        if (!error && data && data.objectives) {
+          setObjectives(data.objectives);
+          addLog(`Fetched objectives for paragraph ${paragraphId}`);
+        } else {
+          // If paragraph doesn't have objectives, try to get chapter objectives
+          const { data: chapterData, error: chapterError } = await supabase
+            .from('books')
+            .select('objectives')
+            .eq('chapter_number', chapterId)
+            .limit(1)
+            .maybeSingle();
+          
+          if (!chapterError && chapterData && chapterData.objectives) {
+            setObjectives(chapterData.objectives);
+            addLog(`Fetched objectives for chapter ${chapterId} (paragraph ${paragraphId})`);
+          } else {
+            setObjectives(null);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching objectives:', err);
+        addLog(`Error fetching objectives: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      
       await generateQuiz(5);
       
     } catch (err) {
@@ -565,8 +645,15 @@ export const useQuiz = (
           response: data.debug.response,
           tokenEstimates: data.debug.tokenEstimates,
           extractedTerms: data.debug.extractedTerms,
-          answerDistribution: data.debug.answerDistribution
+          answerDistribution: data.debug.answerDistribution,
+          objectives: data.debug.objectives
         });
+        
+        // Set objectives from the response if available
+        if (data.debug.objectives) {
+          setObjectives(data.debug.objectives);
+        }
+        
         addLog('Debug data saved from API response');
         
         if (data.debug.extractedTerms) {
@@ -660,7 +747,7 @@ export const useQuiz = (
     setBatchProgress(null);
     
     if (bookId) {
-      const stateKey = `quizState_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}`;
+      const stateKey = `quizState_${bookId}_${chapterId || 'none'}_${paragraphId || 'none'}_${quizType || 'default'}`;
       localStorage.removeItem(stateKey);
       localStorage.removeItem('lastActiveQuiz');
       addLog(`Removed quiz state from localStorage with key: ${stateKey}`);
@@ -680,14 +767,17 @@ export const useQuiz = (
     bookId,
     chapterId,
     paragraphId,
+    quizType,
     debugData,
     batchProgress,
     allQuestions,
     showIncrementalResults,
+    objectives,
     setShowIncrementalResults,
     setBookId,
     setChapterId,
     setParagraphId,
+    setQuizType,
     loadSavedQuizState,
     generateQuiz,
     generateQuizForParagraph,

@@ -1,15 +1,18 @@
 
-import { BookOpen, Brain, FileText, BookText, ChevronRight, ArrowRight } from 'lucide-react';
+import { BookOpen, Brain, FileText, BookText, ChevronRight, ArrowRight, Target } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface ChapterData {
   id: number;
   chapter_title?: string;
   chapter_number: number;
   book_id: number;
+  objectives?: string;
 }
 
 interface ChaptersListProps {
@@ -22,6 +25,7 @@ interface ChaptersListProps {
 const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect, selectedChapterId }: ChaptersListProps) => {
   const navigate = useNavigate();
   const { id: bookId } = useParams<{ id: string }>();
+  const [expandedChapterIds, setExpandedChapterIds] = useState<number[]>([]);
   
   // Animation variants for staggered children
   const container = {
@@ -46,6 +50,14 @@ const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect, selectedChapterI
       
       navigate(`/books/${bookId}/summary?${params.toString()}`);
     }
+  };
+
+  const toggleObjectives = (chapterId: number) => {
+    setExpandedChapterIds(prev => 
+      prev.includes(chapterId) 
+        ? prev.filter(id => id !== chapterId) 
+        : [...prev, chapterId]
+    );
   };
 
   return (
@@ -91,9 +103,36 @@ const ChaptersList = ({ chapters, onStartQuiz, onChapterSelect, selectedChapterI
                     </CardHeader>
                     
                     <CardContent>
-                      <p className="text-muted-foreground">
+                      <p className="text-muted-foreground mb-4">
                         Leer over de belangrijkste concepten in dit hoofdstuk en test je kennis.
                       </p>
+                      
+                      {chapter.objectives && (
+                        <Collapsible 
+                          open={expandedChapterIds.includes(chapter.id)} 
+                          onOpenChange={() => toggleObjectives(chapter.id)}
+                          className="border rounded-md p-2 bg-gray-50"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Target className="h-4 w-4 text-study-500" />
+                              <span className="font-medium text-sm">Leerdoelen</span>
+                            </div>
+                            <CollapsibleTrigger asChild>
+                              <Button variant="ghost" size="sm" className="p-1 h-auto">
+                                <ChevronRight className={`h-4 w-4 transition-transform ${
+                                  expandedChapterIds.includes(chapter.id) ? 'rotate-90' : ''
+                                }`} />
+                              </Button>
+                            </CollapsibleTrigger>
+                          </div>
+                          <CollapsibleContent className="pt-2">
+                            <div className="text-sm whitespace-pre-line pl-6">
+                              {chapter.objectives}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      )}
                     </CardContent>
                     
                     <CardFooter className="flex flex-col sm:flex-row gap-3 pt-2">
