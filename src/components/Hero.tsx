@@ -69,8 +69,8 @@ const Hero = () => {
             className="mx-auto aspect-video overflow-hidden rounded-xl object-cover sm:w-full lg:order-last bg-study-50 flex items-center justify-center"
           >
             <img 
-              src="https://ncipejuazrewiizxtkcj.supabase.co/storage/v1/object/public/afbeeldingen/hero-image.webp" 
-              alt="AI Learning with SmartStudy"
+              src="/lovable-uploads/49055015-6c80-492c-842e-e1b8b1f5e517.png" 
+              alt="Student leert met AI-ondersteuning"
               className="w-full h-full object-cover"
             />
           </motion.div>
