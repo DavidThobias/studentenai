@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -675,11 +674,11 @@ const StructuredLearningPage = () => {
                         <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" />
                         <span>
                           Batch {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}: 
-                          {batchProgress.processedTerms}/{batchProgress.totalTerms} begrippen verwerkt
+                          {batchProgress.processedObjectives}/{batchProgress.totalObjectives} doelstellingen verwerkt
                         </span>
                       </div>
                       <Progress 
-                        value={(batchProgress.processedTerms / batchProgress.totalTerms) * 100} 
+                        value={(batchProgress.processedObjectives / batchProgress.totalObjectives) * 100} 
                         className="h-1 mt-1" 
                       />
                     </div>
