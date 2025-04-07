@@ -20,7 +20,7 @@ serve(async (req) => {
   }
 
   try {
-    const { bookId, chapterId, paragraphId, batchIndex = 0, batchSize = 5, debug = false } = await req.json();
+    const { bookId, chapterId, paragraphId, batchIndex = 0, batchSize = 3, debug = false } = await req.json();
 
     console.log(`Generating online marketing quiz for book ${bookId}, chapter ${chapterId}, paragraph ${paragraphId}, batch ${batchIndex}`);
 
@@ -51,6 +51,7 @@ serve(async (req) => {
     let chapterContent = '';
     let chapterTitle = '';
     let objectives = '';
+    let objectivesArray: string[] = [];
 
     // Fetch content based on provided IDs
     if (paragraphId) {
@@ -147,67 +148,86 @@ serve(async (req) => {
       }
     }
 
-    // Extract key terms or concepts from the content for batching
-    const extractTermsFromContent = (content) => {
-      // Simple extraction of terms in **bold** format
-      const boldTerms = content.match(/\*\*(.*?)\*\*/g)?.map(term => term.replace(/\*\*/g, '')) || [];
-      
-      // Extract terms from lists (bullet points)
-      const listItems = content.match(/^-\s+(.*?)$/gm)?.map(item => item.replace(/^-\s+/, '')) || [];
-      
-      // Extract terms after colons (definitions)
-      const definitions = content.match(/([A-Za-z\s/]+):\s/g)?.map(def => def.replace(':', '').trim()) || [];
-      
-      // Combine all terms and remove duplicates
-      const allTerms = [...boldTerms, ...listItems, ...definitions];
-      return [...new Set(allTerms)].filter(term => term.length > 3);
-    };
+    // Parse objectives into an array by splitting on newlines and/or bullet points
+    if (objectives) {
+      objectivesArray = objectives
+        .split(/\n|-|\*/)
+        .map(obj => obj.trim())
+        .filter(obj => obj.length > 10); // Filter out empty or very short lines
+    }
 
-    // Extract relevant terms from the content
-    const extractedTerms = extractTermsFromContent(chapterContent);
-    const totalTerms = extractedTerms.length;
+    if (objectivesArray.length === 0) {
+      // If no objectives found, extract them from content using a simple heuristic
+      const objectivesSection = chapterContent.match(/doelstelling(en)?:?\s*([\s\S]*?)(?=\n\n|$)/i);
+      if (objectivesSection && objectivesSection[2]) {
+        objectivesArray = objectivesSection[2]
+          .split(/\n|-|\*/)
+          .map(obj => obj.trim())
+          .filter(obj => obj.length > 10);
+      }
+      
+      // If still no objectives, create some based on section headers or bold terms
+      if (objectivesArray.length === 0) {
+        const boldTerms = chapterContent.match(/\*\*(.*?)\*\*/g)?.map(term => term.replace(/\*\*/g, '')) || [];
+        const sectionHeaders = chapterContent.match(/^#+\s+(.*?)$/gm)?.map(header => header.replace(/^#+\s+/, '')) || [];
+        
+        // Use section headers if available, otherwise bold terms
+        const terms = sectionHeaders.length > 0 ? sectionHeaders : boldTerms;
+        
+        if (terms.length > 0) {
+          // Convert the top 5 terms into pseudo-objectives
+          objectivesArray = terms.slice(0, 5).map(term => 
+            `Na het bestuderen van dit hoofdstuk begrijp je het concept "${term}" en kun je dit toepassen in de praktijk.`
+          );
+        } else {
+          // Last resort: create a generic objective
+          objectivesArray = ["Na het bestuderen van dit hoofdstuk begrijp je de belangrijkste concepten en kun je deze toepassen in de praktijk."];
+        }
+      }
+    }
+
+    console.log(`Found ${objectivesArray.length} learning objectives`);
     
-    // Calculate batch information
-    const totalBatches = Math.max(1, Math.ceil(totalTerms / batchSize));
+    // Calculate batch information based on objectives instead of terms
+    const totalObjectives = objectivesArray.length;
+    const totalBatches = Math.max(1, Math.ceil(totalObjectives / batchSize));
     const startIndex = batchIndex * batchSize;
-    const endIndex = Math.min(startIndex + batchSize, totalTerms);
-    const currentBatchTerms = extractedTerms.slice(startIndex, endIndex);
-    const isLastBatch = endIndex >= totalTerms;
+    const endIndex = Math.min(startIndex + batchSize, totalObjectives);
+    const currentBatchObjectives = objectivesArray.slice(startIndex, endIndex);
+    const isLastBatch = endIndex >= totalObjectives;
     
     // Limit chapter content to avoid token limit issues
-    const maxContentLength = 8000; // reduced from 10000 to account for batch processing
+    const maxContentLength = 8000;
     let contentForPrompt = chapterContent;
     if (contentForPrompt.length > maxContentLength) {
       contentForPrompt = contentForPrompt.substring(0, maxContentLength);
       console.log(`Content truncated to ${maxContentLength} characters`);
     }
 
-    // Build the prompt for OpenAI
-    // Emphasize the specific terms for this batch
-    const batchTermsText = currentBatchTerms.length > 0 
-      ? `Voor deze batch focus je op de volgende termen/concepten: ${currentBatchTerms.join(', ')}`
-      : 'Kies zelf enkele belangrijke concepten uit de inhoud om vragen over te stellen.';
-      
+    // Build the prompt for OpenAI focusing on objectives
+    const objectivesForPrompt = currentBatchObjectives.join('\n- ');
+    const questionsPerObjective = 3; // Generate approximately 3 questions per objective
+    const totalQuestionsForBatch = currentBatchObjectives.length * questionsPerObjective;
+    
     const prompt = `
-Genereer meervoudige-keuzevragen over online marketing op basis van de theorie en doelstellingen van het meegeleverde hoofdstuk.
+Genereer meervoudige-keuzevragen op basis van de theorie en doelstellingen van het meegeleverde hoofdstuk. Zorg ervoor dat er voldoende vragen zijn om elk aspect van de theorie en elke doelstelling volledig te dekken. Maak zoveel vragen als nodig is, zodat de gebruiker elk concept grondig kan begrijpen; liever te veel vragen dan te weinig. Zorg dat er voor elke doelstelling genoeg vragen zijn om alles volledig te snappen. Elke vraag moet een realistisch scenario bevatten dat past bij het onderwerp van het hoofdstuk en op toepassingsniveau is, zodat de gebruiker de concepten in praktische situaties moet toepassen. Elke vraag heeft vier antwoordopties, waarvan één correct is. Maak de antwoorden misleidend: de foute opties moeten lijken op het correcte antwoord, maar subtiele fouten bevatten, of ze moeten gaan over dezelfde theorie/modellen maar net een ander begrip tonen (bijvoorbeeld een verkeerde interpretatie van een model of een gerelateerd maar incorrect concept). Zorg dat de vragen duidelijk, grammaticaal correct en uitdagend zijn.
 
-${batchTermsText}
+Voor deze batch focus je specifiek op de volgende leerdoelstellingen:
+- ${objectivesForPrompt}
 
 Boektitel: ${bookTitle}
 Hoofdstuktitel: ${chapterTitle}
 
-Doelstellingen:
-${objectives || 'Geen specifieke doelstellingen gedefinieerd.'}
-
 Inhoud:
 ${contentForPrompt}
 
-Genereer voor deze batch ${Math.min(batchSize, currentBatchTerms.length || batchSize)} quizvragen. Elke vraag moet de volgende structuur hebben:
+Genereer voor deze batch ongeveer ${totalQuestionsForBatch} quizvragen, met ongeveer ${questionsPerObjective} vragen per leerdoelstelling. Elke vraag moet de volgende structuur hebben:
 {
   "question": "De vraag hier",
   "options": ["Optie A", "Optie B", "Optie C", "Optie D"],
   "correctAnswer": 0, // index van het correcte antwoord (0-3)
-  "explanation": "Uitleg waarom dit het juiste antwoord is"
+  "explanation": "Uitleg waarom dit het juiste antwoord is",
+  "objective": "De leerdoelstelling waar deze vraag bij hoort"
 }
 
 Geef alleen de JSON-array terug, geen omliggende tekst.
@@ -302,19 +322,31 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
       return dist;
     }, { A: 0, B: 0, C: 0, D: 0 });
 
+    // Add objective information to each question if not already present
+    const questionsWithObjectives = questions.map((q, index) => {
+      if (!q.objective) {
+        // Determine which objective this question belongs to
+        const objectiveIndex = Math.floor(index / questionsPerObjective);
+        const objectiveIndex2 = Math.min(objectiveIndex, currentBatchObjectives.length - 1);
+        q.objective = currentBatchObjectives[objectiveIndex2];
+      }
+      return q;
+    });
+
     // Prepare the response
     const responsePayload = {
       success: true,
-      questions,
+      questions: questionsWithObjectives,
       metadata: {
         bookId,
         chapterId,
         paragraphId,
         batchIndex,
-        totalTerms: extractedTerms.length,
-        processedTerms: Math.min(endIndex, extractedTerms.length),
+        totalObjectives,
+        processedObjectives: currentBatchObjectives.length,
         isLastBatch,
-        totalBatches
+        totalBatches,
+        objectivesInBatch: currentBatchObjectives
       },
       context: {
         bookTitle,
@@ -329,8 +361,8 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
         response: aiResponse,
         answerDistribution,
         objectives,
-        extractedTerms,
-        batchTerms: currentBatchTerms,
+        allObjectives: objectivesArray,
+        batchObjectives: currentBatchObjectives,
         tokenEstimates: {
           promptTokens: Math.ceil(prompt.length / 4),
           requestedMaxTokens: 2500

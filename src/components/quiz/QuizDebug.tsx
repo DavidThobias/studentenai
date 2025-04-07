@@ -1,8 +1,9 @@
+
 import { useState } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, Bug, Terminal, Code, Braces, Database, Clock } from "lucide-react";
+import { Eye, EyeOff, Bug, Terminal, Code, Braces, Database, Clock, Target } from "lucide-react";
 
 interface QuizDebugProps {
   stateLog: string[];
@@ -16,6 +17,8 @@ interface QuizDebugProps {
     };
     extractedTerms?: string[];
     batchTerms?: string[];
+    allObjectives?: string[];
+    batchObjectives?: string[];
   };
   bookId: number | null;
   chapterId: number | null;
@@ -25,11 +28,13 @@ interface QuizDebugProps {
   currentQuestionIndex: number;
   isGenerating: boolean;
   paragraphsCount: number;
+  objectivesArray?: string[];
+  currentObjectives?: string[];
   batchProgress?: {
     currentBatch: number;
     totalBatches: number;
-    processedTerms: number;
-    totalTerms: number;
+    processedObjectives: number;
+    totalObjectives: number;
     startTime?: number;
   };
 }
@@ -45,6 +50,8 @@ const QuizDebug = ({
   currentQuestionIndex,
   isGenerating,
   paragraphsCount,
+  objectivesArray = [],
+  currentObjectives = [],
   batchProgress
 }: QuizDebugProps) => {
   const [showDebug, setShowDebug] = useState(true);
@@ -71,18 +78,32 @@ const QuizDebug = ({
   };
 
   const getEstimatedRemainingTime = () => {
-    if (!batchProgress?.startTime || batchProgress.processedTerms === 0) return null;
+    if (!batchProgress?.startTime || batchProgress.processedObjectives === 0) return null;
     
     const elapsedMs = Date.now() - batchProgress.startTime;
-    const msPerTerm = elapsedMs / batchProgress.processedTerms;
-    const remainingTerms = batchProgress.totalTerms - batchProgress.processedTerms;
-    const estimatedRemainingMs = msPerTerm * remainingTerms;
+    const msPerObjective = elapsedMs / batchProgress.processedObjectives;
+    const remainingObjectives = batchProgress.totalObjectives - batchProgress.processedObjectives;
+    const estimatedRemainingMs = msPerObjective * remainingObjectives;
     
     const seconds = Math.floor(estimatedRemainingMs / 1000);
     const minutes = Math.floor(seconds / 60);
     
     return `~${minutes}m ${seconds % 60}s`;
   };
+
+  // Use all available objectives from various sources
+  const allObjectives = [...new Set([
+    ...(objectivesArray || []),
+    ...(debugData.allObjectives || []),
+    ...(currentObjectives || []),
+    ...(debugData.batchObjectives || [])
+  ])];
+
+  // Currently processing objectives
+  const processingObjectives = [...new Set([
+    ...(currentObjectives || []),
+    ...(debugData.batchObjectives || [])
+  ])];
 
   return (
     <div className="mt-8 border-t pt-4">
@@ -152,7 +173,7 @@ const QuizDebug = ({
                   <span className="font-semibold">Current Batch:</span> {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}
                 </div>
                 <div className="bg-amber-100 p-2 rounded-md text-amber-800">
-                  <span className="font-semibold">Terms Processed:</span> {batchProgress.processedTerms}/{batchProgress.totalTerms}
+                  <span className="font-semibold">Objectives Processed:</span> {batchProgress.processedObjectives}/{batchProgress.totalObjectives}
                 </div>
                 {batchProgress.startTime && (
                   <div className="bg-amber-100 p-2 rounded-md text-amber-800 flex items-center">
@@ -160,7 +181,7 @@ const QuizDebug = ({
                     <span className="font-semibold">Elapsed:</span> {getElapsedTime()}
                   </div>
                 )}
-                {batchProgress.startTime && batchProgress.processedTerms > 0 && (
+                {batchProgress.startTime && batchProgress.processedObjectives > 0 && (
                   <div className="bg-amber-100 p-2 rounded-md text-amber-800">
                     <span className="font-semibold">Est. Remaining:</span> {getEstimatedRemainingTime()}
                   </div>
@@ -169,29 +190,47 @@ const QuizDebug = ({
             </div>
           )}
           
-          {debugData.extractedTerms && debugData.extractedTerms.length > 0 && (
+          {allObjectives && allObjectives.length > 0 && (
             <div className="mb-4">
               <h4 className="font-semibold mb-1 flex items-center">
-                <Code className="mr-1 h-3 w-3" /> 
-                All Terms ({debugData.extractedTerms.length})
+                <Target className="mr-1 h-3 w-3" /> 
+                All Objectives ({allObjectives.length})
               </h4>
-              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-2 bg-white border rounded">
-                {debugData.extractedTerms.map((term, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">{term}</Badge>
+              <div className="flex flex-col gap-1 max-h-40 overflow-y-auto p-2 bg-white border rounded">
+                {allObjectives.map((objective, index) => (
+                  <div key={index} className="text-xs p-1 border-b border-gray-100 last:border-b-0">
+                    {objective}
+                  </div>
                 ))}
               </div>
             </div>
           )}
           
-          {debugData.batchTerms && debugData.batchTerms.length > 0 && (
+          {processingObjectives && processingObjectives.length > 0 && (
             <div className="mb-4">
               <h4 className="font-semibold mb-1 flex items-center">
                 <Code className="mr-1 h-3 w-3" /> 
-                Current Batch Terms ({debugData.batchTerms.length})
+                Current Batch Objectives ({processingObjectives.length})
               </h4>
-              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-2 bg-white border border-amber-200 rounded bg-amber-50">
-                {debugData.batchTerms.map((term, index) => (
-                  <Badge key={index} variant="outline" className="text-xs bg-amber-100 border-amber-300">{term}</Badge>
+              <div className="flex flex-col gap-1 max-h-32 overflow-y-auto p-2 bg-white border border-amber-200 rounded bg-amber-50">
+                {processingObjectives.map((objective, index) => (
+                  <div key={index} className="text-xs p-1 border-b border-amber-100 last:border-b-0 bg-amber-50">
+                    {objective}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {(debugData.extractedTerms && debugData.extractedTerms.length > 0) && (
+            <div className="mb-4">
+              <h4 className="font-semibold mb-1 flex items-center">
+                <Code className="mr-1 h-3 w-3" /> 
+                Extracted Terms ({debugData.extractedTerms.length})
+              </h4>
+              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-2 bg-white border rounded">
+                {debugData.extractedTerms.map((term, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">{term}</Badge>
                 ))}
               </div>
             </div>

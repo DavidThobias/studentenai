@@ -7,8 +7,8 @@ import { QuizQuestion } from '@/hooks/useQuiz';
 export interface BatchProgress {
   currentBatch: number;
   totalBatches: number;
-  processedTerms: number;
-  totalTerms: number;
+  processedObjectives: number;
+  totalObjectives: number;
   startTime: number;
 }
 
@@ -38,6 +38,8 @@ export const useBookQuizGenerator = ({
   const [loadNextBatchTrigger, setLoadNextBatchTrigger] = useState(0);
   const [hasMoreBatches, setHasMoreBatches] = useState(false);
   const [debugData, setDebugData] = useState<any>({});
+  const [objectivesArray, setObjectivesArray] = useState<string[]>([]);
+  const [currentObjectives, setCurrentObjectives] = useState<string[]>([]);
 
   // Format questions from API response
   const formatQuestions = (rawQuestions: any[]): QuizQuestion[] => {
@@ -62,13 +64,14 @@ export const useBookQuizGenerator = ({
         question: q.question,
         options: q.options,
         correctAnswer: correctAnswerIndex,
-        explanation: cleanedExplanation
+        explanation: cleanedExplanation,
+        objective: q.objective || null
       };
     });
   };
 
   // Process a single batch of questions
-  const processBatch = async (batchIndex: number, batchSize: number = 5) => {
+  const processBatch = async (batchIndex: number, batchSize: number = 3) => {
     if (!bookId) {
       setQuizError('Geen boek geselecteerd om quiz te genereren');
       return null;
@@ -114,6 +117,14 @@ export const useBookQuizGenerator = ({
         if (data.debug.objectives) {
           setObjectives(data.debug.objectives);
         }
+        
+        if (data.debug.allObjectives && Array.isArray(data.debug.allObjectives)) {
+          setObjectivesArray(data.debug.allObjectives);
+        }
+        
+        if (data.debug.batchObjectives && Array.isArray(data.debug.batchObjectives)) {
+          setCurrentObjectives(prev => [...prev, ...data.debug.batchObjectives]);
+        }
       }
       
       let formattedQuestions = formatQuestions(data.questions);
@@ -122,8 +133,9 @@ export const useBookQuizGenerator = ({
         questions: formattedQuestions,
         metadata: data.metadata || { 
           isLastBatch: formattedQuestions.length < batchSize, 
-          totalTerms: formattedQuestions.length, 
-          totalBatches: Math.ceil(formattedQuestions.length / batchSize) || 1 
+          totalObjectives: formattedQuestions.length, 
+          totalBatches: Math.ceil(formattedQuestions.length / batchSize) || 1,
+          objectivesInBatch: data.metadata?.objectivesInBatch || []
         },
         objectives: data.debug?.objectives
       };
@@ -135,7 +147,7 @@ export const useBookQuizGenerator = ({
   };
 
   // Start quiz generation
-  const startQuizGeneration = async (batchSize: number = 5) => {
+  const startQuizGeneration = async (batchSize: number = 3) => {
     if (!bookId) {
       setQuizError('Geen boek geselecteerd om quiz te genereren');
       return;
@@ -148,6 +160,8 @@ export const useBookQuizGenerator = ({
     setCurrentBatch(0);
     setTotalBatches(1);
     setHasMoreBatches(false);
+    setObjectivesArray([]);
+    setCurrentObjectives([]);
     
     try {
       // First, try to get objectives directly from books table
@@ -192,8 +206,8 @@ export const useBookQuizGenerator = ({
       setBatchProgress({
         currentBatch: 0,
         totalBatches: estimatedTotalBatches,
-        processedTerms: firstBatchQuestions.length,
-        totalTerms: metadata?.totalTerms || firstBatchQuestions.length,
+        processedObjectives: metadata.objectivesInBatch?.length || 0,
+        totalObjectives: metadata?.totalObjectives || 0,
         startTime: Date.now()
       });
       
@@ -224,7 +238,7 @@ export const useBookQuizGenerator = ({
     
     try {
       addLog(`Loading next batch (${nextBatchIndex})`);
-      const batchResult = await processBatch(nextBatchIndex, 5);
+      const batchResult = await processBatch(nextBatchIndex, 3);
       
       if (!batchResult) {
         addLog(`Batch ${nextBatchIndex} failed, no more batches will be loaded`);
@@ -244,7 +258,7 @@ export const useBookQuizGenerator = ({
       setBatchProgress(prev => prev ? {
         ...prev,
         currentBatch: nextBatchIndex,
-        processedTerms: updatedAllQuestions.length
+        processedObjectives: prev.processedObjectives + (metadata.objectivesInBatch?.length || 0)
       } : null);
       
       setHasMoreBatches(!(metadata?.isLastBatch || nextBatchIndex >= totalBatches - 1));
@@ -279,6 +293,8 @@ export const useBookQuizGenerator = ({
     isGenerating,
     quizError,
     objectives,
+    objectivesArray,
+    currentObjectives,
     batchProgress,
     hasMoreBatches,
     currentBatch,
