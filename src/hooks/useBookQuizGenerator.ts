@@ -152,16 +152,33 @@ export const useBookQuizGenerator = ({
       }
       
       setAllQuestions(prevQuestions => [...prevQuestions, ...formattedQuestions]);
-      setQuestions(prevQuestions => [...prevQuestions, ...formattedQuestions]);
       
       if (data.metadata?.questionsByObjective) {
-        setQuestionsByObjective(prev => {
-          if (!prev) return data.metadata.questionsByObjective;
-          return { ...prev, ...data.metadata.questionsByObjective };
+        const questionsByObjectiveTracking = { ...questionsByObjective } || {};
+        
+        const limitedQuestions = formattedQuestions.filter(q => {
+          if (!q.objective) return true;
+          
+          if (!questionsByObjectiveTracking[q.objective]) {
+            questionsByObjectiveTracking[q.objective] = 0;
+          }
+          
+          if (questionsByObjectiveTracking[q.objective] >= 3) {
+            return false;
+          }
+          
+          questionsByObjectiveTracking[q.objective]++;
+          return true;
         });
+        
+        setQuestions(prevQuestions => [...prevQuestions, ...limitedQuestions]);
+        setQuestionsByObjective(questionsByObjectiveTracking);
+        
+        addLog(`Added ${limitedQuestions.length} questions (limited to 3 per objective) from batch ${batchIndex + 1}`);
+      } else {
+        setQuestions(prevQuestions => [...prevQuestions, ...formattedQuestions]);
+        addLog(`Added ${formattedQuestions.length} questions from batch ${batchIndex + 1} (no objective tracking)`);
       }
-      
-      addLog(`Added ${formattedQuestions.length} questions from batch ${batchIndex + 1}`);
       
       return !data.metadata?.isLastBatch;
       
@@ -186,6 +203,7 @@ export const useBookQuizGenerator = ({
     setOpenAIPrompt(null);
     setOpenAIResponse(null);
     setBatchProgress(null);
+    setQuestionsByObjective(null);
     
     try {
       if (chapterId) {
@@ -217,6 +235,12 @@ export const useBookQuizGenerator = ({
       
       addLog('All batches processed successfully');
       
+      const finalQuestionsByObjective = { ...questionsByObjective } || {};
+      const objectiveKeys = Object.keys(finalQuestionsByObjective);
+      
+      addLog(`Final questions count: ${questions.length} from ${objectiveKeys.length} objectives`);
+      addLog(`Questions per objective: ${JSON.stringify(finalQuestionsByObjective)}`);
+      
     } catch (err) {
       console.error('Error in startQuizGeneration:', err);
       setQuizError(`Er is een onverwachte fout opgetreden: ${err instanceof Error ? err.message : 'Onbekende fout'}`);
@@ -239,7 +263,8 @@ export const useBookQuizGenerator = ({
     debugData,
     openAIPrompt,
     openAIResponse,
-    batchProgress
+    batchProgress,
+    allQuestions
   };
 };
 

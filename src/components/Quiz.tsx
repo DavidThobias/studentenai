@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -376,11 +375,10 @@ const Quiz = ({
         className="sm:max-w-xl w-full overflow-y-auto opacity-100 pointer-events-auto"
       >
         <SheetHeader className="mb-4">
-          <SheetTitle>
-            {isGenerating && questions.length === 0 ? "Quiz voorbereiden" :
-             error ? "Quiz Fout" :
-             isQuizComplete ? "Quiz voltooid!" :
-             title}
+          {isGenerating && questions.length === 0 ? "Quiz voorbereiden" :
+           error ? "Quiz Fout" :
+           isQuizComplete ? "Quiz voltooid!" :
+           title}
           </SheetTitle>
           <SheetDescription>
             {isGenerating && questions.length === 0 ? 

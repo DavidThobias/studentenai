@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Bug, ChevronDown, ChevronUp } from "lucide-react";
 import { BatchProgress } from '@/hooks/useBookQuizGenerator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 
 interface QuizDebugProps {
   stateLog?: string[];
@@ -20,6 +21,7 @@ interface QuizDebugProps {
   batchProgress?: BatchProgress;
   openAIPrompt?: string;
   openAIResponse?: any;
+  allQuestionsCount?: number;
 }
 
 const QuizDebug = ({
@@ -35,7 +37,8 @@ const QuizDebug = ({
   paragraphsCount = 0,
   batchProgress,
   openAIPrompt,
-  openAIResponse
+  openAIResponse,
+  allQuestionsCount = 0
 }: QuizDebugProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [apiDataOpen, setApiDataOpen] = useState<string | null>(null);
@@ -63,13 +66,16 @@ const QuizDebug = ({
                 <p><strong>Book ID:</strong> {bookId}</p>
                 <p><strong>Chapter ID:</strong> {chapterId}</p>
                 <p><strong>Paragraph ID:</strong> {paragraphId}</p>
-                <p><strong>Questions:</strong> {questionsCount}</p>
+                <p><strong>Visible Questions:</strong> {questionsCount}</p>
                 <p><strong>Current Index:</strong> {currentQuestionIndex}</p>
               </div>
               <div className="bg-gray-100 p-2 rounded">
                 <p><strong>Is Generating:</strong> {String(isGenerating)}</p>
                 <p><strong>Paragraphs:</strong> {paragraphsCount}</p>
                 <p><strong>Structured Learning:</strong> {String(isStructuredLearning)}</p>
+                {allQuestionsCount > 0 && (
+                  <p><strong>Total Generated Questions:</strong> <Badge variant="outline" className="ml-1">{allQuestionsCount}</Badge></p>
+                )}
                 {batchProgress && (
                   <>
                     <p><strong>Batch:</strong> {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}</p>
@@ -109,6 +115,28 @@ const QuizDebug = ({
                     </AccordionItem>
                   )}
                 </Accordion>
+              </div>
+            )}
+            
+            {debugData && Object.keys(debugData).length > 0 && (
+              <div className="bg-gray-100 p-2 rounded mb-2">
+                <p className="font-medium mb-1">Debug Data:</p>
+                <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                  {JSON.stringify(debugData, null, 2)}
+                </pre>
+              </div>
+            )}
+            
+            {debugData?.answerDistribution && (
+              <div className="bg-gray-100 p-2 rounded mb-2">
+                <p className="font-medium mb-1">Answer Distribution:</p>
+                <div className="grid grid-cols-4 gap-1">
+                  {Object.entries(debugData.answerDistribution).map(([letter, count]) => (
+                    <div key={letter} className="text-center">
+                      <Badge variant="secondary">{letter}: {count}</Badge>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>

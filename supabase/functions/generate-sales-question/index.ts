@@ -181,7 +181,8 @@ serve(async (req) => {
       batchSize = 5, // Default batch size of 5 terms
       batchIndex = 0, // Which batch to process (0-based index)
       debug = false,
-      showProcessDetails = false // Parameter to control streaming process details
+      showProcessDetails = false,
+      questionsPerObjective = 3 // Explicitly limit to 3 questions per objective
     } = requestData;
     
     console.log(`Generating sales questions with context:`, {
@@ -189,7 +190,8 @@ serve(async (req) => {
       chapterId: chapterId || 'not specified',
       paragraphId: paragraphId || 'not specified',
       batchSize,
-      batchIndex
+      batchIndex,
+      questionsPerObjective
     });
     
     // Fetch book content if bookId is provided
@@ -408,7 +410,7 @@ serve(async (req) => {
       
       Inhoud van specifieke paragraaf: ${specificParagraphContent}
       
-      Genereer UITSLUITEND TOEPASSINGSGERICHTE vragen op HBO-niveau. MAAK EXACT ÉÉN VRAAG VOOR ELKE van deze begrippen uit deze paragraaf:
+      Genereer UITSLUITEND TOEPASSINGSGERICHTE vragen op HBO-niveau. MAAK EXACT ${questionsPerObjective} VRAAG VOOR ELKE van deze begrippen uit deze paragraaf:
       ${boldedTermsToProcess.join(', ')}
       
       VRAAGVEREISTEN:
@@ -461,7 +463,7 @@ serve(async (req) => {
       
       Inhoud: ${bookContent}
       
-      Genereer UITSLUITEND TOEPASSINGSGERICHTE vragen op HBO-niveau. MAAK EXACT ÉÉN VRAAG VOOR ELK van deze begrippen uit de tekst:
+      Genereer UITSLUITEND TOEPASSINGSGERICHTE vragen op HBO-niveau. MAAK EXACT ${questionsPerObjective} VRAAG VOOR ELK van deze begrippen uit de tekst:
       ${boldedTermsToProcess.join(', ')}
       
       VRAAGVEREISTEN:
@@ -708,7 +710,8 @@ serve(async (req) => {
         processedTerms: (batchIndex * actualBatchSize) + processedQuestions.length,
         batchSize: actualBatchSize,
         isLastBatch: batchIndex >= totalBatches - 1,
-        boldedTermsCount: allBoldedTerms.length
+        boldedTermsCount: allBoldedTerms.length,
+        questionsPerObjective // Add this to metadata
       },
       context: {
         bookTitle,

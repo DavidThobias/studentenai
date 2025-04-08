@@ -548,93 +548,41 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
         </Card>
       )}
 
-      <Quiz 
-        questions={questions} 
-        onClose={handleCloseQuiz} 
-        open={quizOpen} 
-        title="Quiz over Sales"
-        error={quizError}
-        isGenerating={isGenerating}
-        currentQuestionIndex={currentQuestionIndex}
-        selectedAnswer={quizSelectedAnswer}
-        isAnswerSubmitted={isAnswerSubmitted}
-        score={score}
-        isQuizComplete={isQuizComplete}
-        handleAnswerSelect={handleAnswerSelect}
-        handleSubmitAnswer={handleSubmitAnswer}
-        handleNextQuestion={handleNextQuestion}
-        restartQuiz={restartQuiz}
-        batchProgress={defaultBatchProgress}
-      />
-
-      {quizOpen && showDebugSection && (
-        <div className="mt-6 border border-gray-200 rounded-md p-4 bg-gray-50">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-medium">Quiz Debug Panel</h3>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={forceNextQuestion}
-              className="bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-200"
-            >
-              <Bug className="mr-1 h-3 w-3" />
-              Force Next Question
-            </Button>
-          </div>
-          <div className="text-xs font-mono h-40 overflow-y-auto p-2 bg-gray-100 rounded border border-gray-300">
-            {stateLog.map((log, i) => (
-              <div key={i} className="border-b border-gray-200 py-1">{log}</div>
-            ))}
-            {stateLog.length === 0 && <div className="text-gray-500">No logs yet</div>}
-          </div>
-          <div className="mt-2 text-xs grid grid-cols-2 gap-2">
-            <div className="bg-gray-100 p-1 rounded">
-              <span className="font-bold">Questions:</span> {questions.length}
-            </div>
-            <div className="bg-gray-100 p-1 rounded">
-              <span className="font-bold">Current Index:</span> {currentQuestionIndex}
-            </div>
-            <div className="bg-gray-100 p-1 rounded">
-              <span className="font-bold">Answer Submitted:</span> {isAnswerSubmitted ? 'Yes' : 'No'}
-            </div>
-            <div className="bg-gray-100 p-1 rounded">
-              <span className="font-bold">Score:</span> {score}
-            </div>
-            <div className="bg-gray-100 p-1 rounded">
-              <span className="font-bold">Complete:</span> {isQuizComplete ? 'Yes' : 'No'}
-            </div>
-            <div className="bg-gray-100 p-1 rounded">
-              <span className="font-bold">Selected Answer:</span> {quizSelectedAnswer !== null ? quizSelectedAnswer : 'None'}
-            </div>
-          </div>
-          {questions.length >= 4 && (
-            <div className="mt-4">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => checkAnswerDistribution(questions)}
-                className="w-full text-xs"
-              >
-                Check Answer Distribution
-              </Button>
-            </div>
-          )}
-          
-          <div className="mt-4">
-            <QuizDebug
-              bookId={bookId || null}
-              chapterId={null}
-              paragraphId={null}
-              stateLog={stateLog}
-              questionsCount={questions.length}
-              currentQuestionIndex={currentQuestionIndex}
-              isGenerating={isGenerating}
-              debugData={debugData}
-              openAIPrompt={debugData?.prompt}
-              openAIResponse={debugData?.response}
-            />
-          </div>
-        </div>
+      {quizOpen && (
+        <Quiz
+          questions={questions}
+          onClose={handleCloseQuiz}
+          open={quizOpen}
+          title="Quiz over Sales"
+          error={quizError}
+          isGenerating={isGenerating}
+          currentQuestionIndex={currentQuestionIndex}
+          selectedAnswer={quizSelectedAnswer}
+          isAnswerSubmitted={isAnswerSubmitted}
+          score={score}
+          isQuizComplete={isQuizComplete}
+          handleAnswerSelect={handleAnswerSelect}
+          handleSubmitAnswer={handleSubmitAnswer}
+          handleNextQuestion={handleNextQuestion}
+          restartQuiz={restartQuiz}
+          batchProgress={batchProgress}
+        />
+      )}
+      
+      {showDebugSection && quizOpen && (
+        <QuizDebug
+          stateLog={stateLog}
+          bookId={bookId || null}
+          chapterId={null}
+          paragraphId={null}
+          isGenerating={isGenerating}
+          questionsCount={questions.length}
+          currentQuestionIndex={currentQuestionIndex}
+          batchProgress={batchProgress}
+          openAIPrompt={debugData.prompt}
+          openAIResponse={debugData.response}
+          allQuestionsCount={allQuestions?.length || 0}
+        />
       )}
     </div>
   );
