@@ -44,7 +44,9 @@ export const useBookQuizGenerator = ({
   const [openAIResponse, setOpenAIResponse] = useState<any>(null);
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const [allQuestions, setAllQuestions] = useState<EnhancedQuizQuestion[]>([]);
-  const [maxQuestionsPerObjective, setMaxQuestionsPerObjective] = useState(3);
+  const [maxQuestionsPerObjective, setMaxQuestionsPerObjective] = useState(3); // Default to 3
+  const [currentBatchRetries, setCurrentBatchRetries] = useState(0);
+  const [failedBatches, setFailedBatches] = useState<number[]>([]);
 
   const formatQuestions = (rawQuestions: any[]): EnhancedQuizQuestion[] => {
     if (!Array.isArray(rawQuestions)) return [];
@@ -81,6 +83,12 @@ export const useBookQuizGenerator = ({
       return false;
     }
     
+    // Skip previously failed batches
+    if (failedBatches.includes(batchIndex)) {
+      addLog(`Skipping previously failed batch ${batchIndex + 1}`);
+      return false;
+    }
+    
     try {
       addLog(`Processing batch ${batchIndex + 1}`);
       
@@ -90,7 +98,7 @@ export const useBookQuizGenerator = ({
       
       const payload: any = { 
         bookId,
-        questionsPerObjective,
+        questionsPerObjective, // Send the exact number we want
         debug: true,
         batchIndex,
         batchSize: 10
@@ -109,6 +117,7 @@ export const useBookQuizGenerator = ({
         if (error) {
           console.error(`Error calling ${endpoint}:`, error);
           setQuizError(`Er is een fout opgetreden: ${error.message}`);
+          setFailedBatches(prev => [...prev, batchIndex]);
           return false;
         }
         
@@ -120,6 +129,7 @@ export const useBookQuizGenerator = ({
           } else {
             setQuizError('Er is een fout opgetreden bij het ophalen van de quizvragen');
           }
+          setFailedBatches(prev => [...prev, batchIndex]);
           return false;
         }
         
@@ -164,7 +174,7 @@ export const useBookQuizGenerator = ({
         
         // Filter questions by objective to ensure we only include maxQuestionsPerObjective per objective
         if (data.metadata?.questionsByObjective) {
-          const questionsByObjectiveTracking = questionsByObjective || {};
+          const questionsByObjectiveTracking = {...(questionsByObjective || {})};
           
           const limitedQuestions = formattedQuestions.filter(q => {
             if (!q.objective) return true;
@@ -173,7 +183,7 @@ export const useBookQuizGenerator = ({
               questionsByObjectiveTracking[q.objective] = 0;
             }
             
-            if (questionsByObjectiveTracking[q.objective] >= maxQuestionsPerObjective) {
+            if (questionsByObjectiveTracking[q.objective] >= questionsPerObjective) {
               return false;
             }
             
@@ -184,23 +194,38 @@ export const useBookQuizGenerator = ({
           setQuestions(prevQuestions => [...prevQuestions, ...limitedQuestions]);
           setQuestionsByObjective(questionsByObjectiveTracking);
           
-          addLog(`Added ${limitedQuestions.length} questions (limited to ${maxQuestionsPerObjective} per objective) from batch ${batchIndex + 1}`);
+          addLog(`Added ${limitedQuestions.length} questions (limited to ${questionsPerObjective} per objective) from batch ${batchIndex + 1}`);
         } else {
           setQuestions(prevQuestions => [...prevQuestions, ...formattedQuestions]);
           addLog(`Added ${formattedQuestions.length} questions from batch ${batchIndex + 1} (no objective tracking)`);
         }
         
+        setCurrentBatchRetries(0);
         return data.metadata?.isLastBatch === false;
         
       } catch (err) {
         console.error(`Error calling ${endpoint}:`, err);
-        setQuizError(`Er is een fout opgetreden bij het ophalen van batch ${batchIndex + 1}: ${err instanceof Error ? err.message : String(err)}`);
-        return false;
+        
+        // Increment retry counter and try again if under the limit
+        const newRetryCount = currentBatchRetries + 1;
+        setCurrentBatchRetries(newRetryCount);
+        
+        if (newRetryCount <= 2) { // Maximum 3 attempts per batch
+          addLog(`Batch ${batchIndex + 1} failed, retry attempt ${newRetryCount}/3`);
+          // Wait a second before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return await processBatch(batchIndex, questionsPerObjective);
+        } else {
+          setQuizError(`Er is een fout opgetreden bij het ophalen van batch ${batchIndex + 1}: ${err instanceof Error ? err.message : String(err)}`);
+          setFailedBatches(prev => [...prev, batchIndex]);
+          return false;
+        }
       }
       
     } catch (err) {
       console.error('Error in processBatch:', err);
       addLog(`Error in batch ${batchIndex + 1}: ${err instanceof Error ? err.message : String(err)}`);
+      setFailedBatches(prev => [...prev, batchIndex]);
       return false;
     }
   };
@@ -220,6 +245,8 @@ export const useBookQuizGenerator = ({
     setOpenAIResponse(null);
     setBatchProgress(null);
     setQuestionsByObjective(null);
+    setFailedBatches([]);
+    setCurrentBatchRetries(0);
     setMaxQuestionsPerObjective(questionsPerObjective);
     
     try {
