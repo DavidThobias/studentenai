@@ -8,7 +8,7 @@ import { Loader2, Brain, Eye, EyeOff, ArrowRight, Bug } from "lucide-react";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import Quiz, { QuizQuestion } from "./Quiz";
-import QuizDebug from "./QuizDebug";
+import QuizDebug from "./quiz/QuizDebug";
 
 interface QuestionData {
   question: string;
