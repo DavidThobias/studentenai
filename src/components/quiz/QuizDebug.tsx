@@ -110,7 +110,7 @@ const QuizDebug = ({
                         OpenAI Reactie
                       </AccordionTrigger>
                       <AccordionContent className="bg-gray-800 text-gray-100 p-2 rounded-b overflow-auto max-h-60">
-                        <pre className="text-xs whitespace-pre-wrap">{typeof openAIResponse === 'string' ? openAIResponse : JSON.stringify(openAIResponse, null, 2)}</pre>
+                        <pre className="text-xs whitespace-pre-wrap">{typeof openAIResponse === 'object' ? JSON.stringify(openAIResponse, null, 2) : String(openAIResponse)}</pre>
                       </AccordionContent>
                     </AccordionItem>
                   )}

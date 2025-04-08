@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import Quiz, { QuizQuestion } from "./Quiz";
 import QuizDebug from "./quiz/QuizDebug";
+import { BatchProgress } from '@/hooks/useBookQuizGenerator';
 
 interface QuestionData {
   question: string;
@@ -46,8 +47,9 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [isQuizComplete, setIsQuizComplete] = useState(false);
-  
   const [stateLog, setStateLog] = useState<string[]>([]);
+  const [localBatchProgress, setLocalBatchProgress] = useState<BatchProgress | null>(null);
+  const [localAllQuestions, setLocalAllQuestions] = useState<QuizQuestion[]>([]);
   
   const addLog = (message: string) => {
     console.log(`[QUIZ DEBUG] ${message}`);
@@ -79,6 +81,8 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
       setIsAnswerSubmitted(false);
       setScore(0);
       setIsQuizComplete(false);
+      setLocalBatchProgress(null);
+      setLocalAllQuestions([]);
       
       addLog(`Generating ${questionCount} quiz questions for book ID: ${bookId || 'not specified'}`);
       
@@ -123,6 +127,7 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
         });
         
         setQuestions(formattedQuestions);
+        setLocalAllQuestions(formattedQuestions);
         addLog(`Created ${formattedQuestions.length} questions from the API response`);
         
         const distribution = {
@@ -144,6 +149,14 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
           setDebugAccordion("prompt");
           addLog('Debug data saved from API response');
         }
+        
+        setLocalBatchProgress({
+          currentBatch: 0,
+          totalBatches: 1,
+          processedObjectives: formattedQuestions.length,
+          totalObjectives: formattedQuestions.length,
+          startTime: Date.now()
+        });
         
         setQuizOpen(true);
       } else {
@@ -343,14 +356,6 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
 
   const handleToggleExplanation = () => {
     setShowExplanation(!showExplanation);
-  };
-
-  const defaultBatchProgress = {
-    currentBatch: 0,
-    totalBatches: 1,
-    processedObjectives: 0,  
-    totalObjectives: 0,      
-    startTime: Date.now()    
   };
 
   return (
@@ -565,7 +570,7 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
           handleSubmitAnswer={handleSubmitAnswer}
           handleNextQuestion={handleNextQuestion}
           restartQuiz={restartQuiz}
-          batchProgress={batchProgress}
+          batchProgress={localBatchProgress}
         />
       )}
       
@@ -578,10 +583,10 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
           isGenerating={isGenerating}
           questionsCount={questions.length}
           currentQuestionIndex={currentQuestionIndex}
-          batchProgress={batchProgress}
+          batchProgress={localBatchProgress}
           openAIPrompt={debugData.prompt}
           openAIResponse={debugData.response}
-          allQuestionsCount={allQuestions?.length || 0}
+          allQuestionsCount={localAllQuestions?.length || 0}
         />
       )}
     </div>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -109,7 +110,7 @@ export const useBookQuizGenerator = ({
         return false;
       }
       
-      if (!data || !data.success) {
+      if (!data || data.success === false) {
         addLog(`No valid data returned from ${endpoint}`);
         setQuizError('Er is een fout opgetreden bij het ophalen van de quizvragen');
         return false;

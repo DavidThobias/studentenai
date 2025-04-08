@@ -219,61 +219,34 @@ serve(async (req) => {
     }
     
     const prompt = `
-Genereer meervoudige-keuzevragen voor een quiz over online marketing. Focus in elke vraag op PRAKTISCHE TOEPASSING van de kennis, vermijd vragen die alleen om definities of pure kennis vragen.
-
-Alle vragen moeten aan de volgende criteria voldoen:
-1. Praktisch: Stel scenario's en situaties voor waarin de kennis moet worden toegepast
-2. Bedrijfscontext: Gebruik echte bedrijfsnamen of realistische bedrijfsscenario's
-3. Beslissingsgericht: De student moet een beslissing nemen over wat de beste aanpak is
-4. Concreet: Vermijd abstracte concepten, focus op concrete acties en strategieën
-5. Uitdagend: De antwoordopties moeten plausibel zijn en echt onderscheidingsvermogen vereisen
-
-Maak GEEN vragen die alleen om definities, theorieën of feiten vragen. De leerling moet kunnen laten zien dat ze de stof kunnen TOEPASSEN, niet alleen onthouden.
-
-Gebruik hoofdzakelijk deze vraagtypes:
-1. Scenario-vragen: "Een webshop heeft het volgende probleem... Welke aanpak is het meest effectief?"
-2. Case-vragen: "Bedrijf X wil... Welke strategie past het beste bij hun doelstelling?"
-3. Data-interpretatie: "Uit de analytics blijkt dat... Wat zou je aanbevelen?"
-4. Vergelijkende analyse: "Welke van deze vier strategieën is het meest geschikt voor...?"
-5. Prioriteringsvragen: "Welke actie zou je EERST ondernemen om...?"
-
-Voorbeeld van een GOEDE vraag:
-Een kleine webshop met handgemaakte sieraden merkt dat bezoekers producten bekijken maar niet aankopen. Uit analyse blijkt dat 70% afhaakt bij het afrekenen. Welke maatregel zou waarschijnlijk het meest direct bijdragen aan een hogere conversie?
-A) Het toevoegen van meer productfoto's
-B) Het implementeren van een chatfunctie
-C) Het vereenvoudigen van het checkout-proces 
-D) Het starten met sociale media advertenties
-Correct antwoord: C - Aangezien bezoekers afhaken tijdens het afrekenen, zal het vereenvoudigen van dit proces direct impact hebben op de conversie.
-
-Voorbeeld van een SLECHTE vraag (vermijd dit type):
-Wat betekent het begrip "conversie" in online marketing?
-A) Het aantal bezoekers dat een aankoop doet
-B) Het aantal klikken op een advertentie
-C) Het aantal bezoekers op de website
-D) Het aantal volgers op sociale media
-Correct antwoord: A - Conversie verwijst naar het aantal bezoekers dat een gewenste actie onderneemt.
-
-Genereer PRECIES ${questionsPerObjective} uitdagende vragen per leerdoelstelling in de volgende lijst:
+Genereer een JSON-array met EXACT ${totalQuestionsExpected} quizvragen, waarbij per leerdoelstelling precies ${questionsPerObjective} vraag wordt gegenereerd uit de volgende leerdoelstellingen:
 - ${objectivesForPrompt}
 
-Boektitel: ${bookTitle}
-Hoofdstuktitel: ${chapterTitle}
+Gebruik de volgende instructies:
+1. Alle vragen moeten een praktische focus hebben: ze moeten realistische scenario's of bedrijfscasussen bevatten waarin de student de kennis moet toepassen.
+2. Verwerk concrete bedrijfssituaties, waarbij echte bedrijfsnamen of realistische voorbeelden gebruikt worden.
+3. Elke vraag is beslissingsgericht en vereist dat de student het juiste begrip kiest uit vergelijkbare en verwante begrippen.
+4. De antwoordopties moeten uitdagend zijn: drie onjuiste opties dienen subtiele fouten of gerelateerde, maar foutieve concepten te bevatten.
+5. Vermijd vragen die alleen definities of abstracte kennis testen; focus op toepassing en het vergelijken van begrippen.
+6. Zorg ervoor dat de correcte antwoorden evenredig verdeeld zijn over de vier opties (A, B, C, D), zodat er geen oververtegenwoordiging is van een bepaalde positie.
 
-Inhoud:
-${contentForPrompt}
-
-Genereer in totaal PRECIES ${totalQuestionsExpected} quizvragen (${questionsPerObjective} per leerdoelstelling). Elke vraag moet de volgende structuur hebben:
+Gebruik onderstaande JSON-structuur voor elke vraag:
 {
   "question": "De vraag hier",
   "options": ["Optie A", "Optie B", "Optie C", "Optie D"],
-  "correctAnswer": 0, // index van het correcte antwoord (0-3)
+  "correctAnswer": <0-3>, // index van het correcte antwoord (0=A, 1=B, 2=C, 3=D)
   "explanation": "Uitleg waarom dit het juiste antwoord is",
   "objective": "De leerdoelstelling waar deze vraag bij hoort",
-  "questionType": "Scenario/Case/Data-interpretatie/Vergelijkende analyse/Prioritering" // Type vraag dat bij deze leerdoelstelling past
+  "questionType": "Scenario/Case/Toepassing/Analyse" // Type vraag dat bij deze leerdoelstelling past
 }
 
-Geef alleen de JSON-array terug, geen omliggende tekst. Het is HEEL BELANGRIJK dat je PRECIES ${questionsPerObjective} vragen per leerdoelstelling genereert, niet meer en niet minder.
-`;
+Relevante informatie:
+Boektitel: ${bookTitle}
+Hoofdstuktitel: ${chapterTitle}
+Inhoud:
+${contentForPrompt}
+
+Belangrijk: Genereer EXACT ${totalQuestionsExpected} quizvragen, waarbij per leerdoelstelling precies ${questionsPerObjective} vraag wordt gemaakt. Geef enkel de JSON-array terug, zonder extra tekst of uitleg.`;
 
     console.log(`Calling OpenAI API to generate questions for batch ${batchIndex + 1}/${maxBatches}`);
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
