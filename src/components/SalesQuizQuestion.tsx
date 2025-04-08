@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -347,8 +348,9 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
   const defaultBatchProgress = {
     currentBatch: 0,
     totalBatches: 1,
-    processedTerms: 0,
-    totalTerms: 0
+    processedObjectives: 0,  // Changed from processedTerms
+    totalObjectives: 0,      // Changed from totalTerms
+    startTime: Date.now()    // Added startTime to match the interface
   };
 
   return (
