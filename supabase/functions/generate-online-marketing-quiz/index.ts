@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
@@ -31,7 +30,6 @@ serve(async (req) => {
       );
     }
 
-    // Get book data first to get the title
     const { data: bookData, error: bookError } = await supabase
       .from('books')
       .select('book_title')
@@ -53,9 +51,7 @@ serve(async (req) => {
     let objectives = '';
     let objectivesArray: string[] = [];
 
-    // Fetch content based on provided IDs
     if (paragraphId) {
-      // For a specific paragraph
       const { data: paragraphData, error: paragraphError } = await supabase
         .from('books')
         .select('content, chapter_title, chapter_number, objectives')
@@ -74,7 +70,6 @@ serve(async (req) => {
       chapterTitle = paragraphData.chapter_title || '';
       objectives = paragraphData.objectives || '';
 
-      // If paragraph has no objectives, try to get chapter objectives
       if (!objectives && paragraphData.chapter_number) {
         const { data: chapterData, error: chapterError } = await supabase
           .from('books')
@@ -88,7 +83,6 @@ serve(async (req) => {
         }
       }
     } else if (chapterId) {
-      // For an entire chapter
       const { data: chapterData, error: chapterError } = await supabase
         .from('books')
         .select('content, chapter_title, objectives')
@@ -104,11 +98,9 @@ serve(async (req) => {
         );
       }
 
-      // Combine all paragraphs content
       chapterContent = chapterData.map(p => p.content).join('\n\n');
       chapterTitle = chapterData[0]?.chapter_title || '';
       
-      // Get objectives from first paragraph that has them
       for (const paragraph of chapterData) {
         if (paragraph.objectives) {
           objectives = paragraph.objectives;
@@ -116,7 +108,6 @@ serve(async (req) => {
         }
       }
     } else {
-      // For the entire book (or multiple chapters)
       const { data: bookParagraphs, error: bookError } = await supabase
         .from('books')
         .select('content, chapter_title, objectives')
@@ -132,14 +123,12 @@ serve(async (req) => {
         );
       }
 
-      // Take a subset of paragraphs to avoid too large requests
       const maxParagraphs = 10;
       const selectedParagraphs = bookParagraphs.slice(0, maxParagraphs);
       
       chapterContent = selectedParagraphs.map(p => p.content).join('\n\n');
       chapterTitle = "Multiple Chapters";
       
-      // Get objectives from first paragraph that has them
       for (const paragraph of selectedParagraphs) {
         if (paragraph.objectives) {
           objectives = paragraph.objectives;
@@ -148,16 +137,14 @@ serve(async (req) => {
       }
     }
 
-    // Parse objectives into an array by splitting on newlines and/or bullet points
     if (objectives) {
       objectivesArray = objectives
         .split(/\n|-|\*/)
         .map(obj => obj.trim())
-        .filter(obj => obj.length > 10); // Filter out empty or very short lines
+        .filter(obj => obj.length > 10);
     }
 
     if (objectivesArray.length === 0) {
-      // If no objectives found, extract them from content using a simple heuristic
       const objectivesSection = chapterContent.match(/doelstelling(en)?:?\s*([\s\S]*?)(?=\n\n|$)/i);
       if (objectivesSection && objectivesSection[2]) {
         objectivesArray = objectivesSection[2]
@@ -166,21 +153,17 @@ serve(async (req) => {
           .filter(obj => obj.length > 10);
       }
       
-      // If still no objectives, create some based on section headers or bold terms
       if (objectivesArray.length === 0) {
         const boldTerms = chapterContent.match(/\*\*(.*?)\*\*/g)?.map(term => term.replace(/\*\*/g, '')) || [];
         const sectionHeaders = chapterContent.match(/^#+\s+(.*?)$/gm)?.map(header => header.replace(/^#+\s+/, '')) || [];
         
-        // Use section headers if available, otherwise bold terms
         const terms = sectionHeaders.length > 0 ? sectionHeaders : boldTerms;
         
         if (terms.length > 0) {
-          // Convert the top 5 terms into pseudo-objectives
           objectivesArray = terms.slice(0, 5).map(term => 
             `Na het bestuderen van dit hoofdstuk begrijp je het concept "${term}" en kun je dit toepassen in de praktijk.`
           );
         } else {
-          // Last resort: create a generic objective
           objectivesArray = ["Na het bestuderen van dit hoofdstuk begrijp je de belangrijkste concepten en kun je deze toepassen in de praktijk."];
         }
       }
@@ -188,7 +171,6 @@ serve(async (req) => {
 
     console.log(`Found ${objectivesArray.length} learning objectives`);
     
-    // Implement batch processing for objectives
     const totalObjectives = objectivesArray.length;
     const maxBatches = Math.ceil(totalObjectives / batchSize);
     
@@ -204,7 +186,6 @@ serve(async (req) => {
       );
     }
     
-    // Select objectives for this batch
     const startIndex = batchIndex * batchSize;
     const endIndex = Math.min(startIndex + batchSize, totalObjectives);
     const batchObjectives = objectivesArray.slice(startIndex, endIndex);
@@ -227,12 +208,10 @@ serve(async (req) => {
       );
     }
     
-    // Build the prompt for OpenAI focusing on application-based questions
     const objectivesForPrompt = batchObjectives.join('\n- ');
     const totalQuestionsExpected = batchObjectives.length * questionsPerObjective;
     
-    // Limit chapter content to avoid token limit issues
-    const maxContentLength = 6000; // Reduced from 8000 to ensure we don't hit token limits
+    const maxContentLength = 6000;
     let contentForPrompt = chapterContent;
     if (contentForPrompt.length > maxContentLength) {
       contentForPrompt = contentForPrompt.substring(0, maxContentLength);
@@ -274,7 +253,7 @@ C) Het aantal bezoekers op de website
 D) Het aantal volgers op sociale media
 Correct antwoord: A - Conversie verwijst naar het aantal bezoekers dat een gewenste actie onderneemt.
 
-Genereer ${questionsPerObjective} uitdagende vragen per leerdoelstelling in de volgende lijst:
+Genereer PRECIES ${questionsPerObjective} uitdagende vragen per leerdoelstelling in de volgende lijst:
 - ${objectivesForPrompt}
 
 Boektitel: ${bookTitle}
@@ -283,7 +262,7 @@ Hoofdstuktitel: ${chapterTitle}
 Inhoud:
 ${contentForPrompt}
 
-Genereer in totaal ongeveer ${totalQuestionsExpected} quizvragen. Elke vraag moet de volgende structuur hebben:
+Genereer in totaal PRECIES ${totalQuestionsExpected} quizvragen (${questionsPerObjective} per leerdoelstelling). Elke vraag moet de volgende structuur hebben:
 {
   "question": "De vraag hier",
   "options": ["Optie A", "Optie B", "Optie C", "Optie D"],
@@ -293,10 +272,9 @@ Genereer in totaal ongeveer ${totalQuestionsExpected} quizvragen. Elke vraag moe
   "questionType": "Scenario/Case/Data-interpretatie/Vergelijkende analyse/Prioritering" // Type vraag dat bij deze leerdoelstelling past
 }
 
-Geef alleen de JSON-array terug, geen omliggende tekst.
+Geef alleen de JSON-array terug, geen omliggende tekst. Het is HEEL BELANGRIJK dat je PRECIES ${questionsPerObjective} vragen per leerdoelstelling genereert, niet meer en niet minder.
 `;
 
-    // Call OpenAI API
     console.log(`Calling OpenAI API to generate questions for batch ${batchIndex + 1}/${maxBatches}`);
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -328,13 +306,10 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
 
     const aiResponse = responseData.choices[0].message.content;
     
-    // Parse the response to extract the JSON array of questions
     let questions;
     try {
-      // Try to parse the entire response as JSON
       questions = JSON.parse(aiResponse);
       
-      // If it's not an array, try to extract JSON from the text
       if (!Array.isArray(questions)) {
         const jsonMatch = aiResponse.match(/\[\s*\{.*\}\s*\]/s);
         if (jsonMatch) {
@@ -347,10 +322,9 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
       console.error('Error parsing AI response:', error);
       console.log('Raw AI response:', aiResponse);
       
-      // Attempt more aggressive JSON extraction
       try {
         const fixedJson = aiResponse
-          .replace(/^```json/g, '') // Remove markdown code block markers
+          .replace(/^```json/g, '')
           .replace(/```$/g, '')
           .trim();
         questions = JSON.parse(fixedJson);
@@ -366,7 +340,6 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
       }
     }
 
-    // Ensure response is an array
     if (!Array.isArray(questions)) {
       return new Response(
         JSON.stringify({ 
@@ -378,24 +351,25 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
       );
     }
 
-    // Calculate answer distribution for debugging
+    if (questions.length > totalQuestionsExpected) {
+      console.log(`Trimming questions from ${questions.length} to ${totalQuestionsExpected}`);
+      questions = questions.slice(0, totalQuestionsExpected);
+    }
+
     const answerDistribution = questions.reduce((dist, q) => {
       const letter = ['A', 'B', 'C', 'D'][q.correctAnswer];
       dist[letter] = (dist[letter] || 0) + 1;
       return dist;
     }, { A: 0, B: 0, C: 0, D: 0 });
 
-    // Count question types for analytics
     const questionTypeDistribution = questions.reduce((dist, q) => {
       const type = q.questionType || 'Onbekend';
       dist[type] = (dist[type] || 0) + 1;
       return dist;
     }, {});
 
-    // Ensure each question has an objective
     const questionsWithObjectives = questions.map((q, index) => {
       if (!q.objective) {
-        // If no objective is specified, assign to most likely objective based on question content
         const bestMatchIndex = batchObjectives.findIndex(obj => 
           q.question.toLowerCase().includes(obj.toLowerCase().substring(0, 20)));
         
@@ -404,9 +378,7 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
           batchObjectives[Math.floor(index / questionsPerObjective) % batchObjectives.length];
       }
       
-      // Ensure questionType field exists
       if (!q.questionType) {
-        // Basic classification based on question content
         if (q.question.match(/scenario|situatie|case|geval/i)) {
           q.questionType = 'Scenario';
         } else if (q.question.match(/data|metriek|analyse|statistiek/i)) {
@@ -423,7 +395,6 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
       return q;
     });
 
-    // Group questions by objective for analysis
     const questionsByObjective = batchObjectives.map(objective => {
       const objQuestions = questionsWithObjectives.filter(q => q.objective === objective);
       return {
@@ -436,7 +407,6 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
       };
     });
 
-    // Prepare the response
     const responsePayload = {
       success: true,
       questions: questionsWithObjectives,
@@ -458,7 +428,6 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
       }
     };
 
-    // Add debug info if requested
     if (debug) {
       responsePayload.debug = {
         prompt,

@@ -40,17 +40,14 @@ const QuizDebug = ({
   const [isOpen, setIsOpen] = useState(false);
   const [apiDataOpen, setApiDataOpen] = useState<string | null>(null);
   
-  // Only show debug panel in development
-  const debugMode = import.meta.env.DEV;
-  
-  if (!debugMode) return null;
+  // Removed debugMode check to make this component visible to all users
   
   return (
     <Card className="mt-8 border-dashed border-gray-300 bg-gray-50/50">
       <CardHeader className="py-2">
         <CardTitle className="flex items-center text-sm text-muted-foreground cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
           <Bug className="w-4 h-4 mr-2" />
-          <span>Debug Info</span>
+          <span>Quiz Informatie</span>
           {isOpen ? (
             <ChevronUp className="ml-auto h-4 w-4" />
           ) : (
@@ -94,7 +91,7 @@ const QuizDebug = ({
                   {openAIPrompt && (
                     <AccordionItem value="prompt">
                       <AccordionTrigger className="text-xs py-2 px-3 bg-gray-100 hover:bg-gray-200 rounded-t">
-                        API Prompt
+                        OpenAI Prompt
                       </AccordionTrigger>
                       <AccordionContent className="bg-gray-800 text-gray-100 p-2 rounded-b overflow-auto max-h-60">
                         <pre className="text-xs whitespace-pre-wrap">{openAIPrompt}</pre>
@@ -104,7 +101,7 @@ const QuizDebug = ({
                   {openAIResponse && (
                     <AccordionItem value="response">
                       <AccordionTrigger className="text-xs py-2 px-3 bg-gray-100 hover:bg-gray-200 rounded-t mt-2">
-                        API Response
+                        OpenAI Reactie
                       </AccordionTrigger>
                       <AccordionContent className="bg-gray-800 text-gray-100 p-2 rounded-b overflow-auto max-h-60">
                         <pre className="text-xs whitespace-pre-wrap">{typeof openAIResponse === 'string' ? openAIResponse : JSON.stringify(openAIResponse, null, 2)}</pre>

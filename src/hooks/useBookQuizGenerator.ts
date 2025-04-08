@@ -1,10 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { QuizQuestion } from '@/hooks/useQuiz';
 
-// Update the existing QuizQuestion interface or extend it
 export interface EnhancedQuizQuestion extends QuizQuestion {
   objective: string | null;
   questionType: string | null;
@@ -46,7 +44,6 @@ export const useBookQuizGenerator = ({
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const [allQuestions, setAllQuestions] = useState<EnhancedQuizQuestion[]>([]);
 
-  // Format questions from API response
   const formatQuestions = (rawQuestions: any[]): EnhancedQuizQuestion[] => {
     if (!Array.isArray(rawQuestions)) return [];
     
@@ -76,7 +73,6 @@ export const useBookQuizGenerator = ({
     });
   };
 
-  // Process a batch of questions
   const processBatch = async (batchIndex: number, questionsPerObjective: number = 3) => {
     if (!bookId) {
       setQuizError('Geen boek geselecteerd om quiz te genereren');
@@ -86,7 +82,6 @@ export const useBookQuizGenerator = ({
     try {
       addLog(`Processing batch ${batchIndex + 1}`);
       
-      // Generate questions
       const endpoint = isOnlineMarketing 
         ? 'generate-online-marketing-quiz' 
         : 'generate-sales-question';
@@ -96,7 +91,7 @@ export const useBookQuizGenerator = ({
         questionsPerObjective,
         debug: true,
         batchIndex,
-        batchSize: 10 // Process 10 objectives at a time
+        batchSize: 10
       };
       
       if (chapterId) payload.chapterId = chapterId;
@@ -120,7 +115,6 @@ export const useBookQuizGenerator = ({
         return false;
       }
       
-      // Save debug data
       if (data.debug) {
         setDebugData(data.debug);
         
@@ -136,7 +130,6 @@ export const useBookQuizGenerator = ({
           setQuestionTypeDistribution(data.debug.questionTypeDistribution);
         }
         
-        // Add OpenAI prompt and response to debug data
         if (data.debug.prompt) {
           setOpenAIPrompt(data.debug.prompt);
         }
@@ -146,10 +139,8 @@ export const useBookQuizGenerator = ({
         }
       }
       
-      // Process returned questions
       const formattedQuestions = formatQuestions(data.questions);
       
-      // Update batch progress
       if (data.metadata) {
         setBatchProgress({
           currentBatch: data.metadata.currentBatch,
@@ -160,11 +151,9 @@ export const useBookQuizGenerator = ({
         });
       }
       
-      // Add new questions to the existing ones
       setAllQuestions(prevQuestions => [...prevQuestions, ...formattedQuestions]);
       setQuestions(prevQuestions => [...prevQuestions, ...formattedQuestions]);
       
-      // Store questions by objective information
       if (data.metadata?.questionsByObjective) {
         setQuestionsByObjective(prev => {
           if (!prev) return data.metadata.questionsByObjective;
@@ -174,7 +163,6 @@ export const useBookQuizGenerator = ({
       
       addLog(`Added ${formattedQuestions.length} questions from batch ${batchIndex + 1}`);
       
-      // Return whether there are more batches to process
       return !data.metadata?.isLastBatch;
       
     } catch (err) {
@@ -184,7 +172,6 @@ export const useBookQuizGenerator = ({
     }
   };
 
-  // Start quiz generation
   const startQuizGeneration = async (questionsPerObjective: number = 3) => {
     if (!bookId) {
       setQuizError('Geen boek geselecteerd om quiz te genereren');
@@ -201,7 +188,6 @@ export const useBookQuizGenerator = ({
     setBatchProgress(null);
     
     try {
-      // First, try to get objectives directly from books table if chapterId is provided
       if (chapterId) {
         try {
           const { data, error } = await supabase
@@ -220,12 +206,10 @@ export const useBookQuizGenerator = ({
         }
       }
       
-      // Process first batch
       addLog('Starting batch processing');
       let batchIndex = 0;
       let hasMoreBatches = await processBatch(batchIndex, questionsPerObjective);
       
-      // Process remaining batches if needed
       while (hasMoreBatches) {
         batchIndex++;
         hasMoreBatches = await processBatch(batchIndex, questionsPerObjective);
