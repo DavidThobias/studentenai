@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { Loader2, Brain, Eye, EyeOff, ArrowRight, Bug } from "lucide-react";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import Quiz, { QuizQuestion } from "./Quiz";
+import QuizDebug from "./QuizDebug";
 
 interface QuestionData {
   question: string;
@@ -348,9 +348,9 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
   const defaultBatchProgress = {
     currentBatch: 0,
     totalBatches: 1,
-    processedObjectives: 0,  // Changed from processedTerms
-    totalObjectives: 0,      // Changed from totalTerms
-    startTime: Date.now()    // Added startTime to match the interface
+    processedObjectives: 0,  
+    totalObjectives: 0,      
+    startTime: Date.now()    
   };
 
   return (
@@ -619,6 +619,21 @@ const SalesQuizQuestion = ({ showDebug = true, bookId }: SalesQuizQuestionProps)
               </Button>
             </div>
           )}
+          
+          <div className="mt-4">
+            <QuizDebug
+              bookId={bookId || null}
+              chapterId={null}
+              paragraphId={null}
+              stateLog={stateLog}
+              questionsCount={questions.length}
+              currentQuestionIndex={currentQuestionIndex}
+              isGenerating={isGenerating}
+              debugData={debugData}
+              openAIPrompt={debugData?.prompt}
+              openAIResponse={debugData?.response}
+            />
+          </div>
         </div>
       )}
     </div>

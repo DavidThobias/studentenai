@@ -41,6 +41,8 @@ export const useBookQuizGenerator = ({
   const [objectivesArray, setObjectivesArray] = useState<string[]>([]);
   const [questionsByObjective, setQuestionsByObjective] = useState<any>(null);
   const [questionTypeDistribution, setQuestionTypeDistribution] = useState<any>(null);
+  const [openAIPrompt, setOpenAIPrompt] = useState<string | null>(null);
+  const [openAIResponse, setOpenAIResponse] = useState<any>(null);
 
   // Format questions from API response
   const formatQuestions = (rawQuestions: any[]): EnhancedQuizQuestion[] => {
@@ -83,6 +85,8 @@ export const useBookQuizGenerator = ({
     setQuizError(null);
     setQuestions([]);
     setObjectivesArray([]);
+    setOpenAIPrompt(null);
+    setOpenAIResponse(null);
     
     try {
       // First, try to get objectives directly from books table if chapterId is provided
@@ -150,6 +154,15 @@ export const useBookQuizGenerator = ({
         if (data.debug.questionTypeDistribution) {
           setQuestionTypeDistribution(data.debug.questionTypeDistribution);
         }
+        
+        // Add OpenAI prompt and response to debug data
+        if (data.debug.prompt) {
+          setOpenAIPrompt(data.debug.prompt);
+        }
+        
+        if (data.debug.response) {
+          setOpenAIResponse(data.debug.response);
+        }
       }
       
       // Process returned questions
@@ -193,7 +206,9 @@ export const useBookQuizGenerator = ({
     questionsByObjective,
     questionTypeDistribution,
     startQuizGeneration,
-    debugData
+    debugData,
+    openAIPrompt,
+    openAIResponse
   };
 };
 

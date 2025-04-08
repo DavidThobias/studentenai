@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
-import { Code, Bug, ChevronDown, ChevronUp } from "lucide-react";
+import { Code, Bug, ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
 import { BatchProgress } from '@/hooks/useBookQuizGenerator';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface QuizDebugProps {
   stateLog?: string[];
@@ -18,6 +19,8 @@ interface QuizDebugProps {
   isGenerating?: boolean;
   paragraphsCount?: number;
   batchProgress?: BatchProgress;
+  openAIPrompt?: string;
+  openAIResponse?: any;
 }
 
 const QuizDebug = ({
@@ -31,9 +34,12 @@ const QuizDebug = ({
   currentQuestionIndex = 0,
   isGenerating = false,
   paragraphsCount = 0,
-  batchProgress
+  batchProgress,
+  openAIPrompt,
+  openAIResponse
 }: QuizDebugProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [apiDataOpen, setApiDataOpen] = useState<string | null>(null);
   
   // Only show debug panel in development or with debug param in URL
   const debugMode = import.meta.env.DEV || new URLSearchParams(window.location.search).get('debug') === 'true';
@@ -87,6 +93,42 @@ const QuizDebug = ({
                     <div key={i} className="text-xs opacity-80 whitespace-pre-wrap">{log}</div>
                   ))}
                 </div>
+              </div>
+            )}
+            
+            {(openAIPrompt || openAIResponse) && (
+              <div className="mb-4">
+                <h4 className="font-semibold flex items-center mb-2">
+                  <Eye className="h-3 w-3 mr-1" /> OpenAI API Data
+                </h4>
+                <Accordion 
+                  type="single" 
+                  collapsible 
+                  className="w-full"
+                  value={apiDataOpen || undefined}
+                  onValueChange={(value) => setApiDataOpen(value)}
+                >
+                  {openAIPrompt && (
+                    <AccordionItem value="prompt">
+                      <AccordionTrigger className="text-xs py-2 px-3 bg-gray-100 hover:bg-gray-200 rounded-t">
+                        API Prompt
+                      </AccordionTrigger>
+                      <AccordionContent className="bg-gray-800 text-gray-100 p-2 rounded-b overflow-auto max-h-60">
+                        <pre className="text-xs whitespace-pre-wrap">{openAIPrompt}</pre>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+                  {openAIResponse && (
+                    <AccordionItem value="response">
+                      <AccordionTrigger className="text-xs py-2 px-3 bg-gray-100 hover:bg-gray-200 rounded-t mt-2">
+                        API Response
+                      </AccordionTrigger>
+                      <AccordionContent className="bg-gray-800 text-gray-100 p-2 rounded-b overflow-auto max-h-60">
+                        <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(openAIResponse, null, 2)}</pre>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+                </Accordion>
               </div>
             )}
             
