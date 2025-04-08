@@ -38,12 +38,13 @@ export const useBookQuizGenerator = ({
   const [objectives, setObjectives] = useState<string | null>(null);
   const [debugData, setDebugData] = useState<any>({});
   const [objectivesArray, setObjectivesArray] = useState<string[]>([]);
-  const [questionsByObjective, setQuestionsByObjective] = useState<any>(null);
+  const [questionsByObjective, setQuestionsByObjective] = useState<Record<string, number> | null>(null);
   const [questionTypeDistribution, setQuestionTypeDistribution] = useState<any>(null);
   const [openAIPrompt, setOpenAIPrompt] = useState<string | null>(null);
   const [openAIResponse, setOpenAIResponse] = useState<any>(null);
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const [allQuestions, setAllQuestions] = useState<EnhancedQuizQuestion[]>([]);
+  const [maxQuestionsPerObjective, setMaxQuestionsPerObjective] = useState(3);
 
   const formatQuestions = (rawQuestions: any[]): EnhancedQuizQuestion[] => {
     if (!Array.isArray(rawQuestions)) return [];
@@ -100,88 +101,102 @@ export const useBookQuizGenerator = ({
       
       addLog(`Sending batch payload to ${endpoint}: ${JSON.stringify(payload)}`);
       
-      const { data, error } = await supabase.functions.invoke(endpoint, {
-        body: payload
-      });
-      
-      if (error) {
-        console.error(`Error calling ${endpoint}:`, error);
-        setQuizError(`Er is een fout opgetreden: ${error.message}`);
-        return false;
-      }
-      
-      if (!data || data.success === false) {
-        addLog(`No valid data returned from ${endpoint}`);
-        setQuizError('Er is een fout opgetreden bij het ophalen van de quizvragen');
-        return false;
-      }
-      
-      if (data.debug) {
-        setDebugData(data.debug);
-        
-        if (data.debug.objectives) {
-          setObjectives(data.debug.objectives);
-        }
-        
-        if (data.debug.allObjectives && Array.isArray(data.debug.allObjectives)) {
-          setObjectivesArray(data.debug.allObjectives);
-        }
-        
-        if (data.debug.questionTypeDistribution) {
-          setQuestionTypeDistribution(data.debug.questionTypeDistribution);
-        }
-        
-        if (data.debug.prompt) {
-          setOpenAIPrompt(data.debug.prompt);
-        }
-        
-        if (data.debug.response) {
-          setOpenAIResponse(data.debug.response);
-        }
-      }
-      
-      const formattedQuestions = formatQuestions(data.questions);
-      
-      if (data.metadata) {
-        setBatchProgress({
-          currentBatch: data.metadata.currentBatch,
-          totalBatches: data.metadata.totalBatches,
-          processedObjectives: data.metadata.processedObjectives,
-          totalObjectives: data.metadata.totalObjectives,
-          startTime: batchProgress?.startTime || Date.now()
-        });
-      }
-      
-      setAllQuestions(prevQuestions => [...prevQuestions, ...formattedQuestions]);
-      
-      if (data.metadata?.questionsByObjective) {
-        const questionsByObjectiveTracking = questionsByObjective || {};
-        
-        const limitedQuestions = formattedQuestions.filter(q => {
-          if (!q.objective) return true;
-          
-          if (!questionsByObjectiveTracking[q.objective]) {
-            questionsByObjectiveTracking[q.objective] = 0;
-          }
-          
-          if (questionsByObjectiveTracking[q.objective] >= 3) {
-            return false;
-          }
-          
-          questionsByObjectiveTracking[q.objective]++;
-          return true;
+      try {
+        const { data, error } = await supabase.functions.invoke(endpoint, {
+          body: payload
         });
         
-        setQuestions(prevQuestions => [...prevQuestions, ...limitedQuestions]);
-        setQuestionsByObjective(questionsByObjectiveTracking);
+        if (error) {
+          console.error(`Error calling ${endpoint}:`, error);
+          setQuizError(`Er is een fout opgetreden: ${error.message}`);
+          return false;
+        }
         
-        addLog(`Added ${limitedQuestions.length} questions (limited to 3 per objective) from batch ${batchIndex + 1}`);
-      } else {
-        setQuestions(prevQuestions => [...prevQuestions, ...formattedQuestions]);
-        addLog(`Added ${formattedQuestions.length} questions from batch ${batchIndex + 1} (no objective tracking)`);
+        if (!data || data.success === false) {
+          addLog(`No valid data returned from ${endpoint}`);
+          if (data?.error) {
+            addLog(`API error: ${data.error}`);
+            setQuizError(`Er is een fout opgetreden: ${data.error}`);
+          } else {
+            setQuizError('Er is een fout opgetreden bij het ophalen van de quizvragen');
+          }
+          return false;
+        }
+        
+        if (data.debug) {
+          setDebugData(data.debug);
+          
+          if (data.debug.objectives) {
+            setObjectives(data.debug.objectives);
+          }
+          
+          if (data.debug.allObjectives && Array.isArray(data.debug.allObjectives)) {
+            setObjectivesArray(data.debug.allObjectives);
+          }
+          
+          if (data.debug.questionTypeDistribution) {
+            setQuestionTypeDistribution(data.debug.questionTypeDistribution);
+          }
+          
+          if (data.debug.prompt) {
+            setOpenAIPrompt(data.debug.prompt);
+          }
+          
+          if (data.debug.response) {
+            setOpenAIResponse(data.debug.response);
+          }
+        }
+        
+        const formattedQuestions = formatQuestions(data.questions);
+        
+        if (data.metadata) {
+          setBatchProgress({
+            currentBatch: data.metadata.currentBatch,
+            totalBatches: data.metadata.totalBatches,
+            processedObjectives: data.metadata.processedObjectives,
+            totalObjectives: data.metadata.totalObjectives,
+            startTime: batchProgress?.startTime || Date.now()
+          });
+        }
+        
+        // Always add all questions to the allQuestions array for statistics
+        setAllQuestions(prevQuestions => [...prevQuestions, ...formattedQuestions]);
+        
+        // Filter questions by objective to ensure we only include maxQuestionsPerObjective per objective
+        if (data.metadata?.questionsByObjective) {
+          const questionsByObjectiveTracking = questionsByObjective || {};
+          
+          const limitedQuestions = formattedQuestions.filter(q => {
+            if (!q.objective) return true;
+            
+            if (!questionsByObjectiveTracking[q.objective]) {
+              questionsByObjectiveTracking[q.objective] = 0;
+            }
+            
+            if (questionsByObjectiveTracking[q.objective] >= maxQuestionsPerObjective) {
+              return false;
+            }
+            
+            questionsByObjectiveTracking[q.objective]++;
+            return true;
+          });
+          
+          setQuestions(prevQuestions => [...prevQuestions, ...limitedQuestions]);
+          setQuestionsByObjective(questionsByObjectiveTracking);
+          
+          addLog(`Added ${limitedQuestions.length} questions (limited to ${maxQuestionsPerObjective} per objective) from batch ${batchIndex + 1}`);
+        } else {
+          setQuestions(prevQuestions => [...prevQuestions, ...formattedQuestions]);
+          addLog(`Added ${formattedQuestions.length} questions from batch ${batchIndex + 1} (no objective tracking)`);
+        }
+        
+        return data.metadata?.isLastBatch === false;
+        
+      } catch (err) {
+        console.error(`Error calling ${endpoint}:`, err);
+        setQuizError(`Er is een fout opgetreden bij het ophalen van batch ${batchIndex + 1}: ${err instanceof Error ? err.message : String(err)}`);
+        return false;
       }
-      
-      return !data.metadata?.isLastBatch;
       
     } catch (err) {
       console.error('Error in processBatch:', err);
@@ -205,6 +220,7 @@ export const useBookQuizGenerator = ({
     setOpenAIResponse(null);
     setBatchProgress(null);
     setQuestionsByObjective(null);
+    setMaxQuestionsPerObjective(questionsPerObjective);
     
     try {
       if (chapterId) {
@@ -229,9 +245,20 @@ export const useBookQuizGenerator = ({
       let batchIndex = 0;
       let hasMoreBatches = await processBatch(batchIndex, questionsPerObjective);
       
-      while (hasMoreBatches) {
+      // Process batches until all are completed or there's an error
+      let maxIterations = 5; // Safety limit to prevent infinite loops
+      let currentIteration = 0;
+      
+      while (hasMoreBatches && currentIteration < maxIterations) {
         batchIndex++;
+        currentIteration++;
+        addLog(`Processing batch ${batchIndex}`);
         hasMoreBatches = await processBatch(batchIndex, questionsPerObjective);
+        
+        // Add a small delay between batch requests to avoid rate limiting
+        if (hasMoreBatches) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
       
       addLog('All batches processed successfully');
@@ -241,6 +268,11 @@ export const useBookQuizGenerator = ({
       
       addLog(`Final questions count: ${questions.length} from ${objectiveKeys.length} objectives`);
       addLog(`Questions per objective: ${JSON.stringify(finalQuestionsByObjective)}`);
+      
+      // If we didn't get any questions, show a clear error
+      if (questions.length === 0) {
+        setQuizError('Geen vragen konden worden gegenereerd. Probeer opnieuw of kies een ander hoofdstuk.');
+      }
       
     } catch (err) {
       console.error('Error in startQuizGeneration:', err);

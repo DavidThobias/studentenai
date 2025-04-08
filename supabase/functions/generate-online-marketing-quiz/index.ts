@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
@@ -201,7 +202,7 @@ serve(async (req) => {
             isLastBatch: true,
             totalObjectives,
             totalBatches: maxBatches,
-            processedObjectives: 0
+            processedObjectives: totalObjectives
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -209,6 +210,7 @@ serve(async (req) => {
     }
     
     const objectivesForPrompt = batchObjectives.join('\n- ');
+    // Fixed: Ensure we request exactly questionsPerObjective per objective
     const totalQuestionsExpected = batchObjectives.length * questionsPerObjective;
     
     const maxContentLength = 6000;
@@ -279,38 +281,43 @@ Belangrijk: Genereer EXACT ${totalQuestionsExpected} quizvragen, waarbij per lee
 
     const aiResponse = responseData.choices[0].message.content;
     
+    // Improved JSON parsing logic to handle markdown code blocks
     let questions;
     try {
-      questions = JSON.parse(aiResponse);
+      // First try direct parsing
+      try {
+        questions = JSON.parse(aiResponse);
+      } catch (initialError) {
+        // If that fails, try to extract JSON from markdown code blocks
+        const jsonMatch = aiResponse.match(/```(?:json)?\s*(\[\s*\{.*\}\s*\])\s*```/s);
+        if (jsonMatch && jsonMatch[1]) {
+          questions = JSON.parse(jsonMatch[1]);
+        } else {
+          // Try to find array pattern without code blocks
+          const arrayMatch = aiResponse.match(/\[\s*\{.*\}\s*\]/s);
+          if (arrayMatch) {
+            questions = JSON.parse(arrayMatch[0]);
+          } else {
+            throw new Error('Could not extract valid JSON from response');
+          }
+        }
+      }
       
       if (!Array.isArray(questions)) {
-        const jsonMatch = aiResponse.match(/\[\s*\{.*\}\s*\]/s);
-        if (jsonMatch) {
-          questions = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error('Response does not contain a valid JSON array');
-        }
+        throw new Error('Parsed response is not an array');
       }
     } catch (error) {
       console.error('Error parsing AI response:', error);
       console.log('Raw AI response:', aiResponse);
       
-      try {
-        const fixedJson = aiResponse
-          .replace(/^```json/g, '')
-          .replace(/```$/g, '')
-          .trim();
-        questions = JSON.parse(fixedJson);
-      } catch (e) {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Failed to parse questions from AI response',
-            rawResponse: aiResponse
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-        );
-      }
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Failed to parse questions from AI response',
+          rawResponse: aiResponse
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
 
     if (!Array.isArray(questions)) {
@@ -341,6 +348,7 @@ Belangrijk: Genereer EXACT ${totalQuestionsExpected} quizvragen, waarbij per lee
       return dist;
     }, {});
 
+    // Match questions to objectives more accurately
     const questionsWithObjectives = questions.map((q, index) => {
       if (!q.objective) {
         const bestMatchIndex = batchObjectives.findIndex(obj => 
@@ -368,6 +376,7 @@ Belangrijk: Genereer EXACT ${totalQuestionsExpected} quizvragen, waarbij per lee
       return q;
     });
 
+    // Create a summary of questions by objective
     const questionsByObjective = batchObjectives.map(objective => {
       const objQuestions = questionsWithObjectives.filter(q => q.objective === objective);
       return {
@@ -380,6 +389,7 @@ Belangrijk: Genereer EXACT ${totalQuestionsExpected} quizvragen, waarbij per lee
       };
     });
 
+    // Updated to track total processed objectives correctly
     const responsePayload = {
       success: true,
       questions: questionsWithObjectives,
