@@ -168,7 +168,7 @@ serve(async (req) => {
     // Random answer seed to prevent model bias toward specific letters
     const randomSeed = Math.floor(Math.random() * 10000);
 
-    // Improved OpenAI prompt with focus on balanced answer distribution and challenging questions
+    // Updated OpenAI prompt with focus on application-oriented questions and real-world scenarios
     const openAIPrompt = `
     Je bent een AI gespecialiseerd in het genereren van uitdagende educatieve meerkeuzevragen om gebruikers volledig inzicht te geven in een specifieke paragraaf uit een boek.
     
@@ -183,48 +183,53 @@ serve(async (req) => {
     
     PERFECTE VERDELING VAN ANTWOORDEN: Het is CRUCIAAL dat er een exacte en gelijke verdeling is tussen A, B, C en D als correcte antwoorden. Elk correct antwoord (A, B, C, D) moet precies 25% van de tijd voorkomen. Dit is een ABSOLUTE VEREISTE. Genereer de antwoorden puur willekeurig zonder voorkeur voor bepaalde letters. Random seed voor antwoordverdeling: ${randomSeed}. Controleer dit zorgvuldig voordat je je antwoord voltooit.
     
+    FOCUS OP TOEPASSING: ALLE vragen MOETEN gericht zijn op praktische toepassing van kennis, niet op definitie of begrip. Gebruik ALTIJD realistische praktijkscenario's, casussen of situaties waarin de leerstof toegepast moet worden. De vragen moeten testen of iemand de stof echt kan GEBRUIKEN in praktijksituaties.
+    
     MOEILIJKHEIDSGRAAD: ZEER HOOG. Maak de vragen extreem uitdagend door:
       - Complexe scenario's te creëren die dieper begrip vereisen
       - Gebruik van verfijnde nuances tussen antwoordopties
       - Toepassing van kennis in nieuwe, onverwachte contexten
       - Hogere cognitieve vaardigheden testen (kritisch analyseren, evalueren, creëren)
-      - Vragen over subtiele verbanden tussen concepten
+      - Vragen over subtiele verbanden tussen concepten in praktijksituaties
       - Misleidende maar plausibele antwoordopties toevoegen die diep inzicht testen
       - Abstract denken en inzicht vereisen om de juiste conclusies te trekken
     
     UITGEBREIDE UITLEG: Voor elke vraag moet een grondige uitleg worden gegeven die:
-      1. Begint met een duidelijke definitie van het concept of begrip
-      2. Daarna uitlegt waarom het correcte antwoord juist is 
-      3. Vervolgens specifiek beschrijft waarom elk onjuist antwoord fout is
-      4. Verwijst naar complexe toepassingssituaties
+      1. Begint met een duidelijke uitleg van het toegepaste principe of concept
+      2. Daarna uitlegt waarom het correcte antwoord juist is in deze specifieke situatie
+      3. Vervolgens specifiek beschrijft waarom elk onjuist antwoord fout is in deze context
+      4. Verwijst naar complexe toepassingssituaties in de praktijk
     
-    Diepgang: De vragen moeten zowel feitelijke kennis als diepgaand begrip testen (bijv. onderscheid tussen subtiele concepten, praktische toepassingen in complexe situaties).
+    PRAKTIJKSCENARIO'S: 100% van de vragen MOETEN gebaseerd zijn op realistische scenario's of casussen, NOOIT pure kennisvragen. Voorbeeld scenario's kunnen zijn:
+      - Een marketingmedewerker die een strategie moet kiezen
+      - Een verkoper die moet beslissen hoe te reageren op een klantbezwaar
+      - Een manager die moet bepalen welke leiderschapsstijl het meest effectief is
+      - Een professional die moet beoordelen welke actie in een complexe situatie de beste is
     
-    Scenario-gebaseerde vragen: Minstens 70% van de vragen moeten de stof in een realistische, complexe context plaatsen die kritisch denken vereist.
-    
-    Strikvragen: Voeg meerdere uitdagende strikvragen toe waarbij oppervlakkige lezing tot een verkeerd antwoord kan leiden. Deze vragen testen diepgaand begrip.
+    CASUÏSTIEK: Elke vraag moet beginnen met een korte maar informatierijke beschrijving van een praktijksituatie, gevolgd door een vraag die beoordeelt hoe de concepten uit de tekst toegepast moeten worden in die situatie.
     
     Correct geformatteerde JSON-uitvoer, met de volgende structuur:
     [
       {
-        "question": "Wat is een belangrijk kenmerk van een salesgerichte organisatie?",
+        "question": "Een marketingmanager bij een B2B-bedrijf merkt dat de conversie van leads naar klanten achterblijft bij de verwachtingen. Na analyse blijkt dat vooral in de laatste fase van het verkoopproces veel potentiële klanten afhaken. Welke salesgerichte aanpak zou in deze situatie het meest effectief zijn?",
         "options": [
-          "Er wordt nauwelijks met sales targets gewerkt.",
-          "Het verkoopresultaat staat centraal.",
-          "Verkopers worden niet afgerekend op prestaties.",
-          "Het product verkoopt zichzelf."
+          "Meer focus leggen op het werven van nieuwe leads om het verlies te compenseren.",
+          "Een gespecialiseerd team inzetten dat zich alleen richt op het laatste deel van de verkoopfunnel.",
+          "De klantgerichte benadering versterken door betere afstemming tussen marketing en sales.",
+          "Prijsverlagingen doorvoeren om twijfelende potentiële klanten over de streep te trekken."
         ],
-        "correct": "B",
-        "explanation": "Een salesgerichte organisatie wordt gekenmerkt door een sterke focus op verkoopresultaten. Het verkoopresultaat staat centraal betekent dat alle bedrijfsactiviteiten worden afgestemd op het behalen van omzetdoelstellingen. In de context van de vraag is antwoord B correct omdat salesgerichte organisaties juist wél met targets werken (in tegenstelling tot A), prestatiegerichtheid tonen (in tegenstelling tot C), en niet vertrouwen op passieve verkoop (in tegenstelling tot D)."
+        "correct": "C",
+        "explanation": "Bij een probleem in de laatste fase van het verkoopproces is een klantgerichte benadering waarbij marketing en sales samenwerken meestal het meest effectief. Dit zorgt voor een betere begeleiding van leads door de funnel. Het werven van meer leads (A) lost het onderliggende conversieprobleem niet op. Een gespecialiseerd team (B) kan effectief zijn maar is minder holistisch dan een geïntegreerde benadering. Prijsverlagingen (D) kunnen tijdelijk helpen maar lossen structurele problemen in het verkoopproces niet op en kunnen de margestructuur ondermijnen."
       }
     ]
     
     Belangrijk:
     Retourneer alleen de JSON-array, zonder extra uitleg of inleidende tekst.
     Bepaal het aantal vragen dynamisch op basis van de paragraaflengte en complexiteit.
-    De uitleg moet ALTIJD eerst het concept definiëren en daarna uitleggen hoe het van toepassing is.
+    De uitleg moet ALTIJD eerst het concept toelichten en daarna uitleggen hoe het van toepassing is.
     Controleer dat er een EXACTE gelijke verdeling is van A, B, C, D als correcte antwoorden.
-    Maak de foute antwoorden geloofwaardig en vergelijkbaar met het juiste antwoord.`;
+    Maak de foute antwoorden geloofwaardig en vergelijkbaar met het juiste antwoord.
+    ALLE vragen MOETEN praktijkgericht zijn, GEEN enkele kennisvraag.`;
 
     // Call OpenAI API with timeout handling
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');

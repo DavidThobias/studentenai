@@ -375,27 +375,28 @@ serve(async (req) => {
     
     console.log(`Processing batch ${batchIndex + 1}/${totalBatches} with ${boldedTermsToProcess.length} terms`);
 
-    // Updated system prompt with focus on challenging questions and subtle distractors
+    // Updated system prompt with stronger focus on application questions
     const systemPrompt = `Je bent een AI gespecialiseerd in het genereren van uitdagende meerkeuzevragen op HBO-niveau.
-    Creëer vragen die UITDAGEND zijn en kritisch denken vereisen. Test hoger-orde vaardigheden zoals analyse, toepassing en evaluatie.
+    Creëer vragen die UITSLUITEND TOEPASSINGSGERICHT zijn en kritisch denken vereisen. Test uitsluitend hoger-orde vaardigheden zoals analyse, toepassing en evaluatie.
     
     BELANGRIJKSTE VEREISTEN:
-    1. ECHT UITDAGENDE VRAGEN: Genereer vragen die een DIEP BEGRIP vereisen, geen simpele feiten.
-    2. SUBTIEL ONJUISTE ANTWOORDEN: Maak afleidende opties die GELOOFWAARDIG maar SUBTIEL ONJUIST zijn, bijvoorbeeld:
-       - Deels waar maar onvolledig
-       - Te breed of te specifiek
-       - Juiste redenering maar onjuiste conclusie
-       - Verward met verwante concepten
-    3. COMPLEXE SCENARIO'S: Gebruik realistische bedrijfscontexten die meerdere concepten integreren.
-    4. GEVARIEERDE VRAAGTYPEN: Inclusief berekeningen, tabellen, en afbeeldinginterpretatie waar relevant.
-    5. ANTWOORDVERDELING: Zorg voor gelijke verdeling van juiste antwoorden (25% A, 25% B, 25% C, 25% D).
+    1. UITSLUITEND TOEPASSINGSGERICHTE VRAGEN: Genereer ALLEEN vragen die de toepassing van kennis in praktische scenario's testen. GEEN begripsvragen of definitievragen.
+    2. ELKE VRAAG BEGINT MET EEN CASUS: Begin elke vraag met een realistische praktijksituatie waarin kennis moet worden toegepast.
+    3. SUBTIEL ONJUISTE ANTWOORDEN: Maak afleidende opties die GELOOFWAARDIG maar SUBTIEL ONJUIST zijn, bijvoorbeeld:
+       - Deels waar maar onvolledig in deze specifieke situatie
+       - Te breed of te specifiek voor het gegeven scenario
+       - Juiste redenering maar onjuiste conclusie in deze context
+       - Verward met verwante concepten die in andere situaties juist zouden zijn
+    4. COMPLEXE SCENARIO'S: Gebruik realistische bedrijfscontexten die meerdere concepten integreren.
+    5. GEVARIEERDE VRAAGTYPEN: Inclusief berekeningen, tabellen, en afbeeldinginterpretatie waar relevant.
+    6. ANTWOORDVERDELING: Zorg voor gelijke verdeling van juiste antwoorden (25% A, 25% B, 25% C, 25% D).
     
     Voor elke TERM maak je EXACT ÉÉN vraag die:
-    - De definitie combineert met praktische toepassing
-    - Verwarring kan veroorzaken met aanverwante begrippen
-    - Beroep doet op kritisch denken en analyse`;
+    - De toepassing van het concept in een praktijksituatie test
+    - Verwarring kan veroorzaken met aanverwante toepassingen
+    - Beroep doet op kritisch denken en analyse van de situatie`;
 
-    // Revised user prompt for more challenging questions
+    // Revised user prompt for application-focused questions
     let userPrompt;
     
     if (isSpecificParagraph && specificParagraphContent) {
@@ -407,31 +408,30 @@ serve(async (req) => {
       
       Inhoud van specifieke paragraaf: ${specificParagraphContent}
       
-      Genereer UITDAGENDE HBO-niveau vragen. MAAK EXACT ÉÉN VRAAG VOOR ELKE van deze begrippen uit deze paragraaf:
+      Genereer UITSLUITEND TOEPASSINGSGERICHTE vragen op HBO-niveau. MAAK EXACT ÉÉN VRAAG VOOR ELKE van deze begrippen uit deze paragraaf:
       ${boldedTermsToProcess.join(', ')}
       
       VRAAGVEREISTEN:
-      1. PRAKTIJK GEORIËNTEERD: Elke vraag moet een realistische business case of scenario bevatten.
-      2. VERWARRING CREËREN: Gebruik verwante concepten in de antwoordopties om DOELBEWUST verwarring te creëren.
-      3. SUBTIEL ONDERSCHEID: Het verschil tussen juiste en onjuiste antwoorden moet subtiel zijn.
-      4. GEÏNTEGREERDE KENNIS: Vraag naar relaties tussen concepten, niet naar individuele definities.
-      5. GEVARIEERDE FORMATS: Gebruik soms:
-         - Tabellen met data voor analyse
-         - Berekeningen die interpretatie vereisen
-         - Scenario's met meerdere variabelen
+      1. 100% PRAKTIJK GEORIËNTEERD: Elke vraag MOET een realistische business case of scenario bevatten en testen of de student het concept kan TOEPASSEN, NIET OF ZE HET BEGRIJPEN OF KENNEN.
+      2. GEEN DEFINITIE- OF BEGRIPSVRAGEN: Absoluut GEEN vragen stellen als "Wat betekent X?" of "Welke definitie past bij X?".
+      3. SIMULEER WERKSITUATIES: Plaats de student in een rol (marketeer, verkoper, manager) die beslissingen moet nemen.
+      4. SUBTIEL ONDERSCHEID: Het verschil tussen juiste en onjuiste antwoorden moet subtiel zijn binnen de context.
+      5. GEÏNTEGREERDE KENNIS: Vraag naar het toepassen van relaties tussen concepten in praktijksituaties.
+      
+      VOORBEELDSTRUCTUUR VOOR VRAGEN:
+      "Een marketingmanager bij een B2B-bedrijf merkt dat de conversie van leads naar klanten achterblijft. Welke salesgerichte aanpak zou in deze situatie het meest effectief zijn?"
       
       FOUTE ANTWOORDOPTIES:
       - Gebruik GEEN duidelijk foute antwoorden
-      - Maak OPTIES DIE BIJNA JUIST ZIJN maar subtiel onjuist, bijvoorbeeld:
-        * Deels juist maar niet volledig
-        * Juiste conclusie maar onjuiste redenering
-        * Te specifiek of te algemeen
-        * Juist in een andere context maar onjuist in deze specifieke situatie
+      - Maak OPTIES DIE BIJNA JUIST ZIJN maar subtiel onjuist in de beschreven context, bijvoorbeeld:
+        * In een andere situatie correct, maar niet in deze specifieke casus
+        * Juiste strategie maar verkeerde timing of omstandigheden
+        * Te drastisch of te voorzichtig voor het beschreven probleem
       
       UITLEGSTRUCTUUR (beknopt):
-      1. Definitie van het concept (1 zin)
-      2. Waarom het juiste antwoord correct is (1-2 zinnen)
-      3. Korte uitleg waarom de andere opties incorrect zijn (1 zin voor alle opties samen)
+      1. Uitleg van hoe het concept in deze situatie toegepast moet worden (1 zin)
+      2. Waarom het juiste antwoord correct is in deze specifieke situatie (1-2 zinnen)
+      3. Korte uitleg waarom de andere opties incorrect zijn in deze context (1 zin voor alle opties samen)
       
       BELANGRIJK: Vermijd in de uitleg te refereren naar specifieke optie-letters (A, B, C, D) of de exacte tekst van een optie, omdat de volgorde kan wijzigen. Gebruik algemene termen als "het juiste antwoord" en "de onjuiste opties".
       
@@ -451,7 +451,7 @@ serve(async (req) => {
       BELANGRIJK:
       - Maak EXACT ÉÉN vraag per begrip
       - Zorg voor GELIJKE VERDELING van juiste antwoorden (A, B, C, D)
-      - Genereer vragen die DIEP BEGRIP testen, niet oppervlakkige kennis`;
+      - Genereer UITSLUITEND vragen die TOEPASSING testen, NOOIT begripsvragen`;
     } else {
       // For non-specific paragraphs, use a similar but adapted format
       userPrompt = `
@@ -461,31 +461,30 @@ serve(async (req) => {
       
       Inhoud: ${bookContent}
       
-      Genereer UITDAGENDE HBO-niveau vragen. MAAK EXACT ÉÉN VRAAG VOOR ELK van deze begrippen uit de tekst:
+      Genereer UITSLUITEND TOEPASSINGSGERICHTE vragen op HBO-niveau. MAAK EXACT ÉÉN VRAAG VOOR ELK van deze begrippen uit de tekst:
       ${boldedTermsToProcess.join(', ')}
       
       VRAAGVEREISTEN:
-      1. PRAKTIJK GEORIËNTEERD: Elke vraag moet een realistische business case of scenario bevatten.
-      2. VERWARRING CREËREN: Gebruik verwante concepten in de antwoordopties om DOELBEWUST verwarring te creëren.
-      3. SUBTIEL ONDERSCHEID: Het verschil tussen juiste en onjuiste antwoorden moet subtiel zijn.
-      4. GEÏNTEGREERDE KENNIS: Vraag naar relaties tussen concepten, niet naar individuele definities.
-      5. GEVARIEERDE FORMATS: Gebruik soms:
-         - Tabellen met data voor analyse
-         - Berekeningen die interpretatie vereisen
-         - Scenario's met meerdere variabelen
+      1. 100% PRAKTIJK GEORIËNTEERD: Elke vraag MOET een realistische business case of scenario bevatten en testen of de student het concept kan TOEPASSEN, NIET OF ZE HET BEGRIJPEN OF KENNEN.
+      2. GEEN DEFINITIE- OF BEGRIPSVRAGEN: Absoluut GEEN vragen stellen als "Wat betekent X?" of "Welke definitie past bij X?".
+      3. SIMULEER WERKSITUATIES: Plaats de student in een rol (marketeer, verkoper, manager) die beslissingen moet nemen.
+      4. SUBTIEL ONDERSCHEID: Het verschil tussen juiste en onjuiste antwoorden moet subtiel zijn binnen de context.
+      5. GEÏNTEGREERDE KENNIS: Vraag naar het toepassen van relaties tussen concepten in praktijksituaties.
+      
+      VOORBEELDSTRUCTUUR VOOR VRAGEN:
+      "Een marketingmanager bij een B2B-bedrijf merkt dat de conversie van leads naar klanten achterblijft. Welke salesgerichte aanpak zou in deze situatie het meest effectief zijn?"
       
       FOUTE ANTWOORDOPTIES:
       - Gebruik GEEN duidelijk foute antwoorden
-      - Maak OPTIES DIE BIJNA JUIST ZIJN maar subtiel onjuist, bijvoorbeeld:
-        * Deels juist maar niet volledig
-        * Juiste conclusie maar onjuiste redenering
-        * Te specifiek of te algemeen
-        * Juist in een andere context maar onjuist in deze specifieke situatie
+      - Maak OPTIES DIE BIJNA JUIST ZIJN maar subtiel onjuist in de beschreven context, bijvoorbeeld:
+        * In een andere situatie correct, maar niet in deze specifieke casus
+        * Juiste strategie maar verkeerde timing of omstandigheden
+        * Te drastisch of te voorzichtig voor het beschreven probleem
       
       UITLEGSTRUCTUUR (beknopt):
-      1. Definitie van het concept (1 zin)
-      2. Waarom het juiste antwoord correct is (1-2 zinnen)
-      3. Korte uitleg waarom de andere opties incorrect zijn (1 zin voor alle opties samen)
+      1. Uitleg van hoe het concept in deze situatie toegepast moet worden (1 zin)
+      2. Waarom het juiste antwoord correct is in deze specifieke situatie (1-2 zinnen)
+      3. Korte uitleg waarom de andere opties incorrect zijn in deze context (1 zin voor alle opties samen)
       
       BELANGRIJK: Vermijd in de uitleg te refereren naar specifieke optie-letters (A, B, C, D) of de exacte tekst van een optie, omdat de volgorde kan wijzigen. Gebruik algemene termen als "het juiste antwoord" en "de onjuiste opties".
       
@@ -505,7 +504,7 @@ serve(async (req) => {
       BELANGRIJK:
       - Maak EXACT ÉÉN vraag per begrip
       - Zorg voor GELIJKE VERDELING van juiste antwoorden (A, B, C, D)
-      - Genereer vragen die DIEP BEGRIP testen, niet oppervlakkige kennis`;
+      - Genereer UITSLUITEND vragen die TOEPASSING testen, NOOIT begripsvragen`;
     }
     
     // Log the prompt for debugging
