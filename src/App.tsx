@@ -9,16 +9,10 @@ import { AuthProvider } from "@/context/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import Learn from "./pages/Learn";
 import Books from "./pages/Books";
 import BookDetail from "./pages/BookDetail";
-import QuizPage from "./pages/QuizPage";
 import BookQuizPage from "./pages/BookQuizPage";
-import QuizGeneratorPage from "./pages/QuizGeneratorPage";
-import SummaryPage from "./pages/SummaryPage";
-import StructuredLearningPage from "./pages/StructuredLearningPage";
 import Auth from "./pages/Auth";
-import Layout from "./components/Layout";
 
 const queryClient = new QueryClient();
 
@@ -48,9 +42,7 @@ function App() {
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/books" element={
                   <ProtectedRoute>
-                    <Layout>
-                      <Books />
-                    </Layout>
+                    <Books />
                   </ProtectedRoute>
                 } />
                 <Route path="/books/:id" element={
@@ -58,40 +50,9 @@ function App() {
                     <BookDetail />
                   </ProtectedRoute>
                 } />
-                <Route path="/books/:id/summary" element={
-                  <ProtectedRoute>
-                    <SummaryPage />
-                  </ProtectedRoute>
-                } />
                 <Route path="/books/:id/quiz" element={
                   <ProtectedRoute>
                     <BookQuizPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/books/:id/structured-learning" element={
-                  <ProtectedRoute>
-                    <StructuredLearningPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/learn" element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Learn />
-                    </Layout>
-                  </ProtectedRoute>
-                } />
-                <Route path="/quiz-generator" element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <QuizGeneratorPage />
-                    </Layout>
-                  </ProtectedRoute>
-                } />
-                <Route path="/quiz" element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <QuizPage />
-                    </Layout>
                   </ProtectedRoute>
                 } />
                 <Route path="*" element={<NotFound />} />

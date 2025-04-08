@@ -20,7 +20,7 @@ serve(async (req) => {
   }
 
   try {
-    const { bookId, chapterId, paragraphId, debug = false } = await req.json();
+    const { bookId, chapterId, paragraphId, questionsPerObjective = 3, debug = false } = await req.json();
 
     console.log(`Generating online marketing quiz for book ${bookId}, chapter ${chapterId}, paragraph ${paragraphId}`);
 
@@ -89,14 +89,14 @@ serve(async (req) => {
       }
     } else if (chapterId) {
       // For an entire chapter
-      const { data: chapterContent, error: chapterError } = await supabase
+      const { data: chapterData, error: chapterError } = await supabase
         .from('books')
         .select('content, chapter_title, objectives')
         .eq('chapter_number', chapterId)
         .eq('book_title', bookTitle)
         .order('paragraph_number', { ascending: true });
 
-      if (chapterError || !chapterContent || chapterContent.length === 0) {
+      if (chapterError || !chapterData || chapterData.length === 0) {
         console.error('Error fetching chapter data:', chapterError);
         return new Response(
           JSON.stringify({ success: false, error: 'Chapter not found' }),
@@ -105,11 +105,11 @@ serve(async (req) => {
       }
 
       // Combine all paragraphs content
-      chapterContent = chapterContent.map(p => p.content).join('\n\n');
-      chapterTitle = chapterContent[0]?.chapter_title || '';
+      chapterContent = chapterData.map(p => p.content).join('\n\n');
+      chapterTitle = chapterData[0]?.chapter_title || '';
       
       // Get objectives from first paragraph that has them
-      for (const paragraph of chapterContent) {
+      for (const paragraph of chapterData) {
         if (paragraph.objectives) {
           objectives = paragraph.objectives;
           break;
@@ -196,66 +196,46 @@ serve(async (req) => {
       console.log(`Content truncated to ${maxContentLength} characters`);
     }
 
-    // Build the prompt for OpenAI focusing on objectives
+    // Build the prompt for OpenAI focusing on application-based questions
     const objectivesForPrompt = objectivesArray.join('\n- ');
-    const questionsPerObjective = 3; // Generate approximately 3 questions per objective
     const totalQuestionsExpected = objectivesArray.length * questionsPerObjective;
     
     const prompt = `
-Genereer meervoudige-keuzevragen op basis van de theorie en doelstellingen van het meegeleverde hoofdstuk. Zorg ervoor dat er voldoende vragen zijn om elk aspect van de theorie en elke doelstelling volledig te dekken. Genereer ongeveer ${questionsPerObjective} vragen per doelstelling, zodat de gebruiker elk concept grondig kan begrijpen.
+Genereer meervoudige-keuzevragen voor een quiz over online marketing. Focus in elke vraag op PRAKTISCHE TOEPASSING van de kennis, vermijd vragen die alleen om definities of pure kennis vragen.
 
-Kijk goed naar iedere doelstelling en bepaal welk type vraag het beste past bij die specifieke doelstelling. Niet elke doelstelling vereist elk type vraag. Stem het type vraag af op wat de doelstelling probeert te bereiken.
+Alle vragen moeten aan de volgende criteria voldoen:
+1. Praktisch: Stel scenario's en situaties voor waarin de kennis moet worden toegepast
+2. Bedrijfscontext: Gebruik echte bedrijfsnamen of realistische bedrijfsscenario's
+3. Beslissingsgericht: De student moet een beslissing nemen over wat de beste aanpak is
+4. Concreet: Vermijd abstracte concepten, focus op concrete acties en strategieën
+5. Uitdagend: De antwoordopties moeten plausibel zijn en echt onderscheidingsvermogen vereisen
 
-Gebruik verschillende vraagtypes zoals:
+Maak GEEN vragen die alleen om definities, theorieën of feiten vragen. De leerling moet kunnen laten zien dat ze de stof kunnen TOEPASSEN, niet alleen onthouden.
 
-1. Begripsvragen (Wat betekent dit model of begrip?)
-Voorbeeld:
-Wat betekent de 'B van Binden' in het 6B-model binnen digital marketing?
-A) De klant overtuigen om een aankoop te doen
-B) De klant stimuleren om terug te keren na een aankoop
-C) De klant informeren over het betaalproces
-D) De klant laten navigeren naar de website
-Correct antwoord: B – Binden gaat over het creëren van herhaalaankopen en klantloyaliteit.
+Gebruik hoofdzakelijk deze vraagtypes:
+1. Scenario-vragen: "Een webshop heeft het volgende probleem... Welke aanpak is het meest effectief?"
+2. Case-vragen: "Bedrijf X wil... Welke strategie past het beste bij hun doelstelling?"
+3. Data-interpretatie: "Uit de analytics blijkt dat... Wat zou je aanbevelen?"
+4. Vergelijkende analyse: "Welke van deze vier strategieën is het meest geschikt voor...?"
+5. Prioriteringsvragen: "Welke actie zou je EERST ondernemen om...?"
 
-2. Toepassingsvragen (Pas een model of begrip toe op een situatie)
-Voorbeeld:
-Je deelt via Instagram regelmatig video's waarin je jouw product demonstreert en uitlegt hoe je het gebruikt. Tot welke van de 4 E's van contentmarketing behoort dit?
-A) Entertain
-B) Engage
-C) Empower
-D) Educate
-Correct antwoord: D – Educate: je leert mensen hoe ze het product moeten gebruiken.
+Voorbeeld van een GOEDE vraag:
+Een kleine webshop met handgemaakte sieraden merkt dat bezoekers producten bekijken maar niet aankopen. Uit analyse blijkt dat 70% afhaakt bij het afrekenen. Welke maatregel zou waarschijnlijk het meest direct bijdragen aan een hogere conversie?
+A) Het toevoegen van meer productfoto's
+B) Het implementeren van een chatfunctie
+C) Het vereenvoudigen van het checkout-proces 
+D) Het starten met sociale media advertenties
+Correct antwoord: C - Aangezien bezoekers afhaken tijdens het afrekenen, zal het vereenvoudigen van dit proces direct impact hebben op de conversie.
 
-3. Reken-/datavragen (Gebruik data om een KPI of metric te berekenen)
-Voorbeeld:
-Een webshop had in maart 10.000 bezoekers en 250 bestellingen. Wat is het conversiepercentage?
-A) 2%
-B) 2,5%
-C) 5%
-D) 4%
-Correct antwoord: B – 250 / 10.000 = 0,025 → 2,5%
+Voorbeeld van een SLECHTE vraag (vermijd dit type):
+Wat betekent het begrip "conversie" in online marketing?
+A) Het aantal bezoekers dat een aankoop doet
+B) Het aantal klikken op een advertentie
+C) Het aantal bezoekers op de website
+D) Het aantal volgers op sociale media
+Correct antwoord: A - Conversie verwijst naar het aantal bezoekers dat een gewenste actie onderneemt.
 
-4. Vergelijkingsvragen (Wat is het verschil of overeenkomst tussen modellen?)
-Voorbeeld:
-Welke positioneringsstrategie van Treacy & Wiersema komt het meest overeen met de strategie 'Kostenleiderschap' van Porter?
-A) Customer Intimacy
-B) Product Leadership
-C) Operational Excellence
-D) Stuck in the Middle
-Correct antwoord: C – Operational Excellence focust, net als Kostenleiderschap, op efficiëntie en lage kosten.
-
-5. Interpretatievragen (Welk begrip past bij deze situatie?)
-Voorbeeld:
-Picnic innoveert in de supermarktbranche met een eigen logistiek systeem en unieke bezorgmethode. Op welk niveau in het businessmodel zit hun vernieuwing?
-A) Marketingoperatie
-B) Marketinginstrumenten
-C) Businessmodel
-D) Klantsegmentatie
-Correct antwoord: C – Ze veranderen fundamenteel hoe ze waarde leveren: dus op businessmodel-niveau.
-
-Elke vraag moet een realistisch scenario bevatten dat past bij het onderwerp van het hoofdstuk en op toepassingsniveau is, zodat de gebruiker de concepten in praktische situaties moet toepassen. Elke vraag heeft vier antwoordopties, waarvan één correct is. Maak de antwoorden misleidend: de foute opties moeten lijken op het correcte antwoord, maar subtiele fouten bevatten. Zorg dat de vragen duidelijk, grammaticaal correct en uitdagend zijn.
-
-Voor deze quiz focus je specifiek op de volgende leerdoelstellingen:
+Genereer ${questionsPerObjective} uitdagende vragen per leerdoelstelling in de volgende lijst:
 - ${objectivesForPrompt}
 
 Boektitel: ${bookTitle}
@@ -271,7 +251,7 @@ Genereer in totaal ongeveer ${totalQuestionsExpected} quizvragen. Elke vraag moe
   "correctAnswer": 0, // index van het correcte antwoord (0-3)
   "explanation": "Uitleg waarom dit het juiste antwoord is",
   "objective": "De leerdoelstelling waar deze vraag bij hoort",
-  "questionType": "Begrip/Toepassing/Rekenen/Vergelijking/Interpretatie" // Type vraag dat bij deze leerdoelstelling past
+  "questionType": "Scenario/Case/Data-interpretatie/Vergelijkende analyse/Prioritering" // Type vraag dat bij deze leerdoelstelling past
 }
 
 Geef alleen de JSON-array terug, geen omliggende tekst.
@@ -288,7 +268,7 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Je bent een online marketing expert en onderwijsspecialist die quizvragen ontwerpt om studenten te helpen leren.' },
+          { role: 'system', content: 'Je bent een expert in online marketing en onderwijsspecialist die praktische, op toepassing gerichte quizvragen ontwerpt.' },
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
@@ -388,16 +368,16 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
       // Ensure questionType field exists
       if (!q.questionType) {
         // Basic classification based on question content
-        if (q.question.match(/verschil|overeenkomst|vergelijk/i)) {
-          q.questionType = 'Vergelijking';
-        } else if (q.question.match(/betekent|definitie|wat is/i)) {
-          q.questionType = 'Begrip';
-        } else if (q.question.match(/berekent|percentage|aantal/i)) {
-          q.questionType = 'Rekenen';
-        } else if (q.question.match(/scenario|situatie|geval/i)) {
-          q.questionType = 'Interpretatie';
+        if (q.question.match(/scenario|situatie|case|geval/i)) {
+          q.questionType = 'Scenario';
+        } else if (q.question.match(/data|metriek|analyse|statistiek/i)) {
+          q.questionType = 'Data-interpretatie';
+        } else if (q.question.match(/vergelijk|verschil|overeenkomst/i)) {
+          q.questionType = 'Vergelijkende analyse';
+        } else if (q.question.match(/eerst|prioriteit|belangrijk/i)) {
+          q.questionType = 'Prioritering';
         } else {
-          q.questionType = 'Toepassing';
+          q.questionType = 'Case';
         }
       }
       

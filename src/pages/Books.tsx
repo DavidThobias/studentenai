@@ -5,20 +5,17 @@ import { Book, Search, ArrowLeft, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 interface BookData {
   id: number;
   book_title: string;
-  chapter_title?: string;
   author_name?: string;
 }
 
 const BooksPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
   const [books, setBooks] = useState<BookData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,7 +26,8 @@ const BooksPage = () => {
         setLoading(true);
         const { data, error } = await supabase
           .from('books')
-          .select('id, book_title, author_name');
+          .select('id, book_title, author_name')
+          .eq('book_title', 'Basisboek Online Marketing'); // Only fetch the Online Marketing book
         
         if (error) {
           throw error;
@@ -62,41 +60,25 @@ const BooksPage = () => {
     fetchBooks();
   }, []);
 
-  const handleCategoryChange = (value: string) => {
-    setSelectedCategory(value);
-  };
-
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
   };
-
-  const categories = [
-    { id: 'all', name: 'Alle categorieën' },
-    { id: 'biology', name: 'Biologie' },
-    { id: 'history', name: 'Geschiedenis' },
-    { id: 'physics', name: 'Natuurkunde' },
-    { id: 'math', name: 'Wiskunde' },
-    { id: 'literature', name: 'Literatuur' },
-    { id: 'sales', name: 'Verkoop' },
-  ];
 
   const filteredBooks = books.filter(book => {
     const matchesSearch = !searchQuery || 
       (book.book_title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
        book.author_name?.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    const matchesCategory = selectedCategory === 'all';
-    
-    return matchesSearch && matchesCategory;
+    return matchesSearch;
   });
 
   return (
     <div className="min-h-screen bg-background pt-28 pb-20 px-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <Link to="/learn" className="inline-flex items-center text-study-600 hover:text-study-700 transition-colors">
+          <Link to="/" className="inline-flex items-center text-study-600 hover:text-study-700 transition-colors">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Terug naar leeropties
+            Terug naar startpagina
           </Link>
         </div>
 
@@ -122,26 +104,12 @@ const BooksPage = () => {
               onChange={handleSearchChange}
             />
           </div>
-          <div className="w-full md:w-64">
-            <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Categorie" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {loading ? (
             // Loading state
-            Array.from({ length: 4 }).map((_, index) => (
+            Array.from({ length: 1 }).map((_, index) => (
               <div 
                 key={`loading-${index}`} 
                 className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-100 h-[300px] animate-pulse"
@@ -165,22 +133,18 @@ const BooksPage = () => {
               >
                 <Link to={`/books/${book.id}`} className="block">
                   <div className="aspect-[3/4] bg-study-50 flex items-center justify-center relative overflow-hidden">
-                    {book.book_title?.toLowerCase().includes('sales') ? (
-                      <img 
-                        src="https://ncipejuazrewiizxtkcj.supabase.co/storage/v1/object/public/afbeeldingen//shopping.webp" 
-                        alt={`${book.book_title} cover`} 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <BookOpen className="h-20 w-20 text-study-200" />
-                    )}
+                    <img 
+                      src="https://ncipejuazrewiizxtkcj.supabase.co/storage/v1/object/public/afbeeldingen//shopping.webp" 
+                      alt={`${book.book_title} cover`} 
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div className="p-4">
                     <h3 className="font-medium text-foreground truncate">{book.book_title || 'Onbekende titel'}</h3>
                     <p className="text-sm text-muted-foreground">{book.author_name || 'Onbekende auteur'}</p>
                     <div className="flex items-center mt-2">
                       <div className="text-xs bg-study-100 text-study-700 px-2 py-1 rounded">
-                        {book.book_title?.toLowerCase().includes('sales') ? 'Verkoop' : categories[categories.length - 1].name}
+                        Online marketing
                       </div>
                     </div>
                   </div>
@@ -195,15 +159,6 @@ const BooksPage = () => {
             </div>
           )}
         </div>
-
-        {!loading && books.length === 0 && (
-          <div className="mt-12 text-center">
-            <p className="text-muted-foreground mb-4">Er zijn momenteel geen boeken beschikbaar.</p>
-            <Button onClick={() => toast.info("Meer boeken zullen binnenkort worden toegevoegd.")}>
-              Bekijk meer boeken
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );
