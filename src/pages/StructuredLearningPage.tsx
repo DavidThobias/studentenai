@@ -34,6 +34,7 @@ import ParagraphViewer from '@/components/ParagraphViewer';
 import ChaptersList from '@/components/book/ChaptersList';
 import { useBookQuizGenerator, BatchProgress } from '@/hooks/useBookQuizGenerator';
 import QuizDebug from '@/components/quiz/QuizDebug';
+import QuizStudyMode from '@/components/quiz/QuizStudyMode';
 
 // Define quiz states for each paragraph
 interface ParagraphProgress {
@@ -74,6 +75,7 @@ const StructuredLearningPage = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [debugData, setDebugData] = useState<any>({});
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [viewMode, setViewMode] = useState<'chapter-list' | 'content' | 'quiz'>('chapter-list');
 
   // Function to add log messages
   const addLog = (message: string) => {
@@ -128,6 +130,7 @@ const StructuredLearningPage = () => {
       if (chapterExists) {
         fetchParagraphs(chapterId, book?.book_title);
         setIsChapterSelectionMode(false);
+        setViewMode('content');
       }
     } else if (chapters.length > 0 && selectedChapterId === null) {
       // Default to first chapter if none selected
@@ -185,6 +188,7 @@ const StructuredLearningPage = () => {
     addLog(`Selecting chapter: ${chapterId}`);
     fetchParagraphs(chapterId, book?.book_title);
     setIsChapterSelectionMode(false);
+    setViewMode('content');
     setSearchParams({ chapterId: chapterId.toString() });
   };
 
@@ -208,6 +212,8 @@ const StructuredLearningPage = () => {
         setActiveAccordion(`paragraph-${paragraphId}`);
       }
       
+      setViewMode('content');
+      
     } catch (err) {
       console.error('Error starting paragraph study:', err);
       toast.error('Er is een fout opgetreden bij het starten van de studie');
@@ -226,6 +232,7 @@ const StructuredLearningPage = () => {
       setIsAnswerSubmitted(false);
       setScore(0);
       setIsQuizComplete(false);
+      setViewMode('quiz');
       
       // Generate questions specific to this paragraph using the correct edge function
       if (!book?.id || !selectedChapterId) {
@@ -376,6 +383,7 @@ const StructuredLearningPage = () => {
     setScore(0);
     setIsQuizComplete(false);
     setIsStudyMode(false);
+    setViewMode('content');
   };
   
   // Go to next paragraph
@@ -400,6 +408,7 @@ const StructuredLearningPage = () => {
   // Back to chapter selection
   const backToChapterSelection = () => {
     setIsChapterSelectionMode(true);
+    setViewMode('chapter-list');
     resetQuiz();
     setSearchParams({});
   };
@@ -483,7 +492,7 @@ const StructuredLearningPage = () => {
           </Alert>
         )}
         
-        {isChapterSelectionMode ? (
+        {viewMode === 'chapter-list' && (
           // Chapter selection mode
           <div className="mb-8">
             <Card className="mb-8">
@@ -503,18 +512,21 @@ const StructuredLearningPage = () => {
               selectedChapterId={selectedChapterId}
             />
           </div>
-        ) : (
-          // Chapter learning mode
+        )}
+        
+        {viewMode !== 'chapter-list' && (
+          <Button 
+            variant="outline" 
+            onClick={backToChapterSelection}
+            className="mb-4"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Terug naar hoofdstukkenoverzicht
+          </Button>
+        )}
+        
+        {viewMode === 'content' && (
           <>
-            <Button 
-              variant="outline" 
-              onClick={backToChapterSelection}
-              className="mb-4"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Terug naar hoofdstukkenoverzicht
-            </Button>
-          
             {/* Chapter progress */}
             <Card className="mb-8">
               <CardHeader>
@@ -531,28 +543,21 @@ const StructuredLearningPage = () => {
               </CardContent>
             </Card>
             
-            {/* Study Mode - Show paragraph content before quiz */}
-            {isStudyMode && activeParagraphId && (
+            {/* Paragraph content and study mode */}
+            {activeParagraphId && (
               <div className="mb-8">
-                <ParagraphViewer 
-                  content={currentParagraphContent}
-                  paragraphNumber={currentParagraphNumber}
+                <QuizStudyMode
+                  paragraphContent={currentParagraphContent}
+                  paragraphNumber={currentParagraphNumber || 0}
+                  onStartQuiz={() => startParagraphQuiz(activeParagraphId)}
+                  hasExistingQuiz={false}
+                  onBackToParagraphSelection={() => setViewMode('content')}
                 />
-                
-                <div className="flex justify-end">
-                  <Button 
-                    onClick={() => startParagraphQuiz(activeParagraphId)}
-                    className="bg-study-600 hover:bg-study-700"
-                  >
-                    <Play className="mr-2 h-4 w-4" />
-                    Start Quiz
-                  </Button>
-                </div>
               </div>
             )}
             
             {/* Debug Panel */}
-            {showDebugPanel && !isChapterSelectionMode && (
+            {showDebugPanel && (
               <div className="mb-8">
                 <QuizDebug
                   stateLog={logs}
@@ -624,32 +629,24 @@ const StructuredLearningPage = () => {
                             </p>
                             
                             <div className="flex flex-wrap gap-2">
-                              {isActive && (isStudyMode || questions.length > 0) ? (
-                                <Button variant="outline" onClick={resetQuiz}>
-                                  Annuleren
-                                </Button>
-                              ) : (
-                                <Button 
-                                  onClick={() => startParagraphStudy(paragraph.id)}
-                                  disabled={isGenerating}
-                                  variant="outline"
-                                  className="flex items-center gap-2"
-                                >
-                                  <BookOpen className="h-4 w-4" />
-                                  Studeer paragraaf
-                                </Button>
-                              )}
+                              <Button 
+                                onClick={() => startParagraphStudy(paragraph.id)}
+                                disabled={isGenerating}
+                                variant="outline"
+                                className="flex items-center gap-2"
+                              >
+                                <BookOpen className="h-4 w-4" />
+                                Bekijk paragraaf
+                              </Button>
                               
-                              {!isActive && (
-                                <Button 
-                                  onClick={() => startParagraphQuiz(paragraph.id)}
-                                  disabled={isGenerating}
-                                  className="flex items-center gap-2"
-                                >
-                                  <Play className="h-4 w-4" />
-                                  Start quiz
-                                </Button>
-                              )}
+                              <Button 
+                                onClick={() => startParagraphQuiz(paragraph.id)}
+                                disabled={isGenerating}
+                                className="flex items-center gap-2"
+                              >
+                                <Play className="h-4 w-4" />
+                                Start quiz
+                              </Button>
                             </div>
                           </div>
                         </AccordionContent>
@@ -669,8 +666,29 @@ const StructuredLearningPage = () => {
         )}
         
         {/* Quiz Display */}
-        {!isChapterSelectionMode && !isStudyMode && questions.length > 0 && (
+        {viewMode === 'quiz' && questions.length > 0 && (
           <Card className="border-none shadow-none mt-8">
+            {/* Debug Panel */}
+            {showDebugPanel && (
+              <div className="mb-8">
+                <QuizDebug
+                  stateLog={logs}
+                  debugData={debugData}
+                  bookId={book?.id || null}
+                  chapterId={selectedChapterId}
+                  paragraphId={activeParagraphId}
+                  isStructuredLearning={true}
+                  questionsCount={questions.length}
+                  currentQuestionIndex={currentQuestionIndex}
+                  isGenerating={isGenerating || isGeneratingQuiz}
+                  paragraphsCount={paragraphs.length}
+                  batchProgress={defaultBatchProgress}
+                  openAIPrompt={openAIPrompt}
+                  openAIResponse={openAIResponse}
+                />
+              </div>
+            )}
+            
             <CardHeader>
               <div className="flex justify-between items-center mb-2">
                 <div className="text-sm font-medium">
@@ -739,7 +757,14 @@ const StructuredLearningPage = () => {
                 </Alert>
               )}
             </CardContent>
-            <CardFooter className="flex justify-end">
+            <CardFooter className="flex justify-between">
+              <Button 
+                variant="outline"
+                onClick={resetQuiz}
+              >
+                Terug naar paragraaf
+              </Button>
+              
               {!isAnswerSubmitted ? (
                 <Button
                   onClick={handleSubmitAnswer}
