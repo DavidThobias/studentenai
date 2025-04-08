@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,7 +19,10 @@ import {
   Loader2,
   FileText,
   Play,
-  List
+  List,
+  Bug,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
@@ -28,7 +32,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { supabase } from "@/integrations/supabase/client";
 import ParagraphViewer from '@/components/ParagraphViewer';
 import ChaptersList from '@/components/book/ChaptersList';
-import { useBookQuizGenerator } from '@/hooks/useBookQuizGenerator';
+import { useBookQuizGenerator, BatchProgress } from '@/hooks/useBookQuizGenerator';
 import QuizDebug from '@/components/quiz/QuizDebug';
 
 // Define quiz states for each paragraph
@@ -69,6 +73,7 @@ const StructuredLearningPage = () => {
   const [isChapterSelectionMode, setIsChapterSelectionMode] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
   const [debugData, setDebugData] = useState<any>({});
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   // Function to add log messages
   const addLog = (message: string) => {
@@ -95,7 +100,9 @@ const StructuredLearningPage = () => {
     quizError,
     objectives,
     startQuizGeneration,
-    debugData: quizDebugData
+    debugData: quizDebugData,
+    openAIPrompt,
+    openAIResponse
   } = useBookQuizGenerator({
     bookId: book?.id || null,
     chapterId: selectedChapterId,
@@ -156,6 +163,15 @@ const StructuredLearningPage = () => {
       }
     }
   }, [paragraphs, loadingParagraphs]);
+
+  // Check if the debug panel should be shown
+  useEffect(() => {
+    // Show debug panel if URL has debug=true or if in development mode
+    const debugParam = searchParams.get('debug');
+    if (debugParam === 'true' || import.meta.env.DEV) {
+      setShowDebugPanel(true);
+    }
+  }, [searchParams]);
 
   // Calculate overall chapter progress
   const calculateChapterProgress = () => {
@@ -260,6 +276,19 @@ const StructuredLearningPage = () => {
           });
           
           setQuestions(formattedQuestions);
+          
+          // Set debug data if available
+          if (data.debug) {
+            setDebugData(data.debug);
+            
+            if (data.debug.prompt) {
+              addLog('Debug prompt received from API');
+            }
+            
+            if (data.debug.response) {
+              addLog('Debug response received from API');
+            }
+          }
         } else {
           toast.error('Invalid response received from question generator');
         }
@@ -379,6 +408,31 @@ const StructuredLearningPage = () => {
   const handleBackToBook = () => {
     navigate(`/books/${id}`);
   };
+
+  // Toggle debug panel
+  const toggleDebugPanel = () => {
+    setShowDebugPanel(!showDebugPanel);
+    if (!showDebugPanel) {
+      // Add 'debug=true' to the URL when enabling the debug panel
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('debug', 'true');
+      setSearchParams(newParams);
+    } else {
+      // Remove 'debug=true' from the URL when disabling the debug panel
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('debug');
+      setSearchParams(newParams);
+    }
+  };
+
+  // Create default batch progress for debug panel
+  const defaultBatchProgress: BatchProgress = {
+    currentBatch: 0,
+    totalBatches: 1,
+    processedObjectives: 0,  
+    totalObjectives: 0,      
+    startTime: Date.now()    
+  };
   
   // Render loading state
   if (loading) {
@@ -397,10 +451,30 @@ const StructuredLearningPage = () => {
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">{book?.book_title || 'Boek'} - Gestructureerd Leren</h1>
-          <Button variant="outline" onClick={handleBackToBook}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Terug naar boek
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={toggleDebugPanel}
+              className="flex items-center gap-1"
+            >
+              {showDebugPanel ? (
+                <>
+                  <EyeOff className="h-4 w-4" />
+                  <span className="hidden sm:inline">Verberg debug</span>
+                </>
+              ) : (
+                <>
+                  <Bug className="h-4 w-4" />
+                  <span className="hidden sm:inline">Toon debug</span>
+                </>
+              )}
+            </Button>
+            <Button variant="outline" onClick={handleBackToBook}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Terug naar boek
+            </Button>
+          </div>
         </div>
         
         {error && (
@@ -477,6 +551,27 @@ const StructuredLearningPage = () => {
               </div>
             )}
             
+            {/* Debug Panel */}
+            {showDebugPanel && !isChapterSelectionMode && (
+              <div className="mb-8">
+                <QuizDebug
+                  stateLog={logs}
+                  debugData={debugData}
+                  bookId={book?.id || null}
+                  chapterId={selectedChapterId}
+                  paragraphId={activeParagraphId}
+                  isStructuredLearning={true}
+                  questionsCount={questions.length}
+                  currentQuestionIndex={currentQuestionIndex}
+                  isGenerating={isGenerating || isGeneratingQuiz}
+                  paragraphsCount={paragraphs.length}
+                  batchProgress={defaultBatchProgress}
+                  openAIPrompt={openAIPrompt}
+                  openAIResponse={openAIResponse}
+                />
+              </div>
+            )}
+            
             {/* Paragraphs list with progress indicators */}
             <div className="grid grid-cols-1 gap-4 mb-8">
               <h2 className="text-xl font-semibold">Paragrafen</h2>
@@ -536,25 +631,23 @@ const StructuredLearningPage = () => {
                               ) : (
                                 <Button 
                                   onClick={() => startParagraphStudy(paragraph.id)}
-                                  disabled={isGenerating || isGeneratingQuiz}
-                                  className={progress?.completed ? 'bg-green-600 hover:bg-green-700' : ''}
+                                  disabled={isGenerating}
+                                  variant="outline"
+                                  className="flex items-center gap-2"
                                 >
-                                  {(isGenerating || isGeneratingQuiz) && activeParagraphId === paragraph.id ? (
-                                    <>
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                      Laden...
-                                    </>
-                                  ) : progress?.completed ? (
-                                    <>
-                                      <CheckCircle className="mr-2 h-4 w-4" />
-                                      Opnieuw bekijken
-                                    </>
-                                  ) : (
-                                    <>
-                                      <BookOpen className="mr-2 h-4 w-4" />
-                                      Start leren
-                                    </>
-                                  )}
+                                  <BookOpen className="h-4 w-4" />
+                                  Studeer paragraaf
+                                </Button>
+                              )}
+                              
+                              {!isActive && (
+                                <Button 
+                                  onClick={() => startParagraphQuiz(paragraph.id)}
+                                  disabled={isGenerating}
+                                  className="flex items-center gap-2"
+                                >
+                                  <Play className="h-4 w-4" />
+                                  Start quiz
                                 </Button>
                               )}
                             </div>
@@ -565,183 +658,148 @@ const StructuredLearningPage = () => {
                   })}
                 </Accordion>
               ) : (
-                <div className="text-center py-8 border border-dashed border-gray-200 rounded-lg">
-                  <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-muted-foreground">
+                <Alert className="bg-amber-50 border-amber-200">
+                  <AlertDescription>
                     Geen paragrafen gevonden voor dit hoofdstuk.
-                  </p>
-                </div>
+                  </AlertDescription>
+                </Alert>
               )}
             </div>
-            
-            {/* Active paragraph quiz */}
-            {activeParagraphId && questions.length > 0 && !isQuizComplete && !isStudyMode && (
-              <Card className="mb-8">
-                <CardHeader>
-                  <CardTitle className="flex justify-between items-center">
-                    <span>Quiz - Paragraaf {progressData.find(p => p.id === activeParagraphId)?.paragraphNumber || '?'}</span>
-                    <Badge variant="outline">
-                      Vraag {currentQuestionIndex + 1} van {questions.length}
-                    </Badge>
-                  </CardTitle>
-                  <Progress 
-                    value={(currentQuestionIndex / questions.length) * 100} 
-                    className="h-2 mt-2" 
-                  />
-                </CardHeader>
-                <CardContent>
-                  {/* Quiz question */}
-                  <div className="mb-6">
-                    <h3 className="text-lg font-medium mb-4">{questions[currentQuestionIndex].question}</h3>
-                    <div className="space-y-3">
-                      {questions[currentQuestionIndex].options.map((option, index) => (
-                        <div
-                          key={index}
-                          className={`flex items-center space-x-2 rounded-lg border p-4 cursor-pointer transition-colors ${
-                            selectedAnswer === index ? 'border-primary bg-primary/5' : 'hover:bg-gray-50'
-                          } ${
-                            isAnswerSubmitted
-                              ? index === questions[currentQuestionIndex].correctAnswer
-                                ? 'border-green-500 bg-green-50'
-                                : index === selectedAnswer
-                                ? 'border-red-500 bg-red-50'
-                                : ''
-                              : ''
-                          }`}
-                          onClick={() => handleAnswerSelect(index)}
-                        >
-                          <div className="flex-shrink-0">
-                            <div
-                              className={`h-5 w-5 rounded-full border flex items-center justify-center ${
-                                selectedAnswer === index
-                                  ? 'border-primary bg-primary text-white'
-                                  : 'border-gray-300'
-                              }`}
-                            >
-                              {String.fromCharCode(65 + index)}
-                            </div>
-                          </div>
-                          <div className="flex-grow">
-                            {option}
-                          </div>
-                          {isAnswerSubmitted && (
-                            <div className="ml-2">
-                              {index === questions[currentQuestionIndex].correctAnswer ? (
-                                <CheckCircle className="h-5 w-5 text-green-500" />
-                              ) : index === selectedAnswer ? (
-                                <XCircle className="h-5 w-5 text-red-500" />
-                              ) : null}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Explanation when answer is submitted */}
-                  {isAnswerSubmitted && (
-                    <Alert className={selectedAnswer === questions[currentQuestionIndex].correctAnswer ? 
-                        'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}>
-                      <AlertDescription>
-                        <h4 className="font-semibold mb-1">Uitleg:</h4>
-                        <p>{questions[currentQuestionIndex].explanation}</p>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsStudyMode(true)}
+          </>
+        )}
+        
+        {/* Quiz Display */}
+        {!isChapterSelectionMode && !isStudyMode && questions.length > 0 && (
+          <Card className="border-none shadow-none mt-8">
+            <CardHeader>
+              <div className="flex justify-between items-center mb-2">
+                <div className="text-sm font-medium">
+                  Vraag {currentQuestionIndex + 1} van {questions.length}
+                </div>
+                <div className="text-sm font-medium">
+                  Score: {score} / {isAnswerSubmitted ? currentQuestionIndex + 1 : currentQuestionIndex}
+                </div>
+              </div>
+              <Progress 
+                value={(currentQuestionIndex / questions.length) * 100} 
+                className="h-2 mb-4" 
+              />
+              <CardTitle className="text-lg">
+                {questions[currentQuestionIndex]?.question}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {questions[currentQuestionIndex]?.options.map((option, index) => (
+                  <div
+                    key={`question-${currentQuestionIndex}-option-${index}`}
+                    className={`flex items-center space-x-2 rounded-lg border p-4 cursor-pointer transition-colors ${
+                      selectedAnswer === index ? 'border-primary bg-primary/5' : 'hover:bg-gray-50'
+                    } ${
+                      isAnswerSubmitted
+                        ? index === questions[currentQuestionIndex].correctAnswer
+                          ? 'border-green-500 bg-green-50'
+                          : index === selectedAnswer
+                          ? 'border-red-500 bg-red-50'
+                          : ''
+                        : ''
+                    }`}
+                    onClick={() => handleAnswerSelect(index)}
                   >
-                    Bekijk inhoud opnieuw
-                  </Button>
-                  
-                  {!isAnswerSubmitted ? (
-                    <Button
-                      onClick={handleSubmitAnswer}
-                      disabled={selectedAnswer === null}
-                    >
-                      Controleer antwoord
-                    </Button>
-                  ) : (
-                    <Button onClick={handleNextQuestion}>
-                      {currentQuestionIndex < questions.length - 1 ? (
-                        <>
-                          Volgende vraag
-                          <ChevronRight className="ml-1 h-4 w-4" />
-                        </>
-                      ) : (
-                        'Voltooien'
-                      )}
-                    </Button>
-                  )}
-                </CardFooter>
-              </Card>
-            )}
-            
-            {/* Quiz results */}
-            {isQuizComplete && activeParagraphId && (
-              <Card className="mb-8">
-                <CardHeader>
-                  <CardTitle>Quiz Resultaten</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center">
-                  <div className="w-24 h-24 rounded-full border-4 flex items-center justify-center mb-4">
-                    <span className="text-2xl font-bold">{score}/{questions.length}</span>
-                  </div>
-                  
-                  <Progress 
-                    value={Math.round((score / questions.length) * 100)} 
-                    className="h-4 w-full max-w-xs mb-2" 
-                  />
-                  
-                  <p className="text-center mb-6">
-                    {Math.round((score / questions.length) * 100) >= 70 
-                      ? 'Gefeliciteerd! Je hebt deze paragraaf met succes afgerond.'
-                      : 'Je moet minimaal 70% van de vragen goed beantwoorden om door te gaan.'}
-                  </p>
-                  
-                  <div className="flex gap-3">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => startParagraphStudy(activeParagraphId)}
-                    >
-                      Bekijk inhoud opnieuw
-                    </Button>
-                    
-                    <Button 
-                      variant="outline" 
-                      onClick={() => startParagraphQuiz(activeParagraphId)}
-                    >
-                      Probeer opnieuw
-                    </Button>
-                    
-                    {Math.round((score / questions.length) * 100) >= 70 && (
-                      <Button onClick={goToNextParagraph}>
-                        Volgende paragraaf
-                        <ChevronRight className="ml-1 h-4 w-4" />
-                      </Button>
+                    <div className={`h-6 w-6 rounded-full border flex items-center justify-center ${
+                      selectedAnswer === index
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-gray-300'
+                    }`}>
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                    <div className="flex-grow">
+                      {option}
+                    </div>
+                    {isAnswerSubmitted && (
+                      <div className="ml-2">
+                        {index === questions[currentQuestionIndex].correctAnswer ? (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        ) : index === selectedAnswer ? (
+                          <XCircle className="h-5 w-5 text-red-500" />
+                        ) : null}
+                      </div>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-            )}
-            
-            {/* Add debug panel */}
-            <QuizDebug
-              stateLog={logs}
-              debugData={debugData}
-              bookId={book?.id || null}
-              chapterId={selectedChapterId}
-              paragraphId={activeParagraphId}
-              isStructuredLearning={true}
-              questionsCount={questions.length}
-              currentQuestionIndex={currentQuestionIndex}
-              isGenerating={isGeneratingQuiz}
-              paragraphsCount={paragraphs.length}
-            />
-          </>
+                ))}
+              </div>
+
+              {isAnswerSubmitted && (
+                <Alert className={selectedAnswer === questions[currentQuestionIndex].correctAnswer ? 
+                    'bg-green-50 border-green-200 mt-6' : 'bg-blue-50 border-blue-200 mt-6'}>
+                  <AlertDescription>
+                    <h4 className="font-semibold mb-1">Uitleg:</h4>
+                    {questions[currentQuestionIndex].explanation}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+            <CardFooter className="flex justify-end">
+              {!isAnswerSubmitted ? (
+                <Button
+                  onClick={handleSubmitAnswer}
+                  disabled={selectedAnswer === null}
+                >
+                  Controleer antwoord
+                </Button>
+              ) : (
+                <Button onClick={handleNextQuestion}>
+                  {currentQuestionIndex < questions.length - 1 ? (
+                    <>
+                      Volgende vraag
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </>
+                  ) : (
+                    'Voltooien'
+                  )}
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        )}
+        
+        {/* Quiz completion screen */}
+        {isQuizComplete && (
+          <Card className="border-none shadow-none mb-8 mt-8">
+            <CardHeader>
+              <CardTitle className="text-center">Quiz Resultaten</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center">
+              <div className="w-32 h-32 rounded-full border-4 flex items-center justify-center mb-6">
+                <span className="text-3xl font-bold">{score}/{questions.length}</span>
+              </div>
+              
+              <Progress 
+                value={Math.round((score / questions.length) * 100)} 
+                className="h-4 w-full max-w-md mb-4" 
+              />
+              
+              <p className="text-center mb-8 text-lg">
+                Je hebt {score} van de {questions.length} vragen correct beantwoord.
+              </p>
+              
+              <div className="flex gap-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    resetQuiz();
+                    startParagraphQuiz(activeParagraphId!);
+                  }}
+                >
+                  Probeer opnieuw
+                </Button>
+                <Button onClick={goToNextParagraph}>
+                  Volgende paragraaf
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
