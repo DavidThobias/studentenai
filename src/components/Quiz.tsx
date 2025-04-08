@@ -36,8 +36,8 @@ interface QuizProps {
   batchProgress?: {
     currentBatch: number;
     totalBatches: number;
-    processedTerms: number;
-    totalTerms: number;
+    processedObjectives: number;
+    totalObjectives: number;
   };
 }
 
@@ -281,11 +281,11 @@ const Quiz = ({
                 <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" />
                 <span>
                   Batch {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}: 
-                  {batchProgress.processedTerms}/{batchProgress.totalTerms} begrippen verwerkt
+                  {batchProgress.processedObjectives}/{batchProgress.totalObjectives} begrippen verwerkt
                 </span>
               </div>
               <Progress 
-                value={(batchProgress.processedTerms / batchProgress.totalTerms) * 100} 
+                value={(batchProgress.processedObjectives / batchProgress.totalObjectives) * 100} 
                 className="h-1 mt-1" 
               />
             </div>
@@ -410,7 +410,7 @@ const Quiz = ({
               {batchProgress && (
                 <>
                   <div>Debug: batch: {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}</div>
-                  <div>Debug: terms: {batchProgress.processedTerms}/{batchProgress.totalTerms}</div>
+                  <div>Debug: terms: {batchProgress.processedObjectives}/{batchProgress.totalObjectives}</div>
                 </>
               )}
             </div>

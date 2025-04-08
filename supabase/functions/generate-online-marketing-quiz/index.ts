@@ -20,9 +20,9 @@ serve(async (req) => {
   }
 
   try {
-    const { bookId, chapterId, paragraphId, batchIndex = 0, batchSize = 3, debug = false } = await req.json();
+    const { bookId, chapterId, paragraphId, debug = false } = await req.json();
 
-    console.log(`Generating online marketing quiz for book ${bookId}, chapter ${chapterId}, paragraph ${paragraphId}, batch ${batchIndex}`);
+    console.log(`Generating online marketing quiz for book ${bookId}, chapter ${chapterId}, paragraph ${paragraphId}`);
 
     if (!bookId) {
       return new Response(
@@ -188,14 +188,6 @@ serve(async (req) => {
 
     console.log(`Found ${objectivesArray.length} learning objectives`);
     
-    // Calculate batch information based on objectives instead of terms
-    const totalObjectives = objectivesArray.length;
-    const totalBatches = Math.max(1, Math.ceil(totalObjectives / batchSize));
-    const startIndex = batchIndex * batchSize;
-    const endIndex = Math.min(startIndex + batchSize, totalObjectives);
-    const currentBatchObjectives = objectivesArray.slice(startIndex, endIndex);
-    const isLastBatch = endIndex >= totalObjectives;
-    
     // Limit chapter content to avoid token limit issues
     const maxContentLength = 8000;
     let contentForPrompt = chapterContent;
@@ -205,14 +197,65 @@ serve(async (req) => {
     }
 
     // Build the prompt for OpenAI focusing on objectives
-    const objectivesForPrompt = currentBatchObjectives.join('\n- ');
+    const objectivesForPrompt = objectivesArray.join('\n- ');
     const questionsPerObjective = 3; // Generate approximately 3 questions per objective
-    const totalQuestionsForBatch = currentBatchObjectives.length * questionsPerObjective;
+    const totalQuestionsExpected = objectivesArray.length * questionsPerObjective;
     
     const prompt = `
-Genereer meervoudige-keuzevragen op basis van de theorie en doelstellingen van het meegeleverde hoofdstuk. Zorg ervoor dat er voldoende vragen zijn om elk aspect van de theorie en elke doelstelling volledig te dekken. Maak zoveel vragen als nodig is, zodat de gebruiker elk concept grondig kan begrijpen; liever te veel vragen dan te weinig. Zorg dat er voor elke doelstelling genoeg vragen zijn om alles volledig te snappen. Elke vraag moet een realistisch scenario bevatten dat past bij het onderwerp van het hoofdstuk en op toepassingsniveau is, zodat de gebruiker de concepten in praktische situaties moet toepassen. Elke vraag heeft vier antwoordopties, waarvan één correct is. Maak de antwoorden misleidend: de foute opties moeten lijken op het correcte antwoord, maar subtiele fouten bevatten, of ze moeten gaan over dezelfde theorie/modellen maar net een ander begrip tonen (bijvoorbeeld een verkeerde interpretatie van een model of een gerelateerd maar incorrect concept). Zorg dat de vragen duidelijk, grammaticaal correct en uitdagend zijn.
+Genereer meervoudige-keuzevragen op basis van de theorie en doelstellingen van het meegeleverde hoofdstuk. Zorg ervoor dat er voldoende vragen zijn om elk aspect van de theorie en elke doelstelling volledig te dekken. Genereer ongeveer ${questionsPerObjective} vragen per doelstelling, zodat de gebruiker elk concept grondig kan begrijpen.
 
-Voor deze batch focus je specifiek op de volgende leerdoelstellingen:
+Kijk goed naar iedere doelstelling en bepaal welk type vraag het beste past bij die specifieke doelstelling. Niet elke doelstelling vereist elk type vraag. Stem het type vraag af op wat de doelstelling probeert te bereiken.
+
+Gebruik verschillende vraagtypes zoals:
+
+1. Begripsvragen (Wat betekent dit model of begrip?)
+Voorbeeld:
+Wat betekent de 'B van Binden' in het 6B-model binnen digital marketing?
+A) De klant overtuigen om een aankoop te doen
+B) De klant stimuleren om terug te keren na een aankoop
+C) De klant informeren over het betaalproces
+D) De klant laten navigeren naar de website
+Correct antwoord: B – Binden gaat over het creëren van herhaalaankopen en klantloyaliteit.
+
+2. Toepassingsvragen (Pas een model of begrip toe op een situatie)
+Voorbeeld:
+Je deelt via Instagram regelmatig video's waarin je jouw product demonstreert en uitlegt hoe je het gebruikt. Tot welke van de 4 E's van contentmarketing behoort dit?
+A) Entertain
+B) Engage
+C) Empower
+D) Educate
+Correct antwoord: D – Educate: je leert mensen hoe ze het product moeten gebruiken.
+
+3. Reken-/datavragen (Gebruik data om een KPI of metric te berekenen)
+Voorbeeld:
+Een webshop had in maart 10.000 bezoekers en 250 bestellingen. Wat is het conversiepercentage?
+A) 2%
+B) 2,5%
+C) 5%
+D) 4%
+Correct antwoord: B – 250 / 10.000 = 0,025 → 2,5%
+
+4. Vergelijkingsvragen (Wat is het verschil of overeenkomst tussen modellen?)
+Voorbeeld:
+Welke positioneringsstrategie van Treacy & Wiersema komt het meest overeen met de strategie 'Kostenleiderschap' van Porter?
+A) Customer Intimacy
+B) Product Leadership
+C) Operational Excellence
+D) Stuck in the Middle
+Correct antwoord: C – Operational Excellence focust, net als Kostenleiderschap, op efficiëntie en lage kosten.
+
+5. Interpretatievragen (Welk begrip past bij deze situatie?)
+Voorbeeld:
+Picnic innoveert in de supermarktbranche met een eigen logistiek systeem en unieke bezorgmethode. Op welk niveau in het businessmodel zit hun vernieuwing?
+A) Marketingoperatie
+B) Marketinginstrumenten
+C) Businessmodel
+D) Klantsegmentatie
+Correct antwoord: C – Ze veranderen fundamenteel hoe ze waarde leveren: dus op businessmodel-niveau.
+
+Elke vraag moet een realistisch scenario bevatten dat past bij het onderwerp van het hoofdstuk en op toepassingsniveau is, zodat de gebruiker de concepten in praktische situaties moet toepassen. Elke vraag heeft vier antwoordopties, waarvan één correct is. Maak de antwoorden misleidend: de foute opties moeten lijken op het correcte antwoord, maar subtiele fouten bevatten. Zorg dat de vragen duidelijk, grammaticaal correct en uitdagend zijn.
+
+Voor deze quiz focus je specifiek op de volgende leerdoelstellingen:
 - ${objectivesForPrompt}
 
 Boektitel: ${bookTitle}
@@ -221,20 +264,21 @@ Hoofdstuktitel: ${chapterTitle}
 Inhoud:
 ${contentForPrompt}
 
-Genereer voor deze batch ongeveer ${totalQuestionsForBatch} quizvragen, met ongeveer ${questionsPerObjective} vragen per leerdoelstelling. Elke vraag moet de volgende structuur hebben:
+Genereer in totaal ongeveer ${totalQuestionsExpected} quizvragen. Elke vraag moet de volgende structuur hebben:
 {
   "question": "De vraag hier",
   "options": ["Optie A", "Optie B", "Optie C", "Optie D"],
   "correctAnswer": 0, // index van het correcte antwoord (0-3)
   "explanation": "Uitleg waarom dit het juiste antwoord is",
-  "objective": "De leerdoelstelling waar deze vraag bij hoort"
+  "objective": "De leerdoelstelling waar deze vraag bij hoort",
+  "questionType": "Begrip/Toepassing/Rekenen/Vergelijking/Interpretatie" // Type vraag dat bij deze leerdoelstelling past
 }
 
 Geef alleen de JSON-array terug, geen omliggende tekst.
 `;
 
     // Call OpenAI API
-    console.log('Calling OpenAI API for batch', batchIndex);
+    console.log('Calling OpenAI API to generate questions for all objectives at once');
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -248,12 +292,12 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 2500,
+        max_tokens: 4000,
       }),
     });
 
     const responseData = await openAIResponse.json();
-    console.log('OpenAI API response received for batch', batchIndex);
+    console.log('OpenAI API response received');
 
     if (!responseData.choices || !responseData.choices[0]) {
       console.error('Invalid response from OpenAI:', responseData);
@@ -322,15 +366,55 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
       return dist;
     }, { A: 0, B: 0, C: 0, D: 0 });
 
-    // Add objective information to each question if not already present
+    // Count question types for analytics
+    const questionTypeDistribution = questions.reduce((dist, q) => {
+      const type = q.questionType || 'Onbekend';
+      dist[type] = (dist[type] || 0) + 1;
+      return dist;
+    }, {});
+
+    // Ensure each question has an objective
     const questionsWithObjectives = questions.map((q, index) => {
       if (!q.objective) {
-        // Determine which objective this question belongs to
-        const objectiveIndex = Math.floor(index / questionsPerObjective);
-        const objectiveIndex2 = Math.min(objectiveIndex, currentBatchObjectives.length - 1);
-        q.objective = currentBatchObjectives[objectiveIndex2];
+        // If no objective is specified, assign to most likely objective based on question content
+        const bestMatchIndex = objectivesArray.findIndex(obj => 
+          q.question.toLowerCase().includes(obj.toLowerCase().substring(0, 20)));
+        
+        q.objective = bestMatchIndex >= 0 ? 
+          objectivesArray[bestMatchIndex] : 
+          objectivesArray[Math.floor(index / questionsPerObjective) % objectivesArray.length];
       }
+      
+      // Ensure questionType field exists
+      if (!q.questionType) {
+        // Basic classification based on question content
+        if (q.question.match(/verschil|overeenkomst|vergelijk/i)) {
+          q.questionType = 'Vergelijking';
+        } else if (q.question.match(/betekent|definitie|wat is/i)) {
+          q.questionType = 'Begrip';
+        } else if (q.question.match(/berekent|percentage|aantal/i)) {
+          q.questionType = 'Rekenen';
+        } else if (q.question.match(/scenario|situatie|geval/i)) {
+          q.questionType = 'Interpretatie';
+        } else {
+          q.questionType = 'Toepassing';
+        }
+      }
+      
       return q;
+    });
+
+    // Group questions by objective for analysis
+    const questionsByObjective = objectivesArray.map(objective => {
+      const objQuestions = questionsWithObjectives.filter(q => q.objective === objective);
+      return {
+        objective,
+        questionCount: objQuestions.length,
+        types: objQuestions.reduce((types, q) => {
+          types[q.questionType || 'Onbekend'] = (types[q.questionType || 'Onbekend'] || 0) + 1;
+          return types;
+        }, {})
+      };
     });
 
     // Prepare the response
@@ -341,12 +425,9 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
         bookId,
         chapterId,
         paragraphId,
-        batchIndex,
-        totalObjectives,
-        processedObjectives: currentBatchObjectives.length,
-        isLastBatch,
-        totalBatches,
-        objectivesInBatch: currentBatchObjectives
+        totalObjectives: objectivesArray.length,
+        totalQuestions: questionsWithObjectives.length,
+        questionsByObjective
       },
       context: {
         bookTitle,
@@ -360,12 +441,12 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
         prompt,
         response: aiResponse,
         answerDistribution,
+        questionTypeDistribution,
         objectives,
         allObjectives: objectivesArray,
-        batchObjectives: currentBatchObjectives,
         tokenEstimates: {
           promptTokens: Math.ceil(prompt.length / 4),
-          requestedMaxTokens: 2500
+          requestedMaxTokens: 4000
         }
       };
     }

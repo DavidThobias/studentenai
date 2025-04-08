@@ -29,17 +29,12 @@ export const useBookQuizGenerator = ({
 }: UseBookQuizGeneratorProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
-  const [allQuestions, setAllQuestions] = useState<QuizQuestion[]>([]);
-  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
-  const [currentBatch, setCurrentBatch] = useState(0);
-  const [totalBatches, setTotalBatches] = useState(0);
   const [quizError, setQuizError] = useState<string | null>(null);
   const [objectives, setObjectives] = useState<string | null>(null);
-  const [loadNextBatchTrigger, setLoadNextBatchTrigger] = useState(0);
-  const [hasMoreBatches, setHasMoreBatches] = useState(false);
   const [debugData, setDebugData] = useState<any>({});
   const [objectivesArray, setObjectivesArray] = useState<string[]>([]);
-  const [currentObjectives, setCurrentObjectives] = useState<string[]>([]);
+  const [questionsByObjective, setQuestionsByObjective] = useState<any>(null);
+  const [questionTypeDistribution, setQuestionTypeDistribution] = useState<any>(null);
 
   // Format questions from API response
   const formatQuestions = (rawQuestions: any[]): QuizQuestion[] => {
@@ -65,89 +60,14 @@ export const useBookQuizGenerator = ({
         options: q.options,
         correctAnswer: correctAnswerIndex,
         explanation: cleanedExplanation,
-        objective: q.objective || null
+        objective: q.objective || null,
+        questionType: q.questionType || null
       };
     });
   };
 
-  // Process a single batch of questions
-  const processBatch = async (batchIndex: number, batchSize: number = 3) => {
-    if (!bookId) {
-      setQuizError('Geen boek geselecteerd om quiz te genereren');
-      return null;
-    }
-
-    try {
-      addLog(`Processing batch ${batchIndex} with size ${batchSize}`);
-      
-      const endpoint = isOnlineMarketing 
-        ? 'generate-online-marketing-quiz' 
-        : 'generate-sales-question';
-      
-      const payload: any = { 
-        batchIndex,
-        batchSize,
-        debug: true,
-        bookId,
-      };
-      
-      if (chapterId) payload.chapterId = chapterId;
-      if (paragraphId) payload.paragraphId = paragraphId;
-      
-      addLog(`Sending batch payload to ${endpoint}: ${JSON.stringify(payload)}`);
-      
-      const { data, error } = await supabase.functions.invoke(endpoint, {
-        body: payload
-      });
-      
-      if (error) {
-        console.error(`Error calling ${endpoint} for batch:`, error);
-        addLog(`Error with batch ${batchIndex}: ${error.message}`);
-        return null;
-      }
-      
-      if (!data || !data.success) {
-        addLog(`No valid data returned for batch ${batchIndex}`);
-        return null;
-      }
-      
-      if (data.debug) {
-        setDebugData(data.debug);
-        
-        if (data.debug.objectives) {
-          setObjectives(data.debug.objectives);
-        }
-        
-        if (data.debug.allObjectives && Array.isArray(data.debug.allObjectives)) {
-          setObjectivesArray(data.debug.allObjectives);
-        }
-        
-        if (data.debug.batchObjectives && Array.isArray(data.debug.batchObjectives)) {
-          setCurrentObjectives(prev => [...prev, ...data.debug.batchObjectives]);
-        }
-      }
-      
-      let formattedQuestions = formatQuestions(data.questions);
-      
-      return {
-        questions: formattedQuestions,
-        metadata: data.metadata || { 
-          isLastBatch: formattedQuestions.length < batchSize, 
-          totalObjectives: formattedQuestions.length, 
-          totalBatches: Math.ceil(formattedQuestions.length / batchSize) || 1,
-          objectivesInBatch: data.metadata?.objectivesInBatch || []
-        },
-        objectives: data.debug?.objectives
-      };
-    } catch (err) {
-      console.error(`Error processing batch ${batchIndex}:`, err);
-      addLog(`Error in batch ${batchIndex}: ${err instanceof Error ? err.message : String(err)}`);
-      return null;
-    }
-  };
-
   // Start quiz generation
-  const startQuizGeneration = async (batchSize: number = 3) => {
+  const startQuizGeneration = async (questionsPerObjective: number = 3) => {
     if (!bookId) {
       setQuizError('Geen boek geselecteerd om quiz te genereren');
       return;
@@ -156,15 +76,10 @@ export const useBookQuizGenerator = ({
     setIsGenerating(true);
     setQuizError(null);
     setQuestions([]);
-    setAllQuestions([]);
-    setCurrentBatch(0);
-    setTotalBatches(1);
-    setHasMoreBatches(false);
     setObjectivesArray([]);
-    setCurrentObjectives([]);
     
     try {
-      // First, try to get objectives directly from books table
+      // First, try to get objectives directly from books table if chapterId is provided
       if (chapterId) {
         try {
           const { data, error } = await supabase
@@ -183,124 +98,95 @@ export const useBookQuizGenerator = ({
         }
       }
       
-      // Process first batch
-      const firstBatchResult = await processBatch(0, batchSize);
+      // Generate questions
+      const endpoint = isOnlineMarketing 
+        ? 'generate-online-marketing-quiz' 
+        : 'generate-sales-question';
       
-      if (!firstBatchResult) {
-        setQuizError('Er is een fout opgetreden bij het genereren van de eerste batch vragen');
-        setIsGenerating(false);
+      const payload: any = { 
+        debug: true,
+        bookId,
+        questionsPerObjective
+      };
+      
+      if (chapterId) payload.chapterId = chapterId;
+      if (paragraphId) payload.paragraphId = paragraphId;
+      
+      addLog(`Sending payload to ${endpoint}: ${JSON.stringify(payload)}`);
+      
+      const { data, error } = await supabase.functions.invoke(endpoint, {
+        body: payload
+      });
+      
+      if (error) {
+        console.error(`Error calling ${endpoint}:`, error);
+        setQuizError(`Er is een fout opgetreden: ${error.message}`);
         return;
       }
       
-      const { metadata, questions: firstBatchQuestions, objectives: batchObjectives } = firstBatchResult;
-      
-      if (batchObjectives && !objectives) {
-        setObjectives(batchObjectives);
+      if (!data || !data.success) {
+        addLog(`No valid data returned from ${endpoint}`);
+        setQuizError('Er is een fout opgetreden bij het ophalen van de quizvragen');
+        return;
       }
       
-      const estimatedTotalBatches = metadata?.totalBatches || 1;
-      setTotalBatches(estimatedTotalBatches);
+      if (data.debug) {
+        setDebugData(data.debug);
+        
+        if (data.debug.objectives) {
+          setObjectives(data.debug.objectives);
+        }
+        
+        if (data.debug.allObjectives && Array.isArray(data.debug.allObjectives)) {
+          setObjectivesArray(data.debug.allObjectives);
+        }
+        
+        if (data.debug.questionTypeDistribution) {
+          setQuestionTypeDistribution(data.debug.questionTypeDistribution);
+        }
+      }
       
-      addLog(`First batch complete: ${firstBatchQuestions.length} questions, estimated ${estimatedTotalBatches} total batches`);
+      // Process returned questions
+      const formattedQuestions = formatQuestions(data.questions);
       
-      setBatchProgress({
-        currentBatch: 0,
-        totalBatches: estimatedTotalBatches,
-        processedObjectives: metadata.objectivesInBatch?.length || 0,
-        totalObjectives: metadata?.totalObjectives || 0,
-        startTime: Date.now()
-      });
+      // Store questions by objective information
+      if (data.metadata?.questionsByObjective) {
+        setQuestionsByObjective(data.metadata.questionsByObjective);
+      } else {
+        // Calculate ourselves if not provided
+        const byObjective = {};
+        formattedQuestions.forEach(q => {
+          if (q.objective) {
+            if (!byObjective[q.objective]) {
+              byObjective[q.objective] = [];
+            }
+            byObjective[q.objective].push(q);
+          }
+        });
+        setQuestionsByObjective(byObjective);
+      }
       
-      setAllQuestions(firstBatchQuestions);
-      setQuestions(firstBatchQuestions);
-      setCurrentBatch(0);
+      setQuestions(formattedQuestions);
+      addLog(`Generated ${formattedQuestions.length} questions`);
       
-      // Check if we should prepare for the next batch
-      const isLastBatch = metadata?.isLastBatch || estimatedTotalBatches <= 1;
-      setHasMoreBatches(!isLastBatch);
-      
-      setIsGenerating(false);
     } catch (err) {
       console.error('Error in startQuizGeneration:', err);
       setQuizError(`Er is een onverwachte fout opgetreden: ${err instanceof Error ? err.message : 'Onbekende fout'}`);
-      addLog(`Fatal error in batch processing: ${err instanceof Error ? err.message : String(err)}`);
-      setIsGenerating(false);
-      setBatchProgress(null);
-    }
-  };
-
-  // Load the next batch when triggered
-  const loadNextBatch = async () => {
-    if (!hasMoreBatches || isGenerating) return;
-    
-    const nextBatchIndex = currentBatch + 1;
-    setIsGenerating(true);
-    
-    try {
-      addLog(`Loading next batch (${nextBatchIndex})`);
-      const batchResult = await processBatch(nextBatchIndex, 3);
-      
-      if (!batchResult) {
-        addLog(`Batch ${nextBatchIndex} failed, no more batches will be loaded`);
-        setHasMoreBatches(false);
-        setIsGenerating(false);
-        return;
-      }
-      
-      const { questions: newQuestions, metadata } = batchResult;
-      
-      // Add new questions to the existing ones
-      const updatedAllQuestions = [...allQuestions, ...newQuestions];
-      setAllQuestions(updatedAllQuestions);
-      setQuestions(updatedAllQuestions);
-      
-      setCurrentBatch(nextBatchIndex);
-      setBatchProgress(prev => prev ? {
-        ...prev,
-        currentBatch: nextBatchIndex,
-        processedObjectives: prev.processedObjectives + (metadata.objectivesInBatch?.length || 0)
-      } : null);
-      
-      setHasMoreBatches(!(metadata?.isLastBatch || nextBatchIndex >= totalBatches - 1));
-      
-      addLog(`Added ${newQuestions.length} questions from batch ${nextBatchIndex}, total now: ${updatedAllQuestions.length}`);
-      addLog(`Has more batches: ${!metadata?.isLastBatch && nextBatchIndex < totalBatches - 1}`);
-    } catch (err) {
-      console.error(`Error loading batch ${nextBatchIndex}:`, err);
-      setQuizError(`Fout bij het laden van batch ${nextBatchIndex}: ${err instanceof Error ? err.message : 'Onbekende fout'}`);
+      addLog(`Fatal error in quiz generation: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // Trigger loading the next batch when loadNextBatchTrigger changes
-  useEffect(() => {
-    if (loadNextBatchTrigger > 0 && hasMoreBatches && !isGenerating) {
-      loadNextBatch();
-    }
-  }, [loadNextBatchTrigger]);
-
-  // Function to be called when the user starts answering the first question
-  const triggerNextBatch = () => {
-    if (hasMoreBatches && !isGenerating) {
-      setLoadNextBatchTrigger(prev => prev + 1);
-    }
-  };
-
   return {
     questions,
-    allQuestions,
     isGenerating,
     quizError,
     objectives,
     objectivesArray,
-    currentObjectives,
-    batchProgress,
-    hasMoreBatches,
-    currentBatch,
-    totalBatches,
+    questionsByObjective,
+    questionTypeDistribution,
     startQuizGeneration,
-    triggerNextBatch,
     debugData
   };
 };
