@@ -20,9 +20,9 @@ serve(async (req) => {
   }
 
   try {
-    const { bookId, chapterId, paragraphId, questionsPerObjective = 3, debug = false } = await req.json();
+    const { bookId, chapterId, paragraphId, questionsPerObjective = 3, debug = false, batchIndex = 0, batchSize = 10 } = await req.json();
 
-    console.log(`Generating online marketing quiz for book ${bookId}, chapter ${chapterId}, paragraph ${paragraphId}`);
+    console.log(`Generating online marketing quiz for book ${bookId}, chapter ${chapterId}, paragraph ${paragraphId}, batch ${batchIndex}`);
 
     if (!bookId) {
       return new Response(
@@ -81,7 +81,7 @@ serve(async (req) => {
           .select('objectives')
           .eq('chapter_number', paragraphData.chapter_number)
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (!chapterError && chapterData && chapterData.objectives) {
           objectives = chapterData.objectives;
@@ -188,17 +188,56 @@ serve(async (req) => {
 
     console.log(`Found ${objectivesArray.length} learning objectives`);
     
+    // Implement batch processing for objectives
+    const totalObjectives = objectivesArray.length;
+    const maxBatches = Math.ceil(totalObjectives / batchSize);
+    
+    if (batchIndex >= maxBatches) {
+      console.log(`Invalid batch index ${batchIndex}, max is ${maxBatches - 1}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Invalid batch index',
+          metadata: { totalObjectives, totalBatches: maxBatches }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    // Select objectives for this batch
+    const startIndex = batchIndex * batchSize;
+    const endIndex = Math.min(startIndex + batchSize, totalObjectives);
+    const batchObjectives = objectivesArray.slice(startIndex, endIndex);
+    
+    console.log(`Processing batch ${batchIndex + 1}/${maxBatches} with ${batchObjectives.length} objectives`);
+    
+    if (batchObjectives.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          questions: [],
+          metadata: { 
+            isLastBatch: true,
+            totalObjectives,
+            totalBatches: maxBatches,
+            processedObjectives: 0
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Build the prompt for OpenAI focusing on application-based questions
+    const objectivesForPrompt = batchObjectives.join('\n- ');
+    const totalQuestionsExpected = batchObjectives.length * questionsPerObjective;
+    
     // Limit chapter content to avoid token limit issues
-    const maxContentLength = 8000;
+    const maxContentLength = 6000; // Reduced from 8000 to ensure we don't hit token limits
     let contentForPrompt = chapterContent;
     if (contentForPrompt.length > maxContentLength) {
       contentForPrompt = contentForPrompt.substring(0, maxContentLength);
       console.log(`Content truncated to ${maxContentLength} characters`);
     }
-
-    // Build the prompt for OpenAI focusing on application-based questions
-    const objectivesForPrompt = objectivesArray.join('\n- ');
-    const totalQuestionsExpected = objectivesArray.length * questionsPerObjective;
     
     const prompt = `
 Genereer meervoudige-keuzevragen voor een quiz over online marketing. Focus in elke vraag op PRAKTISCHE TOEPASSING van de kennis, vermijd vragen die alleen om definities of pure kennis vragen.
@@ -258,7 +297,7 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
 `;
 
     // Call OpenAI API
-    console.log('Calling OpenAI API to generate questions for all objectives at once');
+    console.log(`Calling OpenAI API to generate questions for batch ${batchIndex + 1}/${maxBatches}`);
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -357,12 +396,12 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
     const questionsWithObjectives = questions.map((q, index) => {
       if (!q.objective) {
         // If no objective is specified, assign to most likely objective based on question content
-        const bestMatchIndex = objectivesArray.findIndex(obj => 
+        const bestMatchIndex = batchObjectives.findIndex(obj => 
           q.question.toLowerCase().includes(obj.toLowerCase().substring(0, 20)));
         
         q.objective = bestMatchIndex >= 0 ? 
-          objectivesArray[bestMatchIndex] : 
-          objectivesArray[Math.floor(index / questionsPerObjective) % objectivesArray.length];
+          batchObjectives[bestMatchIndex] : 
+          batchObjectives[Math.floor(index / questionsPerObjective) % batchObjectives.length];
       }
       
       // Ensure questionType field exists
@@ -385,7 +424,7 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
     });
 
     // Group questions by objective for analysis
-    const questionsByObjective = objectivesArray.map(objective => {
+    const questionsByObjective = batchObjectives.map(objective => {
       const objQuestions = questionsWithObjectives.filter(q => q.objective === objective);
       return {
         objective,
@@ -405,7 +444,11 @@ Geef alleen de JSON-array terug, geen omliggende tekst.
         bookId,
         chapterId,
         paragraphId,
-        totalObjectives: objectivesArray.length,
+        totalObjectives,
+        totalBatches: maxBatches,
+        currentBatch: batchIndex,
+        isLastBatch: batchIndex >= maxBatches - 1,
+        processedObjectives: endIndex,
         totalQuestions: questionsWithObjectives.length,
         questionsByObjective
       },

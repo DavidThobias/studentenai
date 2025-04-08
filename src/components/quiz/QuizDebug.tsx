@@ -2,8 +2,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Button } from "@/components/ui/button";
-import { Code, Bug, ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
+import { Bug, ChevronDown, ChevronUp } from "lucide-react";
 import { BatchProgress } from '@/hooks/useBookQuizGenerator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -41,8 +40,8 @@ const QuizDebug = ({
   const [isOpen, setIsOpen] = useState(false);
   const [apiDataOpen, setApiDataOpen] = useState<string | null>(null);
   
-  // Only show debug panel in development or with debug param in URL
-  const debugMode = import.meta.env.DEV || new URLSearchParams(window.location.search).get('debug') === 'true';
+  // Only show debug panel in development
+  const debugMode = import.meta.env.DEV;
   
   if (!debugMode) return null;
   
@@ -83,24 +82,8 @@ const QuizDebug = ({
               </div>
             </div>
             
-            {stateLog.length > 0 && (
-              <div className="mb-4">
-                <h4 className="font-semibold flex items-center mb-2">
-                  <Code className="h-3 w-3 mr-1" /> Activity Log
-                </h4>
-                <div className="bg-gray-800 text-gray-100 p-2 rounded overflow-auto max-h-40">
-                  {stateLog.map((log, i) => (
-                    <div key={i} className="text-xs opacity-80 whitespace-pre-wrap">{log}</div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
             {(openAIPrompt || openAIResponse) && (
               <div className="mb-4">
-                <h4 className="font-semibold flex items-center mb-2">
-                  <Eye className="h-3 w-3 mr-1" /> OpenAI API Data
-                </h4>
                 <Accordion 
                   type="single" 
                   collapsible 
@@ -124,22 +107,11 @@ const QuizDebug = ({
                         API Response
                       </AccordionTrigger>
                       <AccordionContent className="bg-gray-800 text-gray-100 p-2 rounded-b overflow-auto max-h-60">
-                        <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(openAIResponse, null, 2)}</pre>
+                        <pre className="text-xs whitespace-pre-wrap">{typeof openAIResponse === 'string' ? openAIResponse : JSON.stringify(openAIResponse, null, 2)}</pre>
                       </AccordionContent>
                     </AccordionItem>
                   )}
                 </Accordion>
-              </div>
-            )}
-            
-            {debugData && Object.keys(debugData).length > 0 && (
-              <div>
-                <h4 className="font-semibold flex items-center mb-2">
-                  <Code className="h-3 w-3 mr-1" /> Debug Data
-                </h4>
-                <pre className="bg-gray-800 text-gray-100 p-2 rounded text-xs overflow-auto max-h-60">
-                  {JSON.stringify(debugData, null, 2)}
-                </pre>
               </div>
             )}
           </CardContent>
