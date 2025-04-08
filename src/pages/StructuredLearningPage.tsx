@@ -90,15 +90,11 @@ const StructuredLearningPage = () => {
 
   // Get quiz generator hook
   const {
-    questions: batchQuestions,
-    allQuestions: allGeneratedQuestions,
+    questions: hookQuestions,
     isGenerating: isGeneratingQuiz,
     quizError,
     objectives,
-    batchProgress,
-    hasMoreBatches,
     startQuizGeneration,
-    triggerNextBatch,
     debugData: quizDebugData
   } = useBookQuizGenerator({
     bookId: book?.id || null,
@@ -132,17 +128,12 @@ const StructuredLearningPage = () => {
     }
   }, [chapters, searchParams, book]);
 
-  // Update questions when batch questions change
+  // Update questions when hook questions change
   useEffect(() => {
-    if (batchQuestions.length > 0) {
-      setQuestions(batchQuestions);
-      
-      // If this is the first question of the first batch, trigger the next batch loading
-      if (currentQuestionIndex === 0 && hasMoreBatches) {
-        triggerNextBatch();
-      }
+    if (hookQuestions.length > 0) {
+      setQuestions(hookQuestions);
     }
-  }, [batchQuestions]);
+  }, [hookQuestions]);
 
   // Initialize progress data when paragraphs are loaded
   useEffect(() => {
@@ -302,12 +293,6 @@ const StructuredLearningPage = () => {
       if (selectedAnswer === currentQuestion.correctAnswer) {
         setScore(prevScore => prevScore + 1);
       }
-    }
-    
-    // If this is the first question answered, trigger loading of next batch
-    if (currentQuestionIndex === 0 && isOnlineMarketingBook && hasMoreBatches) {
-      addLog('First question answered, triggering next batch');
-      triggerNextBatch();
     }
   };
 
@@ -597,9 +582,6 @@ const StructuredLearningPage = () => {
                     <span>Quiz - Paragraaf {progressData.find(p => p.id === activeParagraphId)?.paragraphNumber || '?'}</span>
                     <Badge variant="outline">
                       Vraag {currentQuestionIndex + 1} van {questions.length}
-                      {hasMoreBatches && (
-                        <span className="ml-1 text-xs">(meer wordt geladen)</span>
-                      )}
                     </Badge>
                   </CardTitle>
                   <Progress 
@@ -665,23 +647,6 @@ const StructuredLearningPage = () => {
                         <p>{questions[currentQuestionIndex].explanation}</p>
                       </AlertDescription>
                     </Alert>
-                  )}
-                  
-                  {/* Batch progress indicator */}
-                  {hasMoreBatches && batchProgress && (
-                    <div className="mt-4 text-xs text-muted-foreground">
-                      <div className="flex items-center">
-                        <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" />
-                        <span>
-                          Batch {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}: 
-                          {batchProgress.processedObjectives}/{batchProgress.totalObjectives} doelstellingen verwerkt
-                        </span>
-                      </div>
-                      <Progress 
-                        value={(batchProgress.processedObjectives / batchProgress.totalObjectives) * 100} 
-                        className="h-1 mt-1" 
-                      />
-                    </div>
                   )}
                 </CardContent>
                 <CardFooter className="flex justify-between">
@@ -775,7 +740,6 @@ const StructuredLearningPage = () => {
               currentQuestionIndex={currentQuestionIndex}
               isGenerating={isGeneratingQuiz}
               paragraphsCount={paragraphs.length}
-              batchProgress={batchProgress || undefined}
             />
           </>
         )}

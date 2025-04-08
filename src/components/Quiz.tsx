@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, HelpCircle, ArrowRight, RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -99,8 +100,8 @@ const Quiz = ({
           <QuizLoading 
             currentBatch={batchProgress.currentBatch}
             totalBatches={batchProgress.totalBatches}
-            processedTerms={batchProgress.processedTerms}
-            totalTerms={batchProgress.totalTerms}
+            processedTerms={batchProgress.processedObjectives}
+            totalTerms={batchProgress.totalObjectives}
           />
         );
       }
@@ -410,7 +411,7 @@ const Quiz = ({
               {batchProgress && (
                 <>
                   <div>Debug: batch: {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}</div>
-                  <div>Debug: terms: {batchProgress.processedObjectives}/{batchProgress.totalObjectives}</div>
+                  <div>Debug: objectives: {batchProgress.processedObjectives}/{batchProgress.totalObjectives}</div>
                 </>
               )}
             </div>

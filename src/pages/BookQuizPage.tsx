@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -54,9 +53,7 @@ const BookQuizPage = () => {
     isGenerating,
     quizError,
     objectives,
-    hasMoreBatches,
     startQuizGeneration,
-    triggerNextBatch
   } = useBookQuizGenerator({
     bookId: numericBookId,
     chapterId: numericChapterId,
@@ -85,10 +82,9 @@ const BookQuizPage = () => {
       setSelectedAnswer(index);
       
       // If this is the first question and user hasn't started answering yet,
-      // trigger loading the next batch of questions
+      // mark that they've started
       if (currentQuestionIndex === 0 && !startedFirstQuestion) {
         setStartedFirstQuestion(true);
-        triggerNextBatch();
       }
     }
   };

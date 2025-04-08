@@ -4,6 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { QuizQuestion } from '@/hooks/useQuiz';
 
+// Update the existing QuizQuestion interface or extend it
+export interface EnhancedQuizQuestion extends QuizQuestion {
+  objective: string | null;
+  questionType: string | null;
+}
+
 export interface BatchProgress {
   currentBatch: number;
   totalBatches: number;
@@ -28,7 +34,7 @@ export const useBookQuizGenerator = ({
   addLog = console.log
 }: UseBookQuizGeneratorProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [questions, setQuestions] = useState<EnhancedQuizQuestion[]>([]);
   const [quizError, setQuizError] = useState<string | null>(null);
   const [objectives, setObjectives] = useState<string | null>(null);
   const [debugData, setDebugData] = useState<any>({});
@@ -37,7 +43,7 @@ export const useBookQuizGenerator = ({
   const [questionTypeDistribution, setQuestionTypeDistribution] = useState<any>(null);
 
   // Format questions from API response
-  const formatQuestions = (rawQuestions: any[]): QuizQuestion[] => {
+  const formatQuestions = (rawQuestions: any[]): EnhancedQuizQuestion[] => {
     if (!Array.isArray(rawQuestions)) return [];
     
     return rawQuestions.map((q: any) => {

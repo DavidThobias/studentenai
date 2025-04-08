@@ -1,313 +1,109 @@
 
 import { useState } from 'react';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, Bug, Terminal, Code, Braces, Database, Clock, Target } from "lucide-react";
+import { Code, Bug, ChevronDown, ChevronUp } from "lucide-react";
+import { BatchProgress } from '@/hooks/useBookQuizGenerator';
 
 interface QuizDebugProps {
-  stateLog: string[];
-  debugData: {
-    prompt?: string;
-    response?: any;
-    apiResponse?: any;
-    tokenEstimates?: {
-      promptTokens?: number;
-      requestedMaxTokens?: number;
-    };
-    extractedTerms?: string[];
-    batchTerms?: string[];
-    allObjectives?: string[];
-    batchObjectives?: string[];
-  };
+  stateLog?: string[];
+  debugData?: any;
   bookId: number | null;
   chapterId: number | null;
   paragraphId: number | null;
-  isStructuredLearning: boolean;
-  questionsCount: number;
-  currentQuestionIndex: number;
-  isGenerating: boolean;
-  paragraphsCount: number;
-  objectivesArray?: string[];
-  currentObjectives?: string[];
-  batchProgress?: {
-    currentBatch: number;
-    totalBatches: number;
-    processedObjectives: number;
-    totalObjectives: number;
-    startTime?: number;
-  };
+  isStructuredLearning?: boolean;
+  questionsCount?: number;
+  currentQuestionIndex?: number;
+  isGenerating?: boolean;
+  paragraphsCount?: number;
+  batchProgress?: BatchProgress;
 }
 
 const QuizDebug = ({
-  stateLog,
-  debugData,
+  stateLog = [],
+  debugData = {},
   bookId,
   chapterId,
   paragraphId,
-  isStructuredLearning,
-  questionsCount,
-  currentQuestionIndex,
-  isGenerating,
-  paragraphsCount,
-  objectivesArray = [],
-  currentObjectives = [],
+  isStructuredLearning = false,
+  questionsCount = 0,
+  currentQuestionIndex = 0,
+  isGenerating = false,
+  paragraphsCount = 0,
   batchProgress
 }: QuizDebugProps) => {
-  const [showDebug, setShowDebug] = useState(true);
-  const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
-
-  const debugMode = true;
-
-  if (!debugMode) {
-    return null;
-  }
-
-  const toggleDebug = () => {
-    setShowDebug(!showDebug);
-  };
-
-  const getElapsedTime = () => {
-    if (!batchProgress?.startTime) return null;
-    
-    const elapsedMs = Date.now() - batchProgress.startTime;
-    const seconds = Math.floor(elapsedMs / 1000);
-    const minutes = Math.floor(seconds / 60);
-    
-    return `${minutes}m ${seconds % 60}s`;
-  };
-
-  const getEstimatedRemainingTime = () => {
-    if (!batchProgress?.startTime || batchProgress.processedObjectives === 0) return null;
-    
-    const elapsedMs = Date.now() - batchProgress.startTime;
-    const msPerObjective = elapsedMs / batchProgress.processedObjectives;
-    const remainingObjectives = batchProgress.totalObjectives - batchProgress.processedObjectives;
-    const estimatedRemainingMs = msPerObjective * remainingObjectives;
-    
-    const seconds = Math.floor(estimatedRemainingMs / 1000);
-    const minutes = Math.floor(seconds / 60);
-    
-    return `~${minutes}m ${seconds % 60}s`;
-  };
-
-  // Use all available objectives from various sources
-  const allObjectives = [...new Set([
-    ...(objectivesArray || []),
-    ...(debugData.allObjectives || []),
-    ...(currentObjectives || []),
-    ...(debugData.batchObjectives || [])
-  ])];
-
-  // Currently processing objectives
-  const processingObjectives = [...new Set([
-    ...(currentObjectives || []),
-    ...(debugData.batchObjectives || [])
-  ])];
-
+  const [isOpen, setIsOpen] = useState(false);
+  
+  // Only show debug panel in development or with debug param in URL
+  const debugMode = import.meta.env.DEV || new URLSearchParams(window.location.search).get('debug') === 'true';
+  
+  if (!debugMode) return null;
+  
   return (
-    <div className="mt-8 border-t pt-4">
-      <div className="flex justify-end mb-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={toggleDebug}
-          className="text-xs"
-        >
-          {showDebug ? (
-            <>
-              <EyeOff className="mr-2 h-3 w-3" />
-              Verberg debug info
-            </>
+    <Card className="mt-8 border-dashed border-gray-300 bg-gray-50/50">
+      <CardHeader className="py-2">
+        <CardTitle className="flex items-center text-sm text-muted-foreground cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+          <Bug className="w-4 h-4 mr-2" />
+          <span>Debug Info</span>
+          {isOpen ? (
+            <ChevronUp className="ml-auto h-4 w-4" />
           ) : (
-            <>
-              <Bug className="mr-2 h-3 w-3" />
-              Toon debug info
-            </>
+            <ChevronDown className="ml-auto h-4 w-4" />
           )}
-        </Button>
-      </div>
-
-      {showDebug && (
-        <div className="border rounded-md p-4 bg-gray-50 text-xs">
-          <h3 className="font-bold mb-2 flex items-center">
-            <Terminal className="mr-2 h-4 w-4" /> 
-            Quiz Debug Panel
-          </h3>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-            <div className="bg-gray-100 p-2 rounded-md">
-              <span className="font-semibold">BookID:</span> {bookId || 'none'}
-            </div>
-            <div className="bg-gray-100 p-2 rounded-md">
-              <span className="font-semibold">ChapterID:</span> {chapterId || 'none'}
-            </div>
-            <div className="bg-gray-100 p-2 rounded-md">
-              <span className="font-semibold">ParagraphID:</span> {paragraphId || 'none'}
-            </div>
-            <div className="bg-gray-100 p-2 rounded-md">
-              <span className="font-semibold">Mode:</span> {isStructuredLearning ? 'Structured' : 'Free'}
-            </div>
-            <div className="bg-gray-100 p-2 rounded-md">
-              <span className="font-semibold">Questions:</span> {questionsCount}
-            </div>
-            <div className="bg-gray-100 p-2 rounded-md">
-              <span className="font-semibold">Current:</span> {currentQuestionIndex}
-            </div>
-            <div className="bg-gray-100 p-2 rounded-md">
-              <span className="font-semibold">Generating:</span> {isGenerating ? 'Yes' : 'No'}
-            </div>
-            <div className="bg-gray-100 p-2 rounded-md">
-              <span className="font-semibold">Paragraphs:</span> {paragraphsCount}
-            </div>
-          </div>
-          
-          {batchProgress && (
-            <div className="mb-4 border rounded-md p-3 bg-amber-50">
-              <h4 className="font-semibold flex items-center text-amber-700">
-                <Database className="mr-1 h-3 w-3" /> 
-                Batch Processing Information
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                <div className="bg-amber-100 p-2 rounded-md text-amber-800">
-                  <span className="font-semibold">Current Batch:</span> {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}
-                </div>
-                <div className="bg-amber-100 p-2 rounded-md text-amber-800">
-                  <span className="font-semibold">Objectives Processed:</span> {batchProgress.processedObjectives}/{batchProgress.totalObjectives}
-                </div>
-                {batchProgress.startTime && (
-                  <div className="bg-amber-100 p-2 rounded-md text-amber-800 flex items-center">
-                    <Clock className="mr-1 h-3 w-3" />
-                    <span className="font-semibold">Elapsed:</span> {getElapsedTime()}
-                  </div>
-                )}
-                {batchProgress.startTime && batchProgress.processedObjectives > 0 && (
-                  <div className="bg-amber-100 p-2 rounded-md text-amber-800">
-                    <span className="font-semibold">Est. Remaining:</span> {getEstimatedRemainingTime()}
-                  </div>
+        </CardTitle>
+      </CardHeader>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleContent>
+          <CardContent className="text-xs">
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <div className="bg-gray-100 p-2 rounded">
+                <p><strong>Book ID:</strong> {bookId}</p>
+                <p><strong>Chapter ID:</strong> {chapterId}</p>
+                <p><strong>Paragraph ID:</strong> {paragraphId}</p>
+                <p><strong>Questions:</strong> {questionsCount}</p>
+                <p><strong>Current Index:</strong> {currentQuestionIndex}</p>
+              </div>
+              <div className="bg-gray-100 p-2 rounded">
+                <p><strong>Is Generating:</strong> {String(isGenerating)}</p>
+                <p><strong>Paragraphs:</strong> {paragraphsCount}</p>
+                <p><strong>Structured Learning:</strong> {String(isStructuredLearning)}</p>
+                {batchProgress && (
+                  <>
+                    <p><strong>Batch:</strong> {batchProgress.currentBatch + 1}/{batchProgress.totalBatches}</p>
+                    <p><strong>Objectives:</strong> {batchProgress.processedObjectives}/{batchProgress.totalObjectives}</p>
+                  </>
                 )}
               </div>
             </div>
-          )}
-          
-          {allObjectives && allObjectives.length > 0 && (
-            <div className="mb-4">
-              <h4 className="font-semibold mb-1 flex items-center">
-                <Target className="mr-1 h-3 w-3" /> 
-                All Objectives ({allObjectives.length})
-              </h4>
-              <div className="flex flex-col gap-1 max-h-40 overflow-y-auto p-2 bg-white border rounded">
-                {allObjectives.map((objective, index) => (
-                  <div key={index} className="text-xs p-1 border-b border-gray-100 last:border-b-0">
-                    {objective}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {processingObjectives && processingObjectives.length > 0 && (
-            <div className="mb-4">
-              <h4 className="font-semibold mb-1 flex items-center">
-                <Code className="mr-1 h-3 w-3" /> 
-                Current Batch Objectives ({processingObjectives.length})
-              </h4>
-              <div className="flex flex-col gap-1 max-h-32 overflow-y-auto p-2 bg-white border border-amber-200 rounded bg-amber-50">
-                {processingObjectives.map((objective, index) => (
-                  <div key={index} className="text-xs p-1 border-b border-amber-100 last:border-b-0 bg-amber-50">
-                    {objective}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {(debugData.extractedTerms && debugData.extractedTerms.length > 0) && (
-            <div className="mb-4">
-              <h4 className="font-semibold mb-1 flex items-center">
-                <Code className="mr-1 h-3 w-3" /> 
-                Extracted Terms ({debugData.extractedTerms.length})
-              </h4>
-              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-2 bg-white border rounded">
-                {debugData.extractedTerms.map((term, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">{term}</Badge>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {debugData.tokenEstimates && (
-            <div className="mb-4">
-              <h4 className="font-semibold mb-1 flex items-center">
-                <Braces className="mr-1 h-3 w-3" /> 
-                Token Estimates
-              </h4>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-white p-2 border rounded text-xs">
-                  <span className="font-semibold">Prompt Tokens:</span> {debugData.tokenEstimates.promptTokens || 'N/A'}
-                </div>
-                <div className="bg-white p-2 border rounded text-xs">
-                  <span className="font-semibold">Max Tokens:</span> {debugData.tokenEstimates.requestedMaxTokens || 'N/A'}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <Accordion 
-            type="single" 
-            collapsible 
-            value={activeAccordion || undefined}
-            onValueChange={(value) => setActiveAccordion(value)}
-          >
-            <AccordionItem value="state-log">
-              <AccordionTrigger className="text-xs py-2">State Log</AccordionTrigger>
-              <AccordionContent>
-                <div className="h-40 overflow-y-auto bg-gray-100 p-2 rounded border">
-                  {stateLog.slice().reverse().map((log, index) => (
-                    <div key={index} className="border-b border-gray-200 py-1 text-xs font-mono">
-                      {log}
-                    </div>
+            
+            {stateLog.length > 0 && (
+              <div className="mb-4">
+                <h4 className="font-semibold flex items-center mb-2">
+                  <Code className="h-3 w-3 mr-1" /> Activity Log
+                </h4>
+                <div className="bg-gray-800 text-gray-100 p-2 rounded overflow-auto max-h-40">
+                  {stateLog.map((log, i) => (
+                    <div key={i} className="text-xs opacity-80 whitespace-pre-wrap">{log}</div>
                   ))}
                 </div>
-              </AccordionContent>
-            </AccordionItem>
-            
-            {debugData.prompt && (
-              <AccordionItem value="prompt">
-                <AccordionTrigger className="text-xs py-2">OpenAI Prompt</AccordionTrigger>
-                <AccordionContent>
-                  <div className="h-40 overflow-y-auto bg-gray-100 p-2 rounded border font-mono text-xs whitespace-pre-wrap">
-                    {debugData.prompt}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
+              </div>
             )}
             
-            {debugData.response && (
-              <AccordionItem value="response">
-                <AccordionTrigger className="text-xs py-2">OpenAI Response</AccordionTrigger>
-                <AccordionContent>
-                  <div className="h-40 overflow-y-auto bg-gray-100 p-2 rounded border font-mono text-xs">
-                    {JSON.stringify(debugData.response, null, 2)}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
+            {debugData && Object.keys(debugData).length > 0 && (
+              <div>
+                <h4 className="font-semibold flex items-center mb-2">
+                  <Code className="h-3 w-3 mr-1" /> Debug Data
+                </h4>
+                <pre className="bg-gray-800 text-gray-100 p-2 rounded text-xs overflow-auto max-h-60">
+                  {JSON.stringify(debugData, null, 2)}
+                </pre>
+              </div>
             )}
-            
-            {debugData.apiResponse && (
-              <AccordionItem value="api-response">
-                <AccordionTrigger className="text-xs py-2">Full API Response</AccordionTrigger>
-                <AccordionContent>
-                  <div className="h-40 overflow-y-auto bg-gray-100 p-2 rounded border font-mono text-xs">
-                    {JSON.stringify(debugData.apiResponse, null, 2)}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-          </Accordion>
-        </div>
-      )}
-    </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   );
 };
 
