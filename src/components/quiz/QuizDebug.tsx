@@ -133,7 +133,7 @@ const QuizDebug = ({
                 <div className="grid grid-cols-4 gap-1">
                   {Object.entries(debugData.answerDistribution).map(([letter, count]) => (
                     <div key={letter} className="text-center">
-                      <Badge variant="secondary">{letter}: {count}</Badge>
+                      <Badge variant="secondary">{letter}: {String(count)}</Badge>
                     </div>
                   ))}
                 </div>

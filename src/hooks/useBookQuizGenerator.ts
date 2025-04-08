@@ -155,7 +155,7 @@ export const useBookQuizGenerator = ({
       setAllQuestions(prevQuestions => [...prevQuestions, ...formattedQuestions]);
       
       if (data.metadata?.questionsByObjective) {
-        const questionsByObjectiveTracking = { ...questionsByObjective } || {};
+        const questionsByObjectiveTracking = questionsByObjective || {};
         
         const limitedQuestions = formattedQuestions.filter(q => {
           if (!q.objective) return true;
@@ -236,7 +236,7 @@ export const useBookQuizGenerator = ({
       
       addLog('All batches processed successfully');
       
-      const finalQuestionsByObjective = { ...questionsByObjective } || {};
+      const finalQuestionsByObjective = questionsByObjective || {};
       const objectiveKeys = Object.keys(finalQuestionsByObjective);
       
       addLog(`Final questions count: ${questions.length} from ${objectiveKeys.length} objectives`);
